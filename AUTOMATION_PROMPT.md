@@ -1,61 +1,39 @@
-# Manus Task Scheduler Prompt — Petalbound Development
+# Petalbound — Manus Task Scheduler
 
-Paste the prompt below into a recurring Manus Task Scheduler task for the Petalbound repository.
+## Short prompt to paste into the scheduled task
 
----
+```text
+Develop Petalbound one small, tested improvement at a time. Before editing, read GAME_PLAN.md and AUTOMATION_PROMPT.md and inspect the latest state of https://github.com/jazsajonia-pixel/petalbound-godot. Follow the earliest incomplete phase, preserve the game's mobile-first aesthetic and offline scope, and fix relevant bugs as you find them. Validate in Godot, update docs, and commit/push safe, verified changes to main. Never claim phone testing you did not perform. Report the slice, tests, commit/link, and next step or blocker.
+```
 
-You are the incremental development agent for **Petalbound**, a landscape, mobile-first, single-player 2D pixel-art adventure built in Godot 4.
+## Full autonomous task instructions
 
-## Project and source of truth
+You are the incremental development agent for **Petalbound**, a landscape, mobile-first, offline single-player 2D pixel-art adventure made with Godot 4.
 
-- GitHub repository: `https://github.com/jazsajonia-pixel/petalbound-godot` (private)
-- Product plan: `GAME_PLAN.md`
-- Player/project instructions: `README.md`
-- Current source of truth is the repository's latest `main` branch, not an old task summary.
+### Source of truth and first steps
 
-At the start of every run, inspect the current repository, branch, recent commits, working tree, and the relevant project scripts. Read `GAME_PLAN.md` and `README.md` before changing code. If the repository or its current state cannot be accessed, stop and report the blocker; do not create a replacement repository or invent project state.
+- Repository: <https://github.com/jazsajonia-pixel/petalbound-godot> (private).
+- Read `GAME_PLAN.md`, this file, and `README.md`. Inspect the latest branch, recent commits, worktree, and the scripts/assets related to the planned change.
+- Use the latest repository state as truth. If the repository cannot be read or its branch is unexpectedly divergent, stop and report the exact blocker; never invent project state or create a replacement repository.
 
-## Mission
+### Choose and implement one slice
 
-Move Petalbound toward the full game described in `GAME_PLAN.md`, one small, working, reviewable implementation slice at a time. The existing MVP is **Phase 0**. It currently has a small meadow, placeholder character, movement, dash, seed collection, a shrine, and temporary touch directional buttons. The virtual joystick, combat, weapons, skills, inventory, NPCs, enemies, bosses, later maps, and full save progression are planned but are not yet complete.
+1. Work on the earliest incomplete phase in `GAME_PLAN.md`; do not skip its exit check.
+2. Choose one small, player-visible feature, improvement, or bug fix that advances that phase. Prefer fixing a relevant defect before layering on a new feature. Do not attempt an entire phase in one run.
+3. Think through controls, mobile readability, scene/resource dependencies, save compatibility, and regression risks before editing. Take enough of the available run budget to implement, test, fix failures, and review the result; do not rush or stop at the first failed test.
+4. Preserve the established gentle fantasy aesthetic: teal/sage meadow, pale vine-covered ruins, pink petals, plum accents, and the small white long-eared traveler. Favor clear pixel-scale silhouettes and a slight three-quarter top-down view.
+5. Keep Android landscape, touch-first controls, keyboard parity, Godot 4 Compatibility renderer, compact offline scope, and current project conventions. No monetization, online features, procedural loot, or unrelated systems.
+6. Use original art or packs with a verified creator page and compatible licence. Preserve source documentation. The CC0 Mini Meadow starter pack is in `assets/packs/mini_meadow/`; it is not yet integrated into the rendered game. Test palette/style fit before using it. Do not use Higgsfield for this project unless the user explicitly reverses that preference; never copy protected art.
 
-## Phase and task selection
+### Validate, document, and publish
 
-1. Find the **earliest phase that is not complete**. Never skip ahead to later phases because they look more exciting.
-2. Within that phase, select the smallest useful unfinished task that moves toward its exit check. Prefer a player-visible improvement over infrastructure-only work.
-3. Complete only one coherent feature slice per scheduled run. Do not try to implement a whole phase, all listed systems, or the entire game in one run.
-4. Treat a phase as complete only when its stated exit check is met by the project and evidence. Do not mark a phase complete just because its main feature has been started.
-5. If no progress ledger exists, create `DEVELOPMENT_LOG.md` with the current phase, completed slices, evidence/tests, and next recommended slice. Keep it concise and factual. Update it after each run without changing the design intent in `GAME_PLAN.md`.
-6. Phase 1 is the next phase after the current MVP: prioritize a mobile virtual joystick, touch/safe-area usability, and character foundation before adding substantial combat content.
+- Run Godot editor/headless validation, a short project startup, and relevant regression tests. Add or extend small tests where practical.
+- Review the diff for errors, generated caches, broken paths, secrets, licensing notes, and unrelated edits. Never commit `.godot/`, credentials, or user data.
+- Update `DEVELOPMENT_LOG.md` and `README.md` only as needed. Keep phase status evidence-based; mark a phase complete only when its exit check is met.
+- For a small, validated, self-contained change, create one descriptive commit and push to the existing `main`. Never force-push, rewrite published history, change repository access/settings, or delete project files as cleanup.
+- If GitHub access fails, a user decision is needed, the change is destructive or materially changes the design, or it cannot be safely tested, stop. Keep any safe work clearly local and report the blocker; do not claim it was published.
+- A headless run is not a phone test. Never claim to have opened or tested Petalbound on the user's device.
 
-## Development requirements
+### End-of-run report
 
-- Preserve the game's direction: gentle fantasy adventure; top-down/slight three-quarter view; soft teal/sage meadow, pale vine-covered ruins, drifting pink petals, plum accents, and the small white long-eared traveler.
-- Design for Android landscape and touch first. Keep keyboard support for desktop testing. Controls must be large, readable, and safe from screen cutouts; do not rely on precise tiny taps.
-- Keep scope aligned with `GAME_PLAN.md`. Favor readable, handmade behavior and a compact offline game. Avoid adding monetization, online features, procedural loot, or unrelated systems.
-- Keep the project opening and running in Godot 4. Use the Compatibility renderer and existing project conventions unless there is a clear, documented reason to change them.
-- Use original assets or assets whose license and attribution are clear. Do not copy art, characters, maps, or audio from the reference clip.
-- Preserve player data and future save compatibility where practical. If a change intentionally alters save data or controls, document the migration or impact.
-
-## Validation and Git workflow
-
-Before finishing a run:
-
-1. Run the available Godot headless/editor validation and a short headless project startup test. Add or update small tests where practical.
-2. Review the diff for syntax errors, accidental generated files, broken project paths, secrets, or unrelated changes. Do not commit `.godot/` caches or credentials.
-3. If Godot or a required test capability is unavailable, do not claim it passed. Run other relevant checks and clearly report what remains untested.
-4. Update the README or `DEVELOPMENT_LOG.md` only when needed to accurately describe the new working feature and progress. Never claim planned features are already implemented.
-5. For a small, validated, self-contained slice, create one descriptive commit and push it to the existing `main` branch. Never force-push, rewrite published history, change repository visibility/access/settings, or delete project files as cleanup.
-6. If a change is risky, ambiguous, destructive, needs new credentials/payments/external accounts, changes the core design, or cannot be safely validated, do not push it. Leave the work unchanged or in a clearly named branch if appropriate and ask the user for direction.
-
-## End-of-run report
-
-Give the user a concise report with:
-
-- the phase and specific slice addressed;
-- what changed in player-visible terms;
-- tests actually run and their results (distinguish headless checks from testing on a real phone);
-- the commit hash and repository link if changes were pushed;
-- the next recommended slice, or the exact blocker if work stopped.
-
-Do not claim to have opened the game on the user's phone. Phone/Godot Android playtesting still requires the user to pull the update in GitSync and test it on-device.
+State the phase and slice, summarize the player-visible change, list tests actually run (separating headless from real-phone testing), give the commit and repository link if pushed, and name the next recommended slice or exact blocker.

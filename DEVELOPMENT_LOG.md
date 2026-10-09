@@ -15,11 +15,14 @@
 - Added original front-, back-, and side-facing code-drawn Mallow poses with a subtle alternating walk step and idle ear flick. This is still prototype drawing, not the planned authored sprite sheet.
 - Movement now selects distinct cardinal and diagonal facing states; diagonal front/back poses add small asymmetry cues. Sprite art remains code-drawn prototype work, not the planned authored sprite sheet.
 - Added pause-menu joystick dead-zone and sensitivity sliders; tuning applies immediately to touch-stick response.
+- Downloaded the 75-tile Mini Meadow nature pack from its creator page into `assets/packs/mini_meadow/`. Its included README and manifest specify CC0-1.0. The source files are preserved and the pack is not yet integrated into the playable scene.
+- Refreshed `GAME_PLAN.md` with the current Phase 1 state, the vetted starter pack/palette-fit guidance, and a gradual future visual-update approach. Shortened `AUTOMATION_PROMPT.md` and added a paste-ready scheduler prompt.
 - Updated the README to describe the joystick controls.
 
 ### Validation
 
 - Godot 4.7.2 headless editor scan: passed without script parse errors.
+- Godot 4.7.2 headless editor import: passed; all 86 PNGs in the preserved Mini Meadow pack imported successfully.
 - Godot 4.7.2 headless project startup (`--quit-after 180`): passed without runtime errors.
 - Headless controls smoke test: passed; simulated joystick drag/release, dead-zone and sensitivity response, and pause/resume were checked.
 - World-bounds smoke test: passed; simulated movement was stopped at all four edges.
@@ -28,4 +31,4 @@
 
 ### Next recommended slice
 
-Pull the update and check joystick tuning, controls, camera framing, and eight-way pose readability on the target phone. Confirm touch feel and safe-area placement; then build the planned original sprite sheet/animation foundation before any combat work.
+Pull the update and check joystick tuning, controls, camera framing, and eight-way pose readability on the target phone. Confirm touch feel and safe-area placement; then test the Mini Meadow palette in a small, separate Godot tilemap and continue the original Mallow sprite-sheet/animation foundation before any combat work.

@@ -169,7 +169,15 @@ Start with three enemy types in the first combat slice. Add the rest only after 
 - **Palette:** misty teal and sage for safe meadow; plum for Mallow and UI contrast; pale warm stone for ruins; pink petals and butter-yellow Moonseeds as accents. Give each region its own dominant hue without abandoning the shared palette.
 - **Lighting:** soft pools around shrines, Moonseeds, and lanterns. Avoid dark scenes that hide hazards on phone screens.
 - **Motion:** Mallow idle breathing and ear flick; short attack anticipation; readable weapon arcs; dash trail; brief hit-flash; petals and grass move slowly. Keep decorative particles low and optional.
-- **Environment:** hand-built tile sets with reusable edges, corners, ruins, props, and collision variants. Phase 0's code-drawn placeholder shapes are scaffolding, not final production art.
+- **Environment:** hand-built tile sets with reusable edges, corners, ruins, props, and collision variants. Phase 0's code-drawn placeholder shapes are scaffolding, not final production art. Preserve source packs and their licence/readme files under `assets/packs/<pack-name>/`; keep project-specific palette edits or maps separate from untouched source files.
+
+### Sourced starter environment pack
+
+The repository now includes **Mini Meadow — 16×16 Pixel-Art Tileset (CC0, 75 tiles)** by myobln at [`assets/packs/mini_meadow/`](assets/packs/mini_meadow/). The creator's [itch.io listing](https://myobln.itch.io/game-assets) describes seamless grass, dirt, sand, stone, four water frames, transition/shore tiles, ten small props, an atlas, a sample map, and a manifest. Its included `README.md` and `manifest.json` state **CC0-1.0**; the creator says commercial use is allowed and attribution is not required. We preserve the creator documentation with the downloaded files.
+
+Use this pack as a **starter/reference environment kit**, not a mandate to replace the current meadow immediately. Before integrating it into gameplay, compare it in Godot at the intended camera zoom and phone scale. Its vivid green/blue palette is brighter than Petalbound's misty teal/sage and pale-stone direction, so first make a controlled palette study or separate recolored derivative; do not overwrite the source files. Keep Mallow, shrine motifs, Moonseeds, and distinctive ruins original. If the tiles do not fit the target look after a small test room, retain them as a reference and choose a better-matched clearly licensed pack rather than forcing a mismatch.
+
+For every later online pack, verify the original creator page and licence before download, retain the source README/licence/manifest, record the source URL and any attribution requirement, and check the actual included files. Prefer CC0 or licences that explicitly allow the intended distribution; avoid packs with unclear rights, scraped reposts, or restrictions that would block an Android release. Online packs are starting material, not permission to copy another game's distinctive art.
 
 ### Audio
 
@@ -192,16 +200,15 @@ Phases are milestone gates, not calendar promises. Each ends with a build that c
 
 - Godot 4 project, landscape viewport/orientation, Compatibility renderer.
 - Small meadow with ruins, petals, Moonseeds, and a shrine drawn from GDScript shapes.
-- Mallow placeholder, keyboard movement, dash, collisions, mobile directional pad, seed counter, and win message.
+- Code-drawn Mallow placeholder, keyboard movement, dash, collisions, mobile virtual joystick, seed counter, and shrine goal.
 - Goal: prove that GitHub → GitSync → Godot Android can load and run a small project.
-- **Not included yet:** a virtual joystick, final sprite art, enemies, damage, weapons, NPCs, inventory, or persistent saves.
+- **Not included yet:** authored final sprite art, enemies, damage, weapons, NPCs, inventory, or persistent saves.
 
 ### Phase 1 — Mobile feel and character foundation
 
-- Replace the four-button pad with a polished, thumb-tested virtual joystick; keep dash as a large touch action.
-- Add safe-area handling, pause/settings overlay, touch feedback, joystick dead zone/sensitivity settings, and gamepad/keyboard parity.
-- Replace the code-drawn Mallow with a small original sprite sheet: idle, 4/8-direction walk, dash, hurt, and attack placeholders. Keep sprite silhouette and colors from this plan.
-- Add camera follow tuning, collision layers, world bounds, shrine checkpoint interactions, and basic save/load skeleton.
+- **Done in the current branch:** virtual joystick, large dash action, safe-area-aware HUD, pause/resume overlay, live dead-zone/sensitivity controls, meadow bounds, a closer camera, and code-drawn cardinal/diagonal facing states. Desktop keyboard support remains.
+- **Still needed:** check the controls and safe areas on the actual Android phone; replace the code-drawn Mallow with an original sprite sheet/animation set for idle, 8-direction movement, dash, hurt, and attack placeholders; add touch feedback and confirm controller/keyboard parity.
+- Add collision-layer conventions, shrine checkpoint interaction, and a basic save/load skeleton before depending on persistent progression.
 - **Exit check:** a 5-minute phone playtest with no stuck input, no cropped controls, and comfortable movement in all directions.
 
 ### Phase 2 — First combat slice
@@ -246,7 +253,11 @@ Phases are milestone gates, not calendar promises. Each ends with a build that c
 
 ### Optional Phase 7 — After release
 
-Only after the main adventure is stable: add a challenge room, time-trial shrine records stored locally, new cosmetic cloaks, or a new region. Do not add online services, daily rewards, or monetization unless the project direction changes deliberately.
+Only after the main adventure is stable: add a challenge room, time-trial shrine records stored locally, new cosmetic cloaks, or a small, well-tested new region. Do not add online services, daily rewards, or monetization unless the project direction changes deliberately.
+
+### Future visual/content updates
+
+Treat updates as small themed releases after the main game is stable, not an ongoing service. Each update should add one cohesive visual set—such as a new seasonal meadow palette, lantern/flower props, a village decoration kit, or a short optional grove—then reuse proven gameplay systems. Make new packs or original art match the same pixel scale, outline weight, shadow direction, and restrained contrast. Keep Petalbound's shared white/plum/pink identity while letting each region own one accent hue. Update the asset manifest and credit page whenever a new source requires attribution. The included Mini Meadow pack is an available, licensed starting point for a small tileset integration test; it has **not** yet replaced any code-drawn game scene.
 
 ## 12. Scope guardrails and risks
 

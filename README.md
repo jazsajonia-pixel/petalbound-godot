@@ -16,7 +16,7 @@ The on-screen controls are intentionally included for touch play. On a phone, cl
 
 ## Prototype notes
 
-The game is an original, small first playable slice rather than a recreation of the reference video. It uses hand-drawn pixel shapes in GDScript so the repository is self-contained and has no external art downloads. The player can explore a small ruin meadow, dash, collect seeds, and reach the shrine.
+The game is an original, small first playable slice rather than a recreation of the reference video. The currently rendered world and Mallow are still drawn from GDScript. A separate [Mini Meadow CC0 source pack](assets/packs/mini_meadow/) has been added for a future tileset/style test; it is not yet used by the game scene. The player can explore a small ruin meadow, dash, collect seeds, and reach the shrine.
 
 ## Roadmap
 
