@@ -6,7 +6,7 @@ A tiny landscape 2D pixel-art adventure prototype for Godot 4, inspired by the v
 
 Open `project.godot` in Godot 4.3 or newer. The project uses the Compatibility renderer and a 960×540 landscape viewport.
 
-- **Move:** WASD / arrow keys, or the on-screen directional pad
+- **Move:** WASD / arrow keys, or drag the on-screen virtual joystick
 - **Dash:** Space / Shift, or the on-screen DASH button
 - **Goal:** Gather three moonseeds, then reach the glowing shrine
 
