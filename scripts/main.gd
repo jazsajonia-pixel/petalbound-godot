@@ -25,6 +25,7 @@ func _ready() -> void:
 	player.position = Vector2(130, 150)
 	add_child(player)
 	_make_ruin_collisions()
+	_make_world_bounds()
 	var camera := Camera2D.new()
 	camera.zoom = Vector2(1.15, 1.15)
 	camera.position_smoothing_enabled = true
@@ -63,6 +64,26 @@ func _make_ruin_collisions() -> void:
 		shape_node.shape = shape
 		body.add_child(shape_node)
 		add_child(body)
+
+func _make_world_bounds() -> void:
+	var wall_thickness := 36.0
+	var horizontal_span := WORLD_SIZE.x + wall_thickness * 2.0
+	var vertical_span := WORLD_SIZE.y + wall_thickness * 2.0
+	_add_world_bound("WorldBoundLeft", Vector2(0, WORLD_SIZE.y * 0.5), Vector2(wall_thickness, vertical_span))
+	_add_world_bound("WorldBoundRight", Vector2(WORLD_SIZE.x, WORLD_SIZE.y * 0.5), Vector2(wall_thickness, vertical_span))
+	_add_world_bound("WorldBoundTop", Vector2(WORLD_SIZE.x * 0.5, 0), Vector2(horizontal_span, wall_thickness))
+	_add_world_bound("WorldBoundBottom", Vector2(WORLD_SIZE.x * 0.5, WORLD_SIZE.y), Vector2(horizontal_span, wall_thickness))
+
+func _add_world_bound(bound_name: String, position: Vector2, size: Vector2) -> void:
+	var body := StaticBody2D.new()
+	body.name = bound_name
+	body.position = position
+	var shape_node := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = size
+	shape_node.shape = shape
+	body.add_child(shape_node)
+	add_child(body)
 
 func _process(delta: float) -> void:
 	elapsed += delta
