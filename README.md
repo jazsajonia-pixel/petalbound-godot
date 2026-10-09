@@ -19,3 +19,5 @@ The game is an original, small first playable slice rather than a recreation of 
 ## Roadmap
 
 See [`GAME_PLAN.md`](GAME_PLAN.md) for the full proposed game vision, systems, world, and development phases. The current prototype is **Phase 0**; later features in the plan are not implemented yet.
+
+For recurring, phase-by-phase development runs in Manus Task Scheduler, see [`AUTOMATION_PROMPT.md`](AUTOMATION_PROMPT.md).
