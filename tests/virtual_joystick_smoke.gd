@@ -45,6 +45,20 @@ func _run_test() -> void:
 	await physics_frame
 
 	var joystick_released: bool = hud.joystick_touch_index == -1 and not Input.is_action_pressed("move_right")
+	var deadzone_slider := hud.get("deadzone_slider") as HSlider
+	var sensitivity_slider := hud.get("sensitivity_slider") as HSlider
+	var joystick_settings_work := deadzone_slider != null and sensitivity_slider != null
+	if joystick_settings_work:
+		hud.joystick_touch_index = 5
+		hud.call("_update_joystick", hud.joystick_center + Vector2(hud.joystick_radius * 0.05, 0.0))
+		var deadzone_blocks_drift: bool = hud.joystick_vector == Vector2.ZERO
+		deadzone_slider.value = 0.2
+		hud.call("_update_joystick", hud.joystick_center + Vector2(hud.joystick_radius * 0.6, 0.0))
+		var baseline_strength: float = hud.joystick_vector.x
+		sensitivity_slider.value = 1.5
+		var sensitivity_strength: float = hud.joystick_vector.x
+		joystick_settings_work = deadzone_blocks_drift and is_equal_approx(hud.joystick_deadzone, 0.2) and is_equal_approx(hud.joystick_sensitivity, 1.5) and sensitivity_strength > baseline_strength
+		hud.call("_end_joystick")
 	var pause_overlay := hud.get("pause_overlay") as Control
 	var pause_button := hud.get("pause_button") as Button
 	var resume_button: Button
@@ -61,10 +75,12 @@ func _run_test() -> void:
 		push_error("Virtual joystick drag did not move the player right.")
 	if not joystick_released:
 		push_error("Virtual joystick did not release movement input cleanly.")
+	if not joystick_settings_work:
+		push_error("Joystick dead-zone or sensitivity settings did not change input response.")
 	if not pause_works or not resume_works:
 		push_error("Pause/resume did not show the overlay and restore the tree state.")
-	if not moved_right or not joystick_released or not pause_works or not resume_works:
+	if not moved_right or not joystick_released or not joystick_settings_work or not pause_works or not resume_works:
 		quit(1)
 		return
-	print("Mobile-controls smoke test passed: joystick drag/release and pause/resume work.")
+	print("Mobile-controls smoke test passed: joystick drag/release, tuning settings, and pause/resume work.")
 	quit(0)

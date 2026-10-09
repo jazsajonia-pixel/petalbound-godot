@@ -13,17 +13,18 @@
 - Added a safe-area-aware PAUSE button and a centered RESUME overlay; Esc/P also toggles pause on desktop, and opening pause clears joystick input.
 - Added invisible collision walls around the meadow so Mallow cannot leave the playable world.
 - Added original front-, back-, and side-facing code-drawn Mallow poses with a subtle alternating walk step and idle ear flick. This is still prototype drawing, not the planned authored sprite sheet.
+- Added pause-menu joystick dead-zone and sensitivity sliders; tuning applies immediately to touch-stick response.
 - Updated the README to describe the joystick controls.
 
 ### Validation
 
 - Godot 4.7.2 headless editor scan: passed without script parse errors.
 - Godot 4.7.2 headless project startup (`--quit-after 180`): passed without runtime errors.
-- Headless controls smoke test: passed; a simulated joystick drag moved the player, release cleared movement input, and pause/resume correctly toggled the overlay and tree state.
+- Headless controls smoke test: passed; simulated joystick drag/release, dead-zone and sensitivity response, and pause/resume were checked.
 - World-bounds smoke test: passed; simulated movement was stopped at all four edges.
 - Character-facing smoke test: passed; down, left, right, and up movement select the corresponding pose state.
 - Real-device touch feel, notch/safe-area behavior, and stuck-input behavior: not tested in this environment; test after pulling in Godot Android.
 
 ### Next recommended slice
 
-Pull the update and check the controls, camera framing, and pose readability on the target phone. Confirm touch feel and safe-area placement; then build the planned original sprite sheet/animation foundation before any combat work.
+Pull the update and check joystick tuning, controls, camera framing, and pose readability on the target phone. Confirm touch feel and safe-area placement; then build the planned original sprite sheet/animation foundation before any combat work.
