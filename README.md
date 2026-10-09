@@ -8,6 +8,7 @@ Open `project.godot` in Godot 4.3 or newer. The project uses the Compatibility r
 
 - **Move:** WASD / arrow keys, or drag the on-screen virtual joystick
 - **Dash:** Space / Shift, or the on-screen DASH button
+- **Pause / resume:** on-screen PAUSE button, or Esc / P on a keyboard
 - **Goal:** Gather three moonseeds, then reach the glowing shrine
 
 The on-screen controls are intentionally included for touch play. On a phone, clone or pull this repository into a folder Godot can access (for example, a folder under Documents), then open `project.godot` from Godot's project browser.
@@ -18,6 +19,6 @@ The game is an original, small first playable slice rather than a recreation of 
 
 ## Roadmap
 
-See [`GAME_PLAN.md`](GAME_PLAN.md) for the full proposed game vision, systems, world, and development phases. The current prototype is **Phase 0**; later features in the plan are not implemented yet.
+See [`GAME_PLAN.md`](GAME_PLAN.md) for the full proposed game vision, systems, world, and development phases. The original MVP is **Phase 0**; development has started **Phase 1**, which is still in progress. Later game systems in the plan remain planned, not implemented.
 
 For recurring, phase-by-phase development runs in Manus Task Scheduler, see [`AUTOMATION_PROMPT.md`](AUTOMATION_PROMPT.md).

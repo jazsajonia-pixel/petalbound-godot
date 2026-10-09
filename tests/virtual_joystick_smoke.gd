@@ -45,12 +45,26 @@ func _run_test() -> void:
 	await physics_frame
 
 	var joystick_released: bool = hud.joystick_touch_index == -1 and not Input.is_action_pressed("move_right")
+	var pause_overlay := hud.get("pause_overlay") as Control
+	var pause_button := hud.get("pause_button") as Button
+	var resume_button: Button
+	if pause_overlay != null:
+		resume_button = pause_overlay.find_child("ResumeButton", true, false) as Button
+	var pause_works := false
+	var resume_works := false
+	if pause_overlay != null and pause_button != null and resume_button != null:
+		pause_button.pressed.emit()
+		pause_works = paused and pause_overlay.visible
+		resume_button.pressed.emit()
+		resume_works = not paused and not pause_overlay.visible
 	if not moved_right:
 		push_error("Virtual joystick drag did not move the player right.")
 	if not joystick_released:
 		push_error("Virtual joystick did not release movement input cleanly.")
-	if not moved_right or not joystick_released:
+	if not pause_works or not resume_works:
+		push_error("Pause/resume did not show the overlay and restore the tree state.")
+	if not moved_right or not joystick_released or not pause_works or not resume_works:
 		quit(1)
 		return
-	print("Virtual joystick smoke test passed: drag moved player; release cleared input.")
+	print("Mobile-controls smoke test passed: joystick drag/release and pause/resume work.")
 	quit(0)

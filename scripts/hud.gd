@@ -4,6 +4,9 @@ var count_label: Label
 var message_label: Label
 var hint_label: Label
 var dash_button: Button
+var pause_button: Button
+var pause_overlay: ColorRect
+var pause_panel: PanelContainer
 var message_timer := 0.0
 
 var safe_rect := Rect2(Vector2(24, 24), Vector2(912, 492))
@@ -15,14 +18,27 @@ var joystick_radius := 76.0
 var joystick_knob_radius := 29.0
 
 func setup() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	_register_pause_action()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	count_label = _label("MOONSEEDS  0 / 3", Vector2.ZERO, Vector2(300, 36), 22)
 	message_label = _label("Find three moonseeds, then reach the shrine.", Vector2.ZERO, Vector2(560, 34), 15)
 	hint_label = _label("Left stick to move   •   Space / Shift to dash", Vector2.ZERO, Vector2(580, 28), 13)
 	dash_button = _make_button("DASH", Vector2.ZERO, Vector2(120, 78))
+	pause_button = _make_button("PAUSE", Vector2.ZERO, Vector2(92, 56), "", 15)
+	_make_pause_overlay()
 	_layout_controls()
 	resized.connect(_layout_controls)
 	get_viewport().size_changed.connect(_on_viewport_resized)
+
+func _register_pause_action() -> void:
+	if InputMap.has_action("pause"):
+		return
+	InputMap.add_action("pause")
+	for key in [KEY_ESCAPE, KEY_P]:
+		var key_event := InputEventKey.new()
+		key_event.physical_keycode = key
+		InputMap.action_add_event("pause", key_event)
 
 func _label(text: String, pos: Vector2, size: Vector2, font_size: int) -> Label:
 	var label := Label.new()
@@ -37,13 +53,13 @@ func _label(text: String, pos: Vector2, size: Vector2, font_size: int) -> Label:
 	add_child(label)
 	return label
 
-func _make_button(text: String, pos: Vector2, size: Vector2) -> Button:
+func _make_button(text: String, pos: Vector2, size: Vector2, action: String = "dash", font_size: int = 18) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.position = pos
 	button.size = size
 	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", font_size)
 	button.add_theme_color_override("font_color", Color("fff9e8"))
 	button.add_theme_color_override("font_hover_color", Color("ffffff"))
 	button.add_theme_color_override("font_pressed_color", Color("ffffff"))
@@ -57,19 +73,88 @@ func _make_button(text: String, pos: Vector2, size: Vector2) -> Button:
 	pressed.bg_color = Color(0.32, 0.57, 0.51, 0.94)
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("hover", normal)
-	button.button_down.connect(func(): Input.action_press("dash"))
-	button.button_up.connect(func(): Input.action_release("dash"))
+	if action.is_empty():
+		button.pressed.connect(toggle_pause)
+	else:
+		button.button_down.connect(func(): Input.action_press(action))
+		button.button_up.connect(func(): Input.action_release(action))
 	add_child(button)
 	return button
 
+func _make_pause_overlay() -> void:
+	pause_overlay = ColorRect.new()
+	pause_overlay.name = "PauseOverlay"
+	pause_overlay.color = Color(0.08, 0.13, 0.17, 0.72)
+	pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	pause_overlay.visible = false
+	pause_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(pause_overlay)
+
+	pause_panel = PanelContainer.new()
+	pause_panel.size = Vector2(320, 210)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color("344f53")
+	panel_style.border_color = Color("d8e7d8")
+	panel_style.set_border_width_all(3)
+	panel_style.set_corner_radius_all(18)
+	pause_panel.add_theme_stylebox_override("panel", panel_style)
+	pause_overlay.add_child(pause_panel)
+
+	var margin := MarginContainer.new()
+	for side in ["left", "top", "right", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 22)
+	pause_panel.add_child(margin)
+
+	var layout := VBoxContainer.new()
+	layout.alignment = BoxContainer.ALIGNMENT_CENTER
+	layout.add_theme_constant_override("separation", 14)
+	margin.add_child(layout)
+
+	var title := Label.new()
+	title.text = "PAUSED"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color("fff5df"))
+	layout.add_child(title)
+
+	var resume := Button.new()
+	resume.name = "ResumeButton"
+	resume.text = "RESUME"
+	resume.custom_minimum_size = Vector2(0, 54)
+	resume.focus_mode = Control.FOCUS_NONE
+	resume.add_theme_font_size_override("font_size", 18)
+	resume.add_theme_color_override("font_color", Color("fff9e8"))
+	var resume_style := StyleBoxFlat.new()
+	resume_style.bg_color = Color("597b72")
+	resume_style.border_color = Color("d8e7d8")
+	resume_style.set_border_width_all(2)
+	resume_style.set_corner_radius_all(12)
+	resume.add_theme_stylebox_override("normal", resume_style)
+	resume.add_theme_stylebox_override("hover", resume_style)
+	var resume_pressed := resume_style.duplicate() as StyleBoxFlat
+	resume_pressed.bg_color = Color("6d9586")
+	resume.add_theme_stylebox_override("pressed", resume_pressed)
+	resume.pressed.connect(func(): set_game_paused(false))
+	layout.add_child(resume)
+
+	var hint := Label.new()
+	hint.text = "Tap RESUME or press Esc / P to resume"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color("e1e6d6"))
+	layout.add_child(hint)
+
 func _layout_controls() -> void:
-	if not is_instance_valid(count_label) or not is_instance_valid(dash_button):
+	if not is_instance_valid(count_label) or not is_instance_valid(dash_button) or not is_instance_valid(pause_button):
 		return
 	safe_rect = _get_safe_rect()
 	count_label.position = safe_rect.position + Vector2(14, 10)
 	message_label.position = safe_rect.position + Vector2(14, 48)
 	hint_label.position = safe_rect.position + Vector2(14, 80)
+	pause_button.position = Vector2(safe_rect.end.x - pause_button.size.x - 22, safe_rect.position.y + 14)
 	dash_button.position = Vector2(safe_rect.end.x - dash_button.size.x - 22, safe_rect.end.y - dash_button.size.y - 22)
+	if is_instance_valid(pause_panel):
+		pause_panel.position = safe_rect.position + safe_rect.size * 0.5 - pause_panel.size * 0.5
 	joystick_radius = minf(76.0, minf(safe_rect.size.x * 0.12, safe_rect.size.y * 0.18))
 	joystick_knob_radius = maxf(18.0, joystick_radius * 0.38)
 	joystick_home = Vector2(safe_rect.position.x + joystick_radius + 24, safe_rect.end.y - joystick_radius - 24)
@@ -97,6 +182,8 @@ func _get_safe_rect() -> Rect2:
 	return Rect2(Vector2(left, top), Vector2(right - left, bottom - top))
 
 func _input(event: InputEvent) -> void:
+	if get_tree().paused:
+		return
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed and joystick_touch_index == -1 and _can_start_joystick(touch.position):
@@ -161,11 +248,25 @@ func show_message(text: String) -> void:
 		message_label.add_theme_color_override("font_color", Color("fff6c5"))
 
 func _process(delta: float) -> void:
-	if message_timer > 0.0:
+	if Input.is_action_just_pressed("pause"):
+		toggle_pause()
+	if not get_tree().paused and message_timer > 0.0:
 		message_timer -= delta
 		if message_timer <= 0.0 and is_instance_valid(message_label):
 			message_label.text = "Explore the meadow. Gather three moonseeds."
 			message_label.add_theme_color_override("font_color", Color("fff9e8"))
+
+func toggle_pause() -> void:
+	set_game_paused(not get_tree().paused)
+
+func set_game_paused(paused: bool) -> void:
+	if not is_instance_valid(pause_overlay):
+		return
+	if paused:
+		_end_joystick()
+		Input.action_release("dash")
+	pause_overlay.visible = paused
+	get_tree().paused = paused
 
 func _on_viewport_resized() -> void:
 	_layout_controls()
