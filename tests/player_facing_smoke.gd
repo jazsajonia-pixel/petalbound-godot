@@ -17,23 +17,29 @@ func _run_test() -> void:
 		return
 
 	var cases: Array[Dictionary] = [
-		{"action": "move_down", "expected": 0},
-		{"action": "move_left", "expected": 1},
-		{"action": "move_right", "expected": 2},
-		{"action": "move_up", "expected": 3}
+		{"actions": ["move_down"], "expected": 0},
+		{"actions": ["move_left"], "expected": 1},
+		{"actions": ["move_right"], "expected": 2},
+		{"actions": ["move_up"], "expected": 3},
+		{"actions": ["move_down", "move_left"], "expected": 4},
+		{"actions": ["move_down", "move_right"], "expected": 5},
+		{"actions": ["move_up", "move_left"], "expected": 6},
+		{"actions": ["move_up", "move_right"], "expected": 7}
 	]
 	for test_case in cases:
 		for action in ["move_left", "move_right", "move_up", "move_down"]:
 			Input.action_release(action)
-		var action_name: String = test_case["action"]
-		Input.action_press(action_name)
+		var pressed_actions: Array = test_case["actions"]
+		for action_name in pressed_actions:
+			Input.action_press(action_name)
 		await physics_frame
-		Input.action_release(action_name)
+		for action_name in pressed_actions:
+			Input.action_release(action_name)
 		var actual_facing: int = player.get("facing_direction")
 		if actual_facing != int(test_case["expected"]):
-			push_error("%s input selected facing %d, expected %d." % [action_name, actual_facing, test_case["expected"]])
+			push_error("Input %s selected facing %d, expected %d." % [pressed_actions, actual_facing, test_case["expected"]])
 			quit(1)
 			return
 
-	print("Character-facing smoke test passed: down, left, right, and up input select the matching pose.")
+	print("Character-facing smoke test passed: all four cardinal and four diagonal inputs select matching pose states.")
 	quit(0)
