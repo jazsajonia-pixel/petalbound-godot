@@ -9,6 +9,7 @@
 - Replaced the temporary four-button movement pad with a floating virtual joystick in the lower-left touch zone.
 - Joystick motion supplies analog directional strengths to the existing movement actions; keyboard controls remain available.
 - Kept the dash action on a large lower-right button and positioned HUD controls relative to the display safe area with an inset fallback.
+- Set the camera to a modest 1.15× zoom for closer player framing.
 - Updated the README to describe the joystick controls.
 
 ### Validation

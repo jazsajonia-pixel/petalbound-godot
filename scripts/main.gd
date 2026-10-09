@@ -26,6 +26,7 @@ func _ready() -> void:
 	add_child(player)
 	_make_ruin_collisions()
 	var camera := Camera2D.new()
+	camera.zoom = Vector2(1.15, 1.15)
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = 5.0
 	camera.limit_left = 0
