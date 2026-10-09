@@ -9,6 +9,7 @@ Open `project.godot` in Godot 4.3 or newer. The project uses the Compatibility r
 - **Move:** WASD / arrow keys, or drag the on-screen virtual joystick
 - **Dash:** Space / Shift, or the on-screen DASH button
 - **Pause / resume:** on-screen PAUSE button, or Esc / P on a keyboard
+- **Joystick tuning:** adjust dead zone and sensitivity from the pause overlay; changes apply immediately
 - **Goal:** Gather three moonseeds, then reach the glowing shrine
 
 The on-screen controls are intentionally included for touch play. On a phone, clone or pull this repository into a folder Godot can access (for example, a folder under Documents), then open `project.godot` from Godot's project browser.

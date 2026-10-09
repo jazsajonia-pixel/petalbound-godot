@@ -7,12 +7,21 @@ var dash_button: Button
 var pause_button: Button
 var pause_overlay: ColorRect
 var pause_panel: PanelContainer
+var deadzone_slider: HSlider
+var sensitivity_slider: HSlider
+var deadzone_label: Label
+var sensitivity_label: Label
 var message_timer := 0.0
+
+var joystick_deadzone := 0.08
+var joystick_sensitivity := 1.0
 
 var safe_rect := Rect2(Vector2(24, 24), Vector2(912, 492))
 var joystick_home := Vector2(112, 425)
 var joystick_center := Vector2(112, 425)
 var joystick_vector := Vector2.ZERO
+var joystick_raw_direction := Vector2.ZERO
+var joystick_raw_strength := 0.0
 var joystick_touch_index := -1
 var joystick_radius := 76.0
 var joystick_knob_radius := 29.0
@@ -91,7 +100,7 @@ func _make_pause_overlay() -> void:
 	add_child(pause_overlay)
 
 	pause_panel = PanelContainer.new()
-	pause_panel.size = Vector2(320, 210)
+	pause_panel.size = Vector2(360, 330)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color("344f53")
 	panel_style.border_color = Color("d8e7d8")
@@ -137,12 +146,40 @@ func _make_pause_overlay() -> void:
 	resume.pressed.connect(func(): set_game_paused(false))
 	layout.add_child(resume)
 
+	deadzone_label = Label.new()
+	deadzone_label.text = "DEAD ZONE  8%"
+	deadzone_label.add_theme_font_size_override("font_size", 13)
+	deadzone_label.add_theme_color_override("font_color", Color("e1e6d6"))
+	layout.add_child(deadzone_label)
+	deadzone_slider = _make_setting_slider(0.0, 0.30, joystick_deadzone, 0.01)
+	deadzone_slider.value_changed.connect(_on_deadzone_changed)
+	layout.add_child(deadzone_slider)
+
+	sensitivity_label = Label.new()
+	sensitivity_label.text = "SENSITIVITY  1.00×"
+	sensitivity_label.add_theme_font_size_override("font_size", 13)
+	sensitivity_label.add_theme_color_override("font_color", Color("e1e6d6"))
+	layout.add_child(sensitivity_label)
+	sensitivity_slider = _make_setting_slider(0.60, 1.60, joystick_sensitivity, 0.05)
+	sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
+	layout.add_child(sensitivity_slider)
+
 	var hint := Label.new()
-	hint.text = "Tap RESUME or press Esc / P to resume"
+	hint.text = "Changes apply immediately • Esc / P to resume"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color("e1e6d6"))
 	layout.add_child(hint)
+
+func _make_setting_slider(minimum: float, maximum: float, initial: float, step: float) -> HSlider:
+	var slider := HSlider.new()
+	slider.min_value = minimum
+	slider.max_value = maximum
+	slider.step = step
+	slider.value = initial
+	slider.custom_minimum_size = Vector2(0, 26)
+	slider.focus_mode = Control.FOCUS_NONE
+	return slider
 
 func _layout_controls() -> void:
 	if not is_instance_valid(count_label) or not is_instance_valid(dash_button) or not is_instance_valid(pause_button):
@@ -205,7 +242,14 @@ func _can_start_joystick(point: Vector2) -> bool:
 
 func _update_joystick(point: Vector2) -> void:
 	var offset := point - joystick_center
-	joystick_vector = offset.limit_length(joystick_radius) / maxf(1.0, joystick_radius)
+	var raw_strength := minf(offset.length() / maxf(1.0, joystick_radius), 1.0)
+	joystick_raw_strength = raw_strength
+	joystick_raw_direction = offset.normalized() if raw_strength > 0.0 else Vector2.ZERO
+	if raw_strength <= joystick_deadzone:
+		joystick_vector = Vector2.ZERO
+	else:
+		var adjusted_strength := (raw_strength - joystick_deadzone) / maxf(0.001, 1.0 - joystick_deadzone)
+		joystick_vector = joystick_raw_direction * minf(1.0, adjusted_strength * joystick_sensitivity)
 	_apply_joystick_actions()
 	queue_redraw()
 
@@ -213,6 +257,8 @@ func _end_joystick() -> void:
 	joystick_touch_index = -1
 	joystick_center = joystick_home
 	joystick_vector = Vector2.ZERO
+	joystick_raw_direction = Vector2.ZERO
+	joystick_raw_strength = 0.0
 	_apply_joystick_actions()
 	queue_redraw()
 
@@ -270,3 +316,15 @@ func set_game_paused(paused: bool) -> void:
 
 func _on_viewport_resized() -> void:
 	_layout_controls()
+
+func _on_deadzone_changed(value: float) -> void:
+	joystick_deadzone = value
+	deadzone_label.text = "DEAD ZONE  %d%%" % roundi(value * 100.0)
+	if joystick_touch_index != -1:
+		_update_joystick(joystick_center + joystick_raw_direction * joystick_raw_strength * joystick_radius)
+
+func _on_sensitivity_changed(value: float) -> void:
+	joystick_sensitivity = value
+	sensitivity_label.text = "SENSITIVITY  %.2f×" % value
+	if joystick_touch_index != -1:
+		_update_joystick(joystick_center + joystick_raw_direction * joystick_raw_strength * joystick_radius)
