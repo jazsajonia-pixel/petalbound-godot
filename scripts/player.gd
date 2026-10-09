@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-enum Facing { DOWN, LEFT, RIGHT, UP }
+enum Facing { DOWN, LEFT, RIGHT, UP, DOWN_LEFT, DOWN_RIGHT, UP_LEFT, UP_RIGHT }
 
 const WALK_SPEED := 170.0
 const DASH_SPEED := 560.0
@@ -45,10 +45,14 @@ func _physics_process(delta: float) -> void:
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if direction.length() > 0.1:
 		facing = direction.normalized()
-		if absf(direction.x) > absf(direction.y):
+		if absf(direction.x) > absf(direction.y) * 2.0:
 			facing_direction = Facing.RIGHT if direction.x > 0.0 else Facing.LEFT
-		else:
+		elif absf(direction.y) > absf(direction.x) * 2.0:
 			facing_direction = Facing.DOWN if direction.y > 0.0 else Facing.UP
+		elif direction.y > 0.0:
+			facing_direction = Facing.DOWN_RIGHT if direction.x > 0.0 else Facing.DOWN_LEFT
+		else:
+			facing_direction = Facing.UP_RIGHT if direction.x > 0.0 else Facing.UP_LEFT
 	if Input.is_action_just_pressed("dash") and dash_left <= 0.0 and cooldown_left <= 0.0:
 		dash_direction = facing if direction.length() < 0.1 else direction.normalized()
 		dash_left = DASH_DURATION
@@ -79,10 +83,14 @@ func _draw() -> void:
 			_draw_back(bob, step)
 		Facing.LEFT, Facing.RIGHT:
 			_draw_side(bob, step)
+		Facing.UP_LEFT, Facing.UP_RIGHT:
+			_draw_back(bob, step, -1.0 if facing_direction == Facing.UP_LEFT else 1.0)
+		Facing.DOWN_LEFT, Facing.DOWN_RIGHT:
+			_draw_front(bob, step, -1.0 if facing_direction == Facing.DOWN_LEFT else 1.0)
 		_:
 			_draw_front(bob, step)
 
-func _draw_front(bob: float, step: float) -> void:
+func _draw_front(bob: float, step: float, look_bias: float = 0.0) -> void:
 	var ear_flick := sin(anim_time * 2.5) * 0.8 if velocity.length() <= 8.0 else 0.0
 	_draw_feet(step)
 	draw_rect(Rect2(Vector2(-9, -3 + bob), Vector2(18, 13)), Color("514467"))
@@ -92,16 +100,17 @@ func _draw_front(bob: float, step: float) -> void:
 	draw_rect(Rect2(Vector2(3, -19 + bob - ear_flick), Vector2(4, 9)), Color("f2f0df"))
 	draw_rect(Rect2(Vector2(-6, -17 + bob + ear_flick), Vector2(2, 5)), Color("e58f9e"))
 	draw_rect(Rect2(Vector2(4, -17 + bob - ear_flick), Vector2(2, 5)), Color("e58f9e"))
-	draw_rect(Rect2(Vector2(-4, -10 + bob), Vector2(2, 2)), Color("382e42"))
-	draw_rect(Rect2(Vector2(3, -10 + bob), Vector2(2, 2)), Color("382e42"))
+	draw_rect(Rect2(Vector2(-4 + look_bias * 1.5, -10 + bob), Vector2(2, 2)), Color("382e42"))
+	draw_rect(Rect2(Vector2(3 + look_bias * 1.5, -10 + bob), Vector2(2, 2)), Color("382e42"))
 
-func _draw_back(bob: float, step: float) -> void:
+func _draw_back(bob: float, step: float, look_bias: float = 0.0) -> void:
 	var ear_flick := sin(anim_time * 2.5) * 0.8 if velocity.length() <= 8.0 else 0.0
 	_draw_feet(step)
 	draw_rect(Rect2(Vector2(-9, -3 + bob), Vector2(18, 13)), Color("514467"))
 	draw_rect(Rect2(Vector2(-7, -5 + bob), Vector2(14, 11)), Color("68547c"))
 	# A small satchel mark distinguishes the back-facing pose without adding fine detail.
-	draw_rect(Rect2(Vector2(4, -1 + bob), Vector2(4, 6)), Color("b78978"))
+	var satchel_x := 4.0 if look_bias >= 0.0 else -8.0
+	draw_rect(Rect2(Vector2(satchel_x, -1 + bob), Vector2(4, 6)), Color("b78978"))
 	draw_rect(Rect2(Vector2(-7, -12 + bob), Vector2(14, 12)), Color("e7e5d7"))
 	draw_rect(Rect2(Vector2(-7, -19 + bob + ear_flick), Vector2(4, 9)), Color("e7e5d7"))
 	draw_rect(Rect2(Vector2(3, -19 + bob - ear_flick), Vector2(4, 9)), Color("e7e5d7"))
