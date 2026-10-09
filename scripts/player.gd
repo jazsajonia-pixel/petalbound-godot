@@ -1,10 +1,13 @@
 extends CharacterBody2D
 
+enum Facing { DOWN, LEFT, RIGHT, UP }
+
 const WALK_SPEED := 170.0
 const DASH_SPEED := 560.0
 const DASH_DURATION := 0.16
 const DASH_COOLDOWN := 0.55
 var facing := Vector2.RIGHT
+var facing_direction := Facing.RIGHT
 var dash_direction := Vector2.RIGHT
 var dash_left := 0.0
 var cooldown_left := 0.0
@@ -42,6 +45,10 @@ func _physics_process(delta: float) -> void:
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if direction.length() > 0.1:
 		facing = direction.normalized()
+		if absf(direction.x) > absf(direction.y):
+			facing_direction = Facing.RIGHT if direction.x > 0.0 else Facing.LEFT
+		else:
+			facing_direction = Facing.DOWN if direction.y > 0.0 else Facing.UP
 	if Input.is_action_just_pressed("dash") and dash_left <= 0.0 and cooldown_left <= 0.0:
 		dash_direction = facing if direction.length() < 0.1 else direction.normalized()
 		dash_left = DASH_DURATION
@@ -59,26 +66,68 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	var bob := sin(anim_time * 9.0) * 1.4 if velocity.length() > 8.0 else sin(anim_time * 3.5) * 1.0
+	var walking := velocity.length() > 8.0 and dash_left <= 0.0
+	var bob := sin(anim_time * 9.0) * 1.4 if walking else sin(anim_time * 3.5) * 0.8
+	var step := sin(anim_time * 12.0) * 1.8 if walking else 0.0
 	for i in range(trail_points.size()):
 		var alpha := float(i + 1) / float(trail_points.size() + 1) * 0.25
-		var t: Vector2 = trail_points[i]
-		draw_rect(Rect2(t + Vector2(-7, -3), Vector2(14, 9)), Color(0.91, 0.98, 0.90, alpha))
-	# Dark plum cloak and tiny boots.
-	draw_rect(Rect2(Vector2(-8, 4 + bob), Vector2(6, 5)), Color("493d61"))
-	draw_rect(Rect2(Vector2(3, 4 + bob), Vector2(6, 5)), Color("493d61"))
+		var point: Vector2 = trail_points[i]
+		draw_rect(Rect2(point + Vector2(-7, -3), Vector2(14, 9)), Color(0.91, 0.98, 0.90, alpha))
+	draw_circle(Vector2(0, 10), 10.0, Color(0.24, 0.43, 0.38, 0.24))
+	match facing_direction:
+		Facing.UP:
+			_draw_back(bob, step)
+		Facing.LEFT, Facing.RIGHT:
+			_draw_side(bob, step)
+		_:
+			_draw_front(bob, step)
+
+func _draw_front(bob: float, step: float) -> void:
+	var ear_flick := sin(anim_time * 2.5) * 0.8 if velocity.length() <= 8.0 else 0.0
+	_draw_feet(step)
 	draw_rect(Rect2(Vector2(-9, -3 + bob), Vector2(18, 13)), Color("514467"))
 	draw_rect(Rect2(Vector2(-7, -5 + bob), Vector2(14, 11)), Color("68547c"))
-	# White round traveler with long ears.
 	draw_rect(Rect2(Vector2(-7, -12 + bob), Vector2(14, 12)), Color("f2f0df"))
-	draw_rect(Rect2(Vector2(-7, -17 + bob), Vector2(4, 7)), Color("f2f0df"))
-	draw_rect(Rect2(Vector2(3, -17 + bob), Vector2(4, 7)), Color("f2f0df"))
-	draw_rect(Rect2(Vector2(-5, -15 + bob), Vector2(2, 4)), Color("e58f9e"))
-	draw_rect(Rect2(Vector2(4, -15 + bob), Vector2(2, 4)), Color("e58f9e"))
-	var eye_offset := Vector2(0, 0)
-	if absf(facing.x) > absf(facing.y):
-		eye_offset.x = signf(facing.x) * 2.0
-	else:
-		eye_offset.y = signf(facing.y) * 1.0
-	draw_rect(Rect2(Vector2(-3, -10 + bob) + eye_offset, Vector2(2, 2)), Color("382e42"))
-	draw_rect(Rect2(Vector2(3, -10 + bob) + eye_offset, Vector2(2, 2)), Color("382e42"))
+	draw_rect(Rect2(Vector2(-7, -19 + bob + ear_flick), Vector2(4, 9)), Color("f2f0df"))
+	draw_rect(Rect2(Vector2(3, -19 + bob - ear_flick), Vector2(4, 9)), Color("f2f0df"))
+	draw_rect(Rect2(Vector2(-6, -17 + bob + ear_flick), Vector2(2, 5)), Color("e58f9e"))
+	draw_rect(Rect2(Vector2(4, -17 + bob - ear_flick), Vector2(2, 5)), Color("e58f9e"))
+	draw_rect(Rect2(Vector2(-4, -10 + bob), Vector2(2, 2)), Color("382e42"))
+	draw_rect(Rect2(Vector2(3, -10 + bob), Vector2(2, 2)), Color("382e42"))
+
+func _draw_back(bob: float, step: float) -> void:
+	var ear_flick := sin(anim_time * 2.5) * 0.8 if velocity.length() <= 8.0 else 0.0
+	_draw_feet(step)
+	draw_rect(Rect2(Vector2(-9, -3 + bob), Vector2(18, 13)), Color("514467"))
+	draw_rect(Rect2(Vector2(-7, -5 + bob), Vector2(14, 11)), Color("68547c"))
+	# A small satchel mark distinguishes the back-facing pose without adding fine detail.
+	draw_rect(Rect2(Vector2(4, -1 + bob), Vector2(4, 6)), Color("b78978"))
+	draw_rect(Rect2(Vector2(-7, -12 + bob), Vector2(14, 12)), Color("e7e5d7"))
+	draw_rect(Rect2(Vector2(-7, -19 + bob + ear_flick), Vector2(4, 9)), Color("e7e5d7"))
+	draw_rect(Rect2(Vector2(3, -19 + bob - ear_flick), Vector2(4, 9)), Color("e7e5d7"))
+	draw_rect(Rect2(Vector2(-6, -17 + bob + ear_flick), Vector2(2, 5)), Color("d98798"))
+	draw_rect(Rect2(Vector2(4, -17 + bob - ear_flick), Vector2(2, 5)), Color("d98798"))
+	draw_rect(Rect2(Vector2(-2, -6 + bob), Vector2(4, 2)), Color("d6d4c8"))
+
+func _draw_side(bob: float, step: float) -> void:
+	var look_sign := -1.0 if facing_direction == Facing.LEFT else 1.0
+	var ear_flick := sin(anim_time * 2.5) * 0.8 if velocity.length() <= 8.0 else 0.0
+	draw_rect(Rect2(Vector2(-5, 5 + step), Vector2(6, 4)), Color("493d61"))
+	draw_rect(Rect2(Vector2(1, 5 - step), Vector2(6, 4)), Color("493d61"))
+	draw_rect(Rect2(Vector2(-7, -3 + bob), Vector2(15, 13)), Color("514467"))
+	draw_rect(Rect2(Vector2(-5, -5 + bob), Vector2(12, 11)), Color("68547c"))
+	var head_x := look_sign * 1.0
+	draw_rect(Rect2(Vector2(head_x - 6, -12 + bob), Vector2(12, 12)), Color("f2f0df"))
+	var ear_y := -19.0 + bob + ear_flick
+	var rear_ear_x := head_x - look_sign * 4.0
+	var front_ear_x := head_x + look_sign * 1.0
+	draw_rect(Rect2(Vector2(rear_ear_x, ear_y), Vector2(3.0, 9.0)), Color("f2f0df"))
+	draw_rect(Rect2(Vector2(front_ear_x, ear_y - ear_flick), Vector2(3.0, 9.0)), Color("f2f0df"))
+	draw_rect(Rect2(Vector2(rear_ear_x + 1.0, ear_y + 2.0), Vector2(1.0, 5.0)), Color("e58f9e"))
+	draw_rect(Rect2(Vector2(front_ear_x + 1.0, ear_y + 2.0 - ear_flick), Vector2(1.0, 5.0)), Color("e58f9e"))
+	draw_rect(Rect2(Vector2(head_x + look_sign * 3.0, -9 + bob), Vector2(2, 2)), Color("382e42"))
+	draw_rect(Rect2(Vector2(head_x + look_sign * 5.0, -6 + bob), Vector2(2, 2)), Color("e58f9e"))
+
+func _draw_feet(step: float) -> void:
+	draw_rect(Rect2(Vector2(-8, 4 + step), Vector2(6, 5)), Color("493d61"))
+	draw_rect(Rect2(Vector2(2, 4 - step), Vector2(6, 5)), Color("493d61"))
