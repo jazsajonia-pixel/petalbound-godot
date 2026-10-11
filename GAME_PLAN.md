@@ -175,7 +175,7 @@ Start with three enemy types in the first combat slice. Add the rest only after 
 
 The repository now includes **Mini Meadow — 16×16 Pixel-Art Tileset (CC0, 75 tiles)** by myobln at [`assets/packs/mini_meadow/`](assets/packs/mini_meadow/). The creator's [itch.io listing](https://myobln.itch.io/game-assets) describes seamless grass, dirt, sand, stone, four water frames, transition/shore tiles, ten small props, an atlas, a sample map, and a manifest. Its included `README.md` and `manifest.json` state **CC0-1.0**; the creator says commercial use is allowed and attribution is not required. We preserve the creator documentation with the downloaded files.
 
-Use this pack as a **starter/reference environment kit**, not a mandate to replace the current meadow immediately. Before integrating it into gameplay, compare it in Godot at the intended camera zoom and phone scale. Its vivid green/blue palette is brighter than Petalbound's misty teal/sage and pale-stone direction, so first make a controlled palette study or separate recolored derivative; do not overwrite the source files. Keep Mallow, shrine motifs, Moonseeds, and distinctive ruins original. If the tiles do not fit the target look after a small test room, retain them as a reference and choose a better-matched clearly licensed pack rather than forcing a mismatch.
+This pack now underpins the opening meadow's grass, dirt/stone paths, animated pond, and scattered props. A project shader remaps the runtime palette; original source textures and creator documentation remain untouched. Cabin, landmark ruins, Mallow, shrine, Moonseeds, enemies, and combat drawings remain Petalbound-authored. The additional verified CC0 item icons and all exclusion/license notes are recorded in [`assets/packs/ASSET_CREDITS.md`](assets/packs/ASSET_CREDITS.md).
 
 For every later online pack, verify the original creator page and licence before download, retain the source README/licence/manifest, record the source URL and any attribution requirement, and check the actual included files. Prefer CC0 or licences that explicitly allow the intended distribution; avoid packs with unclear rights, scraped reposts, or restrictions that would block an Android release. Online packs are starting material, not permission to copy another game's distinctive art.
 
@@ -202,14 +202,16 @@ Phases are milestone gates, not calendar promises. Each ends with a build that c
 - Small meadow with ruins, petals, Moonseeds, and a shrine drawn from GDScript shapes.
 - Code-drawn Mallow placeholder, keyboard movement, dash, collisions, mobile virtual joystick, seed counter, and shrine goal.
 - Goal: prove that GitHub → GitSync → Godot Android can load and run a small project.
-- **Not included yet:** authored final sprite art, enemies, damage, weapons, NPCs, inventory, or persistent saves.
+- **At the Phase 0 baseline:** authored final sprite art, enemies, damage, weapons, NPCs, inventory, and persistent saves were not included; later prototype additions are recorded below and in `DEVELOPMENT_LOG.md`.
 
 ### Phase 1 — Mobile feel and character foundation
 
-- **Done in the current branch:** virtual joystick, large dash action, safe-area-aware HUD, pause/resume overlay, live dead-zone/sensitivity controls, meadow bounds, a closer camera, and code-drawn cardinal/diagonal facing states. Desktop keyboard support remains.
+- **Done in the current branch:** floating virtual joystick, large touch actions, safe-area-aware HUD, title/pause overlays, live dead-zone/sensitivity controls, meadow bounds, a closer camera, and code-drawn cardinal/diagonal facing states. Desktop keyboard support remains.
 - **Still needed:** check the controls and safe areas on the actual Android phone; replace the code-drawn Mallow with an original sprite sheet/animation set for idle, 8-direction movement, dash, hurt, and attack placeholders; add touch feedback and confirm controller/keyboard parity.
 - Add collision-layer conventions, shrine checkpoint interaction, and a basic save/load skeleton before depending on persistent progression.
 - **Exit check:** a 5-minute phone playtest with no stuck input, no cropped controls, and comfortable movement in all directions.
+
+**Phase 1 status:** in progress. Headless and virtual-display checks do not close the required Android phone-playtest gate.
 
 ### Phase 2 — First combat slice
 
@@ -219,13 +221,17 @@ Phases are milestone gates, not calendar promises. Each ends with a build that c
 - Add an encounter reset and a simple tuning/debug page for health, damage, cooldown, and enemy speed.
 - **Exit check:** a new player can understand attack, dodge, and healing with short on-screen hints; fights run at a stable frame rate on the target phone.
 
+**Prototype status (2026-10-11):** an early, intentionally small encounter slice now includes basic health/damage, Moontea, defeat/retry, a three-swing Thornblade with a stronger finisher, a Bloomstaff switch, Mothlight, Petalguard, six simple Thornling/Puffcap actors, hit effects, and a Moonseed/shrine loop. It is not a Phase 2 completion: polished combo anticipation/hit-pause, knockback/tell tuning, shrine checkpoint/save, a boss, and verified phone performance are still needed. Phase 1's phone gate remains open.
+
 ### Phase 3 — Progression systems
 
 - Add the Hearthgrove hub shell, inventory data model, equipment slots, Petalcoins, Moonshards, Moontea, and persistent player save.
 - Add Sedge's upgrade interaction and Pip's shop; display exact cost and stat change before confirmation.
-- Add Briar Snare and Petalguard, one cloak, two charms, and one upgrade rank. Avoid filling the inventory with test items.
+- Add Briar Snare and progression unlocks for Petalguard, additional cloaks/charms, and an upgrade rank. Avoid filling the inventory with test items.
 - Add one local quest and a journal/map entry so quest flags and rewards are exercised.
 - **Exit check:** leave the level, save, close/reopen the app, and keep currency, equipment, quest state, and shrine progress correctly.
+
+**Prototype status:** the starting Plum Wayfarer cloak currently grants +8% walk speed, and the old cache grants a Moonheart Charm. Petalguard is also implemented early. Save-backed progression, equipment selection, shops/upgrades, and quest state are not implemented; the Phase 3 exit check remains open.
 
 ### Phase 4 — Vertical slice: Petalfield + Hollowroot
 
@@ -257,7 +263,7 @@ Only after the main adventure is stable: add a challenge room, time-trial shrine
 
 ### Future visual/content updates
 
-Treat updates as small themed releases after the main game is stable, not an ongoing service. Each update should add one cohesive visual set—such as a new seasonal meadow palette, lantern/flower props, a village decoration kit, or a short optional grove—then reuse proven gameplay systems. Make new packs or original art match the same pixel scale, outline weight, shadow direction, and restrained contrast. Keep Petalbound's shared white/plum/pink identity while letting each region own one accent hue. Update the asset manifest and credit page whenever a new source requires attribution. The included Mini Meadow pack is an available, licensed starting point for a small tileset integration test; it has **not** yet replaced any code-drawn game scene.
+Treat later content as cohesive themed releases rather than an ongoing service. Reuse proven gameplay systems while keeping new art at the same pixel scale, outline weight, shadow direction, and restrained contrast. Keep Petalbound's shared white/plum/pink identity while letting each region own one accent hue. Update the asset manifest and credit page whenever a new source is adopted. Mini Meadow now supplies terrain and props to the opening map; its source art remains preserved under `assets/packs/mini_meadow/`.
 
 ## 12. Scope guardrails and risks
 

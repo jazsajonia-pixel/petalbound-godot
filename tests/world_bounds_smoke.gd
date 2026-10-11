@@ -9,12 +9,25 @@ func _run_test() -> void:
 	root.add_child(game)
 	await process_frame
 	await physics_frame
+	var menu_hud := game.get("hud") as Control
+	var start_button := menu_hud.get("title_button") as Button if menu_hud != null else null
+	if start_button == null:
+		push_error("Could not find the start button in the title menu.")
+		quit(1)
+		return
+	start_button.pressed.emit()
+	await process_frame
+	await physics_frame
 
 	var player := game.get("player") as CharacterBody2D
 	if player == null:
 		push_error("Could not find the player in the main scene.")
 		quit(1)
 		return
+	for child in game.get_children():
+		if child is StaticBody2D and not child.name.begins_with("WorldBound"):
+			child.set_deferred("collision_layer", 0)
+			child.set_deferred("collision_mask", 0)
 
 	var scenarios: Array[Dictionary] = [
 		{"action": "move_left", "start": Vector2(220, 500), "axis": "x", "direction": "min", "limit": 36.0},

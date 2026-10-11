@@ -9,6 +9,15 @@ func _run_test() -> void:
 	root.add_child(game)
 	await process_frame
 	await physics_frame
+	var menu_hud := game.get("hud") as Control
+	var start_button := menu_hud.get("title_button") as Button if menu_hud != null else null
+	if start_button == null:
+		push_error("Could not find the start button in the title menu.")
+		quit(1)
+		return
+	start_button.pressed.emit()
+	await process_frame
+	await physics_frame
 
 	var player := game.get("player") as CharacterBody2D
 	if player == null:

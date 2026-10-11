@@ -2,34 +2,31 @@
 
 ## Current phase: Phase 1 — Mobile feel and character foundation
 
-**Status:** In progress; Phase 1 exit check has not been met. Phone playtesting is still required.
+**Status:** In progress. The Phase 1 exit check still requires a five-minute real-phone playtest; this environment cannot substitute for that.
 
-### Completed slice
+### Completed slice — 2026-10-11
 
-- Replaced the temporary four-button movement pad with a floating virtual joystick in the lower-left touch zone.
-- Joystick motion supplies analog directional strengths to the existing movement actions; keyboard controls remain available.
-- Kept the dash action on a large lower-right button and positioned HUD controls relative to the display safe area with an inset fallback.
-- Set the camera to a modest 1.15× zoom for closer player framing.
-- Added a safe-area-aware PAUSE button and a centered RESUME overlay; Esc/P also toggles pause on desktop, and opening pause clears joystick input.
-- Touch joystick axes and dash input are now cleared when the application loses focus, preventing missed release events from leaving movement stuck after switching apps; pause uses the same cleanup path.
-- Added invisible collision walls around the meadow so Mallow cannot leave the playable world.
-- Added original front-, back-, and side-facing code-drawn Mallow poses with a subtle alternating walk step and idle ear flick. This is still prototype drawing, not the planned authored sprite sheet.
-- Movement now selects distinct cardinal and diagonal facing states; diagonal front/back poses add small asymmetry cues. Sprite art remains code-drawn prototype work, not the planned authored sprite sheet.
-- Added pause-menu joystick dead-zone and sensitivity sliders; tuning applies immediately to touch-stick response.
-- Downloaded the 75-tile Mini Meadow nature pack from its creator page into `assets/packs/mini_meadow/`. Its included README and manifest specify CC0-1.0. The source files are preserved and the pack is not yet integrated into the playable scene.
-- Refreshed `GAME_PLAN.md` with the current Phase 1 state, the vetted starter pack/palette-fit guidance, and a gradual future visual-update approach. Shortened `AUTOMATION_PROMPT.md` and added a paste-ready scheduler prompt.
-- Updated the README to describe the joystick controls.
+- Added a title/start menu and defeat/retry/victory screens around the existing compact offline meadow adventure.
+- Replaced the flat grassy field with a TileMapLayer using the preserved CC0 Mini Meadow pack: varied ground, readable dirt and stone paths, a four-frame animated pond, and scattered flowers, bushes, rocks, logs, stumps, and mushrooms.
+- Added an original hand-drawn cabin, bench, cache, lanterns, and seven mossy ruin landmarks; added collision blockers for the cabin, pond, some props, ruins, and world perimeter.
+- Added a sage/teal terrain remap shader, soft screen vignette, and gentle PointLight2D pools around the shrine, Moonseeds, and cabin.
+- Expanded Mallow's original code-drawn animation cues with idle blinking and ear motion, directional walk steps, a dash trail, weapon-swing arcs, staff motes, and a Petalguard shimmer. Mallow's identity remains intact; an incompatible full-character pack was reviewed but not imported.
+- Added six simple Thornling/Puffcap encounter actors with approach/contact behavior, health, hit flash, and defeat drops. Thornblade has a three-swing chain with a farther, damage-2 finisher; the selectable Bloomstaff gives a short ranged strike. Added Mothlight, a one-hit Petalguard, three-charge Moontea healing, a Moonheart Charm cache that grants a heart, Petalcoin rewards, and a gather-three-seeds/reach-shrine loop.
+- Added a field-kit overlay with selected sword, staff, cloak, charm, and tea icons from a verified CC0 RPG item-icon pack. The Plum Wayfarer cloak is equipped from the outset and raises walking speed by 8%; the Moonheart Charm is found in the old cache. Preserved the full source archive and added [asset/license notes](assets/packs/ASSET_CREDITS.md). A candidate VFX pack with conflicting license declarations was deliberately excluded; the current combat sparks and motes are original drawings.
+- Added large mobile touch buttons for attack, dash, Mothlight, Petalguard, Moontea, contextual cache interaction, weapon cycling, bag, and pause. The floating joystick, keyboard parity, dead-zone/sensitivity tuning, safe-area layout, and focus-loss cleanup remain.
+- Updated the README and roadmap. No phase is marked complete merely because the headless tests pass.
 
 ### Validation
 
-- Godot 4.7.2 headless editor scan: passed without script parse errors.
-- Godot 4.7.2 headless editor import: passed; all 86 PNGs in the preserved Mini Meadow pack imported successfully.
-- Godot 4.7.2 headless project startup (`--quit-after 180`): passed without runtime errors.
-- Headless controls smoke test: passed; simulated joystick drag/release, dead-zone and sensitivity response, pause/resume, and application focus-loss cleanup were checked.
-- World-bounds smoke test: passed; simulated movement was stopped at all four edges.
-- Character-facing smoke test: passed; four cardinal and four diagonal movement combinations select their corresponding pose states.
-- Real-device touch feel, notch/safe-area behavior, and app background/resume behavior: not tested in this environment; test after pulling in Godot Android.
+- Godot 4.7.2 headless editor import/parse scan: passed.
+- Godot 4.7.2 headless project startup (`--quit-after 180`): passed.
+- Mobile-controls smoke test: passed; joystick drag/release, settings, pause/resume, and application-focus input cleanup.
+- Character-facing smoke test: passed; four cardinal and four diagonal movement states.
+- World-bounds smoke test: passed; movement stops at all four boundaries, isolated from intentional scenery blockers.
+- Adventure-slice smoke test: passed; title/start, tiled map and animated-water data, imported icons, cloak speed bonus, three-hit finisher, attack/skill/weapon, healing/charm/guard, cache interaction, full defeat/retry state reset, and shrine victory.
+- Rendered title, gameplay, and field-kit previews under a virtual display for UI/palette inspection. This is not an Android-device test.
+- Actual phone touch feel, safe-area/notch behavior, app pause/resume, and sustained mobile performance: **not tested**.
 
 ### Next recommended slice
 
-Pull the update and check joystick tuning, controls, camera framing, and eight-way pose readability on the target phone. Confirm touch feel and safe-area placement; then test the Mini Meadow palette in a small, separate Godot tilemap and continue the original Mallow sprite-sheet/animation foundation before any combat work.
+Pull this build into Godot on the target landscape Android phone and complete the Phase 1 five-minute playtest: verify stick/button separation, safe margins, weapon/field-kit text readability, scene performance, and app background/resume behavior. Then continue replacing the code-drawn Mallow with an original matching sprite sheet/animation set; further combat polish (wind-ups, knockback, cooldown feedback, and enemy tells) remains prototype work, not a completed Phase 2 gate.
