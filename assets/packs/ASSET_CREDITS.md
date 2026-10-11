@@ -1,13 +1,15 @@
 # Petalbound Asset Sources
 
-Official creator/listing pages and license evidence were checked on 2026-10-11. Complete source archives are retained locally for integrated packs; source art is not overwritten. Runtime palette changes are shader-driven. Mallow, enemies, landmarks, UI, animations, and combat effects are project-authored.
+Official creator/listing pages and license evidence were checked on 2026-10-11. Source art is not overwritten; Mallow's rose/plum look and outfit variants are runtime palette swaps in `assets/shaders/sprite_fx.gdshader`. Code, shaders, world generation, and UI layout are project-authored.
 
 ## Used in the game
 
 | Pack | License and source | Local files | Use |
 | --- | --- | --- | --- |
-| **Mini Meadow — myobln** | [Official itch.io listing](https://myobln.itch.io/game-assets), CC0-1.0. The creator says it is public domain, allows commercial use, and requires no attribution. | `mini_meadow/` (source README, manifest, tile PNGs, sheets, previews) | Ground, dirt/sand/stone paths, four-frame water, and flower, bush, mushroom, rock, log, and stump props in the expanded meadow. |
-| **496 Pixel Art Icons for Medieval/Fantasy RPG — credited creator Henrique Lazarini (7Soul1)** | [Official OpenGameArt listing](https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg), CC0 as listed. The page says incompatible derivative icons were removed from the public-domain set. | `rpg_inventory_icons/source.zip`; selected 34×34 PNGs under `rpg_inventory_icons/selected/` | Thornblade, Bloomstaff, cloak, Moonheart Charm, and Moontea icons in Mallow's field kit. The full source archive is kept intact. |
+| **Ninja Adventure Asset Pack — Pixel-boy & AAA** | [Official itch.io listing](https://pixel-boy.itch.io/ninja-adventure-asset-pack), **CC0 1.0**. The pack's licence file is kept at `ninja_adventure/LICENSE.txt`. Attribution is not required but is given here. | `ninja_adventure/` (321 selected files copied by `tools/import_ninja_adventure.py`; see `PACK_README.md`) | Hero (NinjaGreen, recoloured as Mallow), villagers and animals, 19 monster types, 4 bosses, tilesets (floor, nature, water, desert, houses, dungeon), weapons/items/gear icons, hearts and UI art, combat and magic FX sprites, and particles. Also all music, jingles and sound effects. |
+| **Kenney Fonts — Kenney** | [Official page](https://kenney.nl/assets/kenney-fonts), **CC0 1.0** (`kenney_fonts/LICENSE.txt`). | `kenney_fonts/kenney_mini.ttf`, `kenney_pixel.ttf` | All HUD, dialogue, menu and title text. |
+| **Mini Meadow — myobln** | [Official itch.io listing](https://myobln.itch.io/game-assets), CC0-1.0. The creator says it is public domain, allows commercial use, and requires no attribution. | `mini_meadow/` (source README, manifest, tile PNGs, sheets, previews) | Used by the earlier meadow prototype. It is kept in the repository but no longer rendered by the open-world map. |
+| **496 Pixel Art Icons for Medieval/Fantasy RPG — credited creator Henrique Lazarini (7Soul1)** | [Official OpenGameArt listing](https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg), CC0 as listed. The page says incompatible derivative icons were removed from the public-domain set. | `rpg_inventory_icons/source.zip`; selected 34×34 PNGs under `rpg_inventory_icons/selected/` | The Plum Wayfarer Cloak icon in the satchel. The full source archive is kept intact. |
 
 ## Reviewed, not imported
 

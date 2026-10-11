@@ -1,167 +1,257 @@
 extends SceneTree
+## End-to-end smoke test of the open-world loop: world build, movement kit, combat,
+## loot, chests and gear, NPC dialogue, bosses and Moonseeds, the Moonwell ending,
+## death/respawn at a waystone, and save/load.
+
+const Save := preload("res://scripts/systems/save.gd")
+
+var game: Node
+var player: CharacterBody2D
+var failures: PackedStringArray = []
+
 
 func _initialize() -> void:
 	call_deferred("_run_test")
 
+
+func check(cond: bool, msg: String) -> void:
+	if not cond:
+		failures.append(msg)
+		push_error(msg)
+
+
+func frames(n: int) -> void:
+	for i in range(n):
+		await physics_frame
+
+
+func release_all() -> void:
+	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "dash", "jump", "attack", "interact"]:
+		Input.action_release(a)
+
+
+func isolate() -> void:
+	# park every creature far away so movement checks are deterministic
+	for e in game.enemies:
+		e.set_physics_process(false)
+	game._activation_t = 999.0
+
+
 func _run_test() -> void:
-	var packed_scene := load("res://scenes/main.tscn") as PackedScene
-	if packed_scene == null:
-		push_error("Could not load the main scene.")
-		quit(1)
-		return
-	var game := packed_scene.instantiate()
+	Save.path_override = "user://petalbound_test_save.json"
+	Save.erase()
+	game = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
 	await physics_frame
-
-	var player := game.get("player") as CharacterBody2D
-	var hud := game.get("hud") as Control
-	if player == null or hud == null:
-		push_error("Could not find the player or HUD in the main scene.")
-		quit(1)
-		return
-
-	var all_passed := true
-	var start_button := hud.get("title_button") as Button
-	var title_overlay := hud.get("title_overlay") as ColorRect
-	var menu_ready: bool = start_button != null and title_overlay != null and title_overlay.visible and paused
-	if not menu_ready:
-		push_error("The new title menu did not open in a paused state.")
-		all_passed = false
-	if start_button != null:
-		start_button.pressed.emit()
+	check(not game.game_started and game.hud.title_overlay.visible, "Title screen should be shown on boot.")
+	check(not game.hud.continue_button.visible, "Continue should be hidden without a save.")
+	game.hud.title_button.pressed.emit()
 	await process_frame
 	await physics_frame
-	if paused or not bool(game.get("game_started")):
-		push_error("The Begin Journey button did not start play and unpause the scene.")
-		all_passed = false
+	player = game.player
+	check(game.game_started and not game.hud.title_overlay.visible, "New Journey should start the game.")
 
-	var ground := game.get("ground_layer") as TileMapLayer
-	var terrain_ok := ground != null and ground.get_used_cells().size() > 6000
-	var water: Array = game.get("water_cells")
-	var enemies: Array = game.get("enemies")
-	var world_ok := terrain_ok and water.size() > 30 and enemies.size() == 6
-	if not world_ok:
-		push_error("The tiled meadow, animated pond data, or six-enemy encounter did not initialize as expected.")
-		all_passed = false
-	var icon_paths := [
-		"res://assets/packs/rpg_inventory_icons/selected/thornblade.png",
-		"res://assets/packs/rpg_inventory_icons/selected/bloomstaff.png",
-		"res://assets/packs/rpg_inventory_icons/selected/moonheart_charm.png",
-		"res://assets/packs/rpg_inventory_icons/selected/moontea.png",
-		"res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png"
-	]
-	var icons_ok := true
-	for icon_path in icon_paths:
-		if not ResourceLoader.exists(icon_path):
-			icons_ok = false
-	if not icons_ok:
-		push_error("One or more selected CC0 field-kit icons are missing from the project.")
-		all_passed = false
+	# ---- world
+	check(game.world.prop_count > 1500, "World should place over 1500 props (got %d)." % game.world.prop_count)
+	check(game.enemies.size() > 60, "World should spawn dozens of monsters.")
+	check(game.bosses.size() == 4, "Four guardians expected.")
+	check(game.npcs.size() >= 8, "Hearthgrove and the roads should have villagers.")
+	check(game.waystones.size() == 5, "Five waystones expected.")
+	var biomes := {}
+	for p in [Vector2(1248, 1888), Vector2(640, 640), Vector2(3424, 1850), Vector2(3100, 700), Vector2(2700, 2300)]:
+		biomes[game.world.biome_at(p)] = true
+	check(biomes.size() >= 4, "Expected several distinct biomes across the map.")
+	check(game.world.is_water(Vector2(1888, 1536)) or game.world.is_water(Vector2(1860, 1560)), "Lake Lumen should be water.")
 
-	player.global_position = Vector2(130, 150)
-	var cloak_speed: float = player.call("get_move_speed")
-	if not bool(player.get("cloak_equipped")) or absf(cloak_speed - 183.6) > 0.02:
-		push_error("The starting Plum Wayfarer cloak did not grant its 8% movement bonus.")
-		all_passed = false
-	player.facing = Vector2.RIGHT
-	player.weapon_index = 0
-	var enemy_before: Node2D = enemies[0]
-	enemy_before.global_position = player.global_position + Vector2(48, 0)
-	enemy_before.health = 1
-	game.call("_try_player_attack")
-	var after_attack: Array = game.get("enemies")
-	var blade_ok := after_attack.size() == 5 and int(player.get("petalcoins")) >= 3
-	if not blade_ok:
-		push_error("Thornblade did not defeat a nearby target and award Petalcoins.")
-		all_passed = false
+	# ---- movement kit
+	isolate()
+	var open_spot := Vector2(1500, 1400)
+	game.world.solids.collision_layer = 0
+	game.world.low_solids.collision_layer = 0
+	player.global_position = open_spot
+	release_all()
+	await frames(2)
+	Input.action_press("move_right")
+	await frames(30)
+	var walk_dist: float = player.global_position.x - open_spot.x
+	release_all()
+	await frames(20)
+	player.global_position = open_spot
+	player.stamina = 100.0
+	Input.action_press("move_right")
+	Input.action_press("sprint")
+	await frames(30)
+	var sprint_dist: float = player.global_position.x - open_spot.x
+	release_all()
+	check(walk_dist > 20.0, "Walking should move Mallow (moved %.1f)." % walk_dist)
+	check(sprint_dist > walk_dist * 1.25, "Sprinting should be faster than walking (%.1f vs %.1f)." % [sprint_dist, walk_dist])
+	check(player.stamina < 100.0, "Sprinting should spend stamina.")
+	await frames(30)
+	player.stamina = 100.0
+	check(player.start_roll(Vector2.LEFT), "Roll should start.")
+	check(player.invulnerable_left > 0.0, "Roll should grant invulnerability frames.")
+	var hp_before: int = player.health
+	player.take_damage(4, player.global_position + Vector2(10, 0))
+	check(player.health == hp_before, "Damage during a roll should be ignored.")
+	await frames(30)
+	check(player.state == player.State.MOVE, "Roll should end back in the move state.")
+	player.stamina = 100.0
+	check(player.start_jump(), "Jump should start.")
+	check(player.airborne and (player.collision_mask & 4) == 0, "Jumping should hop over low props (mask cleared).")
+	await frames(40)
+	check(not player.airborne and (player.collision_mask & 4) != 0, "Jump should land and restore low-prop collision.")
+	player.global_position = Vector2(1888, 1600)
+	for y in range(1500, 1700, 8):
+		if game.world.is_water(Vector2(1888, y)):
+			player.global_position = Vector2(1888, y)
+			break
+	await frames(3)
+	check(player.swimming, "Mallow should swim in deep water.")
+	player.global_position = open_spot
+	await frames(3)
+	check(not player.swimming, "Mallow should stop swimming on land.")
+	game.world.solids.collision_layer = 1
+	game.world.low_solids.collision_layer = 4
 
-	player.call("cycle_weapon")
-	var staff_target: Node2D = after_attack[0]
-	staff_target.global_position = player.global_position + Vector2(120, 0)
-	staff_target.health = 2
-	game.call("_cast_mothlight")
-	var after_skill: Array = game.get("enemies")
-	var staff_and_skill_ok: bool = str(player.call("get_weapon_name")) == "BLOOMSTAFF" and after_skill.size() == 4 and float(player.get("mothlight_cooldown")) > 0.0
-	if not staff_and_skill_ok:
-		push_error("Weapon cycling or Mothlight's ranged hit/cooldown did not work.")
-		all_passed = false
-	var combo_target: Node2D = after_skill[0]
-	combo_target.global_position = player.global_position + Vector2(54, 0)
-	combo_target.health = 4
-	player.weapon_index = 0
-	player.attack_combo = -1
-	player.combo_timer = 0.0
-	var combo_damage_ok := true
-	for expected_health in [3, 2, 0]:
-		player.attack_cooldown = 0.0
-		game.call("_try_player_attack")
-		if int(combo_target.get("health")) != expected_health:
-			combo_damage_ok = false
-	if not combo_damage_ok:
-		push_error("The three-swing Thornblade chain did not end with its heavier finisher.")
-		all_passed = false
-
-	player.health = 3
-	var tea_ok: bool = player.call("drink_moontea") and player.health == 4 and int(player.get("moontea_charges")) == 2
-	if not tea_ok:
-		push_error("Moontea did not consume a charge and restore one heart.")
-		all_passed = false
-	var charm_ok: bool = player.call("equip_moonheart_charm") and player.max_health == 6 and player.health == 5
-	if not charm_ok:
-		push_error("Moonheart Charm did not increase the maximum heart count.")
-		all_passed = false
-	var guard_started: bool = player.call("activate_petalguard")
-	var health_before_guard: int = player.health
-	var guard_hit_damage: bool = player.call("take_damage")
-	var guard_ok: bool = guard_started and not guard_hit_damage and player.health == health_before_guard and not bool(player.get("guard_active"))
-	if not guard_ok:
-		push_error("Petalguard did not absorb one hit without heart loss.")
-		all_passed = false
-
-	player.charm_equipped = false
-	player.max_health = 5
-	player.health = 5
-	player.global_position = Vector2(635, 395)
-	var cache_opened_now: bool = game.call("_open_cache")
-	var cache_ok := cache_opened_now and bool(game.get("cache_opened")) and bool(player.get("charm_equipped"))
-	if not cache_ok:
-		push_error("The nearby Moonheart cache did not respond to the contextual interact action.")
-		all_passed = false
-
-	var defeat_target: Node2D = game.get("enemies")[0]
-	player.global_position = Vector2(130, 150)
-	player.health = 1
+	# ---- combat & loot
 	player.invulnerable_left = 0.0
-	player.dash_left = 0.0
+	player.health = player.max_health
+	var e: Node = game.enemies[0]
+	e.global_position = player.global_position + Vector2(14, 0)
+	e.set_physics_process(false)
+	player.facing = Vector2.RIGHT
+	player.dir_name = "right"
+	var coins_before: int = player.petalcoins
+	var swings := 0
+	while e.alive and swings < 12:
+		player.state = player.State.MOVE
+		player.attack_cooldown = 0.0
+		player.combo_timer = 0.5
+		player.try_attack()
+		swings += 1
+		await frames(4)
+	check(not e.alive, "Thornblade combo should defeat a field monster.")
+	check(game.pickups.size() > 0, "Defeated monsters should drop Petalcoins.")
+	for pk in game.pickups:
+		pk["node"].global_position = player.global_position
+		pk["t"] = 1.0
+	await frames(4)
+	check(player.petalcoins > coins_before, "Walking over coins should collect them.")
+	player.cycle_weapon()
+	check(player.get_weapon_name() == "BLOOMSTAFF", "Weapon swap should select the Bloomstaff.")
+	var shots_before: int = game.projectiles.get_child_count()
+	player.attack_cooldown = 0.0
+	player.state = player.State.MOVE
+	player.try_attack()
+	check(game.projectiles.get_child_count() > shots_before, "Bloomstaff should fire a bolt.")
+	player.cycle_weapon()
+	check(player.activate_mothlight(), "Mothlight should cast.")
+	check(not player.activate_mothlight(), "Mothlight should respect its cooldown.")
+	check(player.activate_petalguard(), "Petalguard should activate.")
+	player.invulnerable_left = 0.0
+	hp_before = player.health
+	player.take_damage(2)
+	check(player.health == hp_before and not player.guard_active, "Petalguard should absorb one hit.")
+	await frames(30)
+	player.invulnerable_left = 0.0
+	player.take_damage(4)
+	check(player.health == hp_before - 4, "Damage should remove a full heart.")
+	var tea_before: int = player.moontea_charges
+	check(player.drink_moontea() and player.moontea_charges == tea_before - 1, "Moontea should heal and use a charge.")
+
+	# ---- chest & gear
+	var charm_chest: Dictionary = {}
+	for c in game.chests:
+		if c["item"] == "moonheart_charm":
+			charm_chest = c
+	var max_before: int = player.max_health
+	player.global_position = charm_chest["pos"] + Vector2(0, 14)
+	await frames(2)
+	game._update_interactables()
+	check(game._interact_target.get("type", "") == "chest", "Standing by a chest should offer OPEN.")
+	game._interact()
+	check(charm_chest["open"], "Interacting should open the chest.")
+	check(player.charm_equipped and player.max_health == max_before + 4, "Moonheart Charm should auto-equip and add a heart.")
+	await frames(110)
+	player.give_item("briar_mail")
+	check(player.equipped.get("armor", "") == "briar_mail", "Briar Mail should equip into the armor slot.")
+	player.give_item("gale_bow")
+	check(player.weapons_owned.has("gale_bow"), "Gale Bow should join the weapon wheel.")
+
+	# ---- dialogue
+	var alder: Node = game.npcs[0]
+	player.global_position = alder.global_position + Vector2(0, 16)
+	await frames(2)
+	game._update_interactables()
+	game._interact()
+	check(game.hud.dialogue_open, "Talking to Elder Alder should open dialogue.")
+	for i in range(8):
+		game.hud.advance_dialogue()
+		game.hud.advance_dialogue()
+	check(not game.hud.dialogue_open, "Dialogue should close after the last line.")
+
+	# ---- bosses, seeds, ending
+	var boss: Node = game.bosses[0]
+	player.global_position = boss.home + Vector2(0, 80)
+	player.invulnerable_left = 99.0
+	await frames(4)
+	check(boss.awake and game.active_boss == boss, "Approaching a guardian should wake it.")
+	check(game.hud.boss_panel.visible, "Boss bar should be visible during a guardian fight.")
+	boss.hurt(boss.max_hp / 2 + 1, player.global_position, 0.0)
+	check(boss.enraged, "Guardian should enrage below half health.")
+	boss.hurt(boss.max_hp, player.global_position, 0.0)
+	check(boss.defeated and game.active_boss == null, "Guardian should be defeated.")
+	await frames(2)
+	var seed_found := false
+	for pk in game.pickups:
+		if pk["kind"] == "moonseed":
+			seed_found = true
+			pk["node"].global_position = player.global_position
+			pk["t"] = 1.0
+	check(seed_found, "Guardian should drop a Moonseed.")
+	await frames(3)
+	check(game.moonseeds.size() == 1, "Collecting the Moonseed should count it (got %d)." % game.moonseeds.size())
+	await frames(120)
+	game.moonseeds = ["briarback", "toad", "cyclops", "warden"]
+	player.global_position = game.moonwell.global_position + Vector2(0, 24)
+	await frames(2)
+	game._update_interactables()
+	check(game._interact_target.get("type", "") == "moonwell", "Moonwell should be interactable.")
+	game._interact()
+	check(game.victory, "Returning four Moonseeds should restore the Moonwell.")
+	await create_timer(3.5).timeout
+	check(game.hud.end_overlay.visible, "Victory screen should appear.")
+	check(game.environment.blight < 0.05, "The blight should lift after the ending.")
+	game.hud.end_button.pressed.emit()
+	await frames(2)
+
+	# ---- save / load
+	var coins_saved: int = player.petalcoins
+	check(game.save_game() and Save.exists(), "Saving should write the save file.")
+	player.petalcoins = 0
+	game._reset_state()
+	check(game.load_game(), "Loading should read the save file.")
+	check(player.petalcoins == coins_saved and game.victory and charm_chest["open"], "Loaded state should match the saved journey.")
+
+	# ---- death & respawn
+	game.victory = false
+	player.invulnerable_left = 0.0
 	player.guard_active = false
-	defeat_target.global_position = player.global_position + Vector2(24, 0)
-	defeat_target.attack_cooldown = 0.0
-	game.call("_update_enemies", 0.02)
-	game.call("_check_player_state")
-	var defeat_menu: bool = player.health == 0 and not bool(game.get("game_started")) and title_overlay.visible and paused
-	if not defeat_menu:
-		push_error("Defeat did not show the retry menu and pause the game.")
-		all_passed = false
-	start_button.pressed.emit()
-	await process_frame
-	await physics_frame
-	var retry_ok: bool = not paused and bool(game.get("game_started")) and player.health == 5 and game.get("enemies").size() == 6 and int(game.get("seed_count")) == 0 and str(player.call("get_weapon_name")) == "THORNBLADE" and not bool(player.get("charm_equipped")) and bool(player.get("cloak_equipped")) and int(player.get("moontea_charges")) == 3 and int(player.get("petalcoins")) == 0 and float(player.get("mothlight_cooldown")) == 0.0 and float(player.get("guard_cooldown")) == 0.0 and not bool(player.get("guard_active")) and int(player.get("attack_combo")) == -1 and float(player.get("combo_timer")) == 0.0
-	if not retry_ok:
-		push_error("Retry did not restore the full starting health, gear, resources, cooldowns, encounter, and menu state.")
-		all_passed = false
+	player.take_damage(999)
+	check(player.state == player.State.DEAD and game.game_over, "Lethal damage should down Mallow.")
+	await create_timer(1.5).timeout
+	check(game.hud.end_overlay.visible, "Game-over screen should appear.")
+	game.hud.end_button.pressed.emit()
+	await frames(2)
+	var ws: Dictionary = game._waystone(game.last_waystone)
+	check(player.state == player.State.MOVE and player.health == player.max_health, "Rising again should fully revive Mallow.")
+	check(player.global_position.distance_to(ws["pos"]) < 40.0, "Mallow should respawn at the last waystone.")
 
-	game.set("seed_taken", [true, true, true])
-	game.set("seed_count", 3)
-	player.global_position = Vector2(1660, 545)
-	game.call("_handle_collectibles")
-	var victory_ok: bool = bool(game.get("won")) and title_overlay.visible and paused
-	if not victory_ok:
-		push_error("Gathering all three Moonseeds and reaching the shrine did not produce the victory screen.")
-		all_passed = false
-
-	if not all_passed:
+	Save.erase()
+	if failures.size() > 0:
+		push_error("%d adventure checks failed." % failures.size())
 		quit(1)
 		return
-	print("Adventure-slice smoke test passed: menu/start, tiled world, assets, cloak bonus, combo finisher, Mothlight, weapons, Moontea, charm/guard, cache interaction, defeat/retry, and shrine victory.")
+	print("Open-world adventure smoke test passed: world, movement kit, combat, loot, gear, dialogue, guardians, Moonwell ending, save/load and respawn all work.")
 	quit(0)

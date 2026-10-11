@@ -1,0 +1,1296 @@
+extends Control
+## Petalbound HUD: hearts/stamina/coins, region banners, boss bar, minimap, quest tracker,
+## multi-touch joystick + action buttons, dialogue, shop, inventory, world map, title/pause/settings.
+
+const AnimLib := preload("res://scripts/core/anim_lib.gd")
+const DB := preload("res://scripts/data/db.gd")
+const NA := "res://assets/packs/ninja_adventure/"
+
+signal start_requested(new_game: bool)
+signal retry_requested
+
+const C_PANEL := Color(0.13, 0.10, 0.19, 0.86)
+const C_PANEL_LIGHT := Color(0.22, 0.17, 0.30, 0.92)
+const C_BORDER := Color(0.96, 0.72, 0.84, 0.95)
+const C_TEXT := Color(1.0, 0.96, 0.90)
+const C_DIM := Color(0.80, 0.74, 0.86)
+const C_GOLD := Color(1.0, 0.84, 0.48)
+const C_ROSE := Color(0.96, 0.55, 0.72)
+
+var game: Node
+var font: FontFile
+var ui_theme: Theme
+var heart_tex: Texture2D
+var hearts_box: HBoxContainer
+var stamina_bar: Control
+var coin_label: Label
+var tea_label: Label
+var seed_icons: Array[TextureRect] = []
+var clock_label: Label
+var quest_label: Label
+var message_label: Label
+var message_timer := 0.0
+var region_label: Label
+var region_sub: Label
+var region_t := 0.0
+var boss_panel: Control
+var boss_name: Label
+var boss_bar: ProgressBar
+var minimap: Control
+var minimap_tex: ImageTexture
+var weapon_icon: TextureRect
+var weapon_label: Label
+var skill_bars: Dictionary = {}
+var hint_label: Label
+
+var touch_root: Control
+var touch_buttons: Array = []
+var touch_held: Dictionary = {}
+var attack_button: TouchButton
+var dash_button: TouchButton
+var jump_button: TouchButton
+var mothlight_button: TouchButton
+var guard_button: TouchButton
+var heal_button: TouchButton
+var weapon_button: TouchButton
+var interact_button: TouchButton
+var sprint_button: TouchButton
+var pause_button: Button
+var bag_button: Button
+var map_button: Button
+var show_touch := true
+
+var pause_overlay: ColorRect
+var pause_panel: PanelContainer
+var inventory_overlay: ColorRect
+var inventory_panel: PanelContainer
+var inventory_grid: GridContainer
+var inventory_desc: Label
+var inventory_stats: Label
+var inventory_text: Label
+var map_overlay: ColorRect
+var map_view: Control
+var title_overlay: ColorRect
+var title_panel: Control
+var title_heading: Label
+var title_subheading: Label
+var title_button: Button
+var continue_button: Button
+var end_overlay: ColorRect
+var end_heading: Label
+var end_body: Label
+var end_button: Button
+var dialogue_panel: PanelContainer
+var dialogue_face: TextureRect
+var dialogue_name: Label
+var dialogue_text: Label
+var dialogue_lines: Array = []
+var dialogue_index := 0
+var dialogue_open := false
+var dialogue_chars := 0.0
+var shop_overlay: ColorRect
+var shop_list: VBoxContainer
+var shop_coins: Label
+var item_banner: PanelContainer
+var item_banner_icon: TextureRect
+var item_banner_title: Label
+var item_banner_desc: Label
+var deadzone_slider: HSlider
+var sensitivity_slider: HSlider
+var music_slider: HSlider
+var sfx_slider: HSlider
+var deadzone_label: Label
+var sensitivity_label: Label
+var quality_button: Button
+var touch_toggle: Button
+
+var joystick_deadzone := 0.08
+var joystick_sensitivity := 1.0
+var safe_rect := Rect2(Vector2(12, 12), Vector2(616, 336))
+var joystick_home := Vector2(70, 290)
+var joystick_center := Vector2(70, 290)
+var joystick_vector := Vector2.ZERO
+var joystick_raw_direction := Vector2.ZERO
+var joystick_raw_strength := 0.0
+var joystick_touch_index := -1
+var joystick_radius := 38.0
+var joystick_knob_radius := 15.0
+var _sprint_from_stick := false
+
+
+func setup(p_game: Node) -> void:
+	game = p_game
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	font = load("res://assets/packs/kenney_fonts/kenney_mini.ttf")
+	font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+	font.hinting = TextServer.HINTING_NONE
+	font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+	heart_tex = AnimLib.tex("ui/heart.png")
+	_make_theme()
+	show_touch = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+	_make_status()
+	_make_minimap()
+	_make_banners()
+	_make_touch_controls()
+	_make_top_buttons()
+	_make_dialogue()
+	_make_item_banner()
+	_make_shop()
+	_make_inventory_overlay()
+	_make_map_overlay()
+	_make_pause_overlay()
+	_make_end_overlay()
+	_make_title_overlay()
+	_layout_controls()
+	resized.connect(_layout_controls)
+	get_viewport().size_changed.connect(_layout_controls)
+
+
+# ------------------------------------------------------------------ styling helpers
+func _make_theme() -> void:
+	ui_theme = Theme.new()
+	ui_theme.default_font = font
+	ui_theme.default_font_size = 8
+	var btn := _box(C_PANEL_LIGHT, C_BORDER, 1, 3)
+	btn.content_margin_left = 8
+	btn.content_margin_right = 8
+	btn.content_margin_top = 4
+	btn.content_margin_bottom = 4
+	var hover := btn.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.36, 0.24, 0.42, 0.96)
+	var pressed := btn.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(0.62, 0.32, 0.50, 0.98)
+	var disabled := btn.duplicate() as StyleBoxFlat
+	disabled.bg_color = Color(0.16, 0.14, 0.2, 0.7)
+	disabled.border_color = Color(0.5, 0.45, 0.55, 0.6)
+	ui_theme.set_stylebox("normal", "Button", btn)
+	ui_theme.set_stylebox("hover", "Button", hover)
+	ui_theme.set_stylebox("pressed", "Button", pressed)
+	ui_theme.set_stylebox("disabled", "Button", disabled)
+	ui_theme.set_stylebox("focus", "Button", _box(Color(0, 0, 0, 0), C_GOLD, 1, 3))
+	ui_theme.set_color("font_color", "Button", C_TEXT)
+	ui_theme.set_color("font_hover_color", "Button", Color.WHITE)
+	ui_theme.set_color("font_pressed_color", "Button", Color.WHITE)
+	ui_theme.set_color("font_disabled_color", "Button", Color(0.6, 0.55, 0.62))
+	ui_theme.set_color("font_color", "Label", C_TEXT)
+	ui_theme.set_color("font_shadow_color", "Label", Color(0.08, 0.05, 0.12, 0.9))
+	ui_theme.set_constant("shadow_offset_x", "Label", 1)
+	ui_theme.set_constant("shadow_offset_y", "Label", 1)
+	ui_theme.set_constant("line_spacing", "Label", 1)
+	ui_theme.set_stylebox("panel", "PanelContainer", _box(C_PANEL, C_BORDER, 1, 4))
+	var slider_bg := _box(Color(0.1, 0.08, 0.14, 0.9), Color(0.6, 0.5, 0.65), 1, 2)
+	slider_bg.content_margin_top = 2
+	slider_bg.content_margin_bottom = 2
+	ui_theme.set_stylebox("slider", "HSlider", slider_bg)
+	ui_theme.set_stylebox("grabber_area", "HSlider", _box(C_ROSE, C_ROSE, 0, 2))
+	ui_theme.set_stylebox("grabber_area_highlight", "HSlider", _box(C_ROSE, C_ROSE, 0, 2))
+	ui_theme.set_stylebox("background", "ProgressBar", _box(Color(0.1, 0.06, 0.1, 0.9), Color(0.9, 0.7, 0.8), 1, 2))
+	ui_theme.set_stylebox("fill", "ProgressBar", _box(Color(0.9, 0.3, 0.42), Color(0.9, 0.3, 0.42), 0, 2))
+	theme = ui_theme
+
+
+func _box(bg: Color, border: Color, width: int, radius: int) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = border
+	s.set_border_width_all(width)
+	s.set_corner_radius_all(radius)
+	s.anti_aliasing = false
+	s.content_margin_left = 6
+	s.content_margin_right = 6
+	s.content_margin_top = 4
+	s.content_margin_bottom = 4
+	return s
+
+
+func _label(text: String, size := 8, color := C_TEXT, parent: Control = null) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	(parent if parent != null else self).add_child(l)
+	return l
+
+
+func _icon(path: String, size: Vector2, parent: Control) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = AnimLib.tex(path)
+	t.custom_minimum_size = size
+	t.size = size
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(t)
+	return t
+
+
+func _button(text: String, parent: Control, cb: Callable, size := 8) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", size)
+	b.pressed.connect(cb)
+	parent.add_child(b)
+	return b
+
+
+func _overlay(color := Color(0.05, 0.03, 0.09, 0.6)) -> ColorRect:
+	var o := ColorRect.new()
+	o.color = color
+	o.set_anchors_preset(Control.PRESET_FULL_RECT)
+	o.mouse_filter = Control.MOUSE_FILTER_STOP
+	o.visible = false
+	add_child(o)
+	return o
+
+
+func _centered_panel(parent: Control, min_size: Vector2) -> PanelContainer:
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(cc)
+	var p := PanelContainer.new()
+	p.custom_minimum_size = min_size
+	cc.add_child(p)
+	return p
+
+
+func _vbox(parent: Control, sep := 4) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", sep)
+	parent.add_child(v)
+	return v
+
+
+func _hbox(parent: Control, sep := 4) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", sep)
+	parent.add_child(h)
+	return h
+
+
+# ------------------------------------------------------------------ status
+func _make_status() -> void:
+	hearts_box = HBoxContainer.new()
+	hearts_box.add_theme_constant_override("separation", 0)
+	hearts_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(hearts_box)
+	stamina_bar = StaminaBar.new()
+	stamina_bar.hud = self
+	stamina_bar.size = Vector2(70, 5)
+	add_child(stamina_bar)
+	var row := _hbox(self, 3)
+	row.name = "CounterRow"
+	_icon("items/goldcoin.png", Vector2(8, 8), row)
+	coin_label = _label("0", 8, C_GOLD, row)
+	var sp := Control.new()
+	sp.custom_minimum_size = Vector2(6, 1)
+	row.add_child(sp)
+	_icon("items/lifepot.png", Vector2(9, 9), row)
+	tea_label = _label("3/3", 8, Color(0.75, 1.0, 0.82), row)
+	quest_label = _label("", 8, C_DIM)
+	quest_label.size = Vector2(240, 30)
+	quest_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var wbox := PanelContainer.new()
+	wbox.name = "WeaponBox"
+	wbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(wbox)
+	var wrow := _hbox(wbox, 4)
+	weapon_icon = _icon("items/weapons/katana.png", Vector2(14, 14), wrow)
+	var wcol := _vbox(wrow, 0)
+	weapon_label = _label("THORNBLADE", 8, C_TEXT, wcol)
+	hint_label = _label("Q  SWAP", 8, C_DIM, wcol)
+	hint_label.add_theme_font_size_override("font_size", 8)
+	message_label = _label("", 8, C_TEXT)
+	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	message_label.size = Vector2(400, 12)
+
+
+func _make_minimap() -> void:
+	minimap = Minimap.new()
+	minimap.hud = self
+	minimap.size = Vector2(92, 64)
+	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(minimap)
+	var seeds_row := _hbox(self, 1)
+	seeds_row.name = "SeedRow"
+	for i in range(4):
+		var t := _icon("items/seedlarge.png", Vector2(10, 10), seeds_row)
+		t.modulate = Color(0.25, 0.22, 0.3, 0.8)
+		seed_icons.append(t)
+	clock_label = _label("08:00", 8, C_DIM, seeds_row)
+
+
+func build_minimap_texture(biome: Image, field: Image) -> void:
+	var w := biome.get_width()
+	var h := biome.get_height()
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4")]
+	var fw := field.get_width() / w
+	for y in range(h):
+		for x in range(w):
+			var b := int(round(biome.get_pixel(x, y).r * 255.0))
+			var f := field.get_pixel(x * fw, y * fw)
+			var c: Color = cols[clampi(b, 0, 5)]
+			if f.g > 0.5:
+				c = Color("4fb6d8").lerp(Color("2b6aa8"), f.b)
+			elif f.r > 0.5:
+				c = c.lerp(Color("c99d66"), 0.55)
+			img.set_pixel(x, y, c)
+	minimap_tex = ImageTexture.create_from_image(img)
+
+
+func _make_banners() -> void:
+	region_label = _label("", 16, Color(1, 0.95, 0.88))
+	region_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	region_label.size = Vector2(400, 20)
+	region_label.modulate.a = 0.0
+	region_sub = _label("", 8, C_ROSE)
+	region_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	region_sub.size = Vector2(400, 12)
+	region_sub.modulate.a = 0.0
+	boss_panel = VBoxContainer.new()
+	boss_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_panel.visible = false
+	add_child(boss_panel)
+	boss_name = _label("", 8, Color(1, 0.86, 0.8), boss_panel)
+	boss_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boss_bar = ProgressBar.new()
+	boss_bar.custom_minimum_size = Vector2(220, 7)
+	boss_bar.show_percentage = false
+	boss_panel.add_child(boss_bar)
+
+
+# ------------------------------------------------------------------ touch controls
+func _make_touch_controls() -> void:
+	touch_root = Control.new()
+	touch_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	touch_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(touch_root)
+	attack_button = _touch("attack", "items/weapons/katana.png", 25.0, Color(0.95, 0.45, 0.6))
+	dash_button = _touch("dash", "ui/skill/boot.png", 16.0, Color(0.55, 0.75, 0.95))
+	jump_button = _touch("jump", "ui/skill/arrow.png", 15.0, Color(0.6, 0.9, 0.75))
+	mothlight_button = _touch("skill", "ui/skill/scroll.png", 14.0, Color(1.0, 0.85, 0.5))
+	guard_button = _touch("guard", "ui/skill/guard.png", 14.0, Color(0.95, 0.7, 0.95))
+	heal_button = _touch("heal", "items/lifepot.png", 13.0, Color(0.6, 1.0, 0.7))
+	weapon_button = _touch("switch_weapon", "items/weapons/magicwand.png", 12.0, Color(0.8, 0.8, 0.9))
+	interact_button = _touch("interact", "ui/skill/talk.png", 15.0, Color(1.0, 0.9, 0.6))
+	sprint_button = _touch("sprint", "ui/skill/punch.png", 12.0, Color(0.95, 0.75, 0.55))
+	interact_button.visible = false
+
+
+func _touch(action: String, icon: String, radius: float, color: Color) -> TouchButton:
+	var b := TouchButton.new()
+	b.action = action
+	b.icon = AnimLib.tex(icon)
+	b.radius = radius
+	b.tint = color
+	b.size = Vector2(radius * 2.0, radius * 2.0)
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	touch_root.add_child(b)
+	touch_buttons.append(b)
+	return b
+
+
+func _make_top_buttons() -> void:
+	pause_button = _button("II", self, toggle_pause)
+	pause_button.custom_minimum_size = Vector2(22, 18)
+	bag_button = _button("BAG", self, toggle_inventory)
+	bag_button.custom_minimum_size = Vector2(32, 18)
+	map_button = _button("MAP", self, toggle_map)
+	map_button.custom_minimum_size = Vector2(32, 18)
+
+
+# ------------------------------------------------------------------ dialogue, item get, shop
+func _make_dialogue() -> void:
+	dialogue_panel = PanelContainer.new()
+	dialogue_panel.visible = false
+	dialogue_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	dialogue_panel.gui_input.connect(_on_dialogue_gui)
+	add_child(dialogue_panel)
+	var row := _hbox(dialogue_panel, 8)
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", _box(Color(0.32, 0.22, 0.38), C_GOLD, 1, 3))
+	row.add_child(frame)
+	dialogue_face = TextureRect.new()
+	dialogue_face.custom_minimum_size = Vector2(38, 38)
+	dialogue_face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	dialogue_face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	dialogue_face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	frame.add_child(dialogue_face)
+	var col := _vbox(row, 3)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dialogue_name = _label("", 8, C_GOLD, col)
+	dialogue_text = _label("", 8, C_TEXT, col)
+	dialogue_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialogue_text.custom_minimum_size = Vector2(300, 30)
+	dialogue_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var more := _label("E / TAP", 8, C_DIM, col)
+	more.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+
+func _make_item_banner() -> void:
+	item_banner = PanelContainer.new()
+	item_banner.visible = false
+	item_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_banner.add_theme_stylebox_override("panel", _box(Color(0.18, 0.12, 0.24, 0.94), C_GOLD, 1, 4))
+	add_child(item_banner)
+	var row := _hbox(item_banner, 8)
+	item_banner_icon = _icon("items/heart.png", Vector2(24, 24), row)
+	var col := _vbox(row, 2)
+	item_banner_title = _label("", 8, C_GOLD, col)
+	item_banner_desc = _label("", 8, C_TEXT, col)
+	item_banner_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	item_banner_desc.custom_minimum_size = Vector2(210, 10)
+
+
+func _make_shop() -> void:
+	shop_overlay = _overlay()
+	var p := _centered_panel(shop_overlay, Vector2(300, 0))
+	var v := _vbox(p, 5)
+	var head := _hbox(v, 6)
+	_label("PROVISIONS", 16, C_GOLD, head)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	_icon("items/goldcoin.png", Vector2(8, 8), head)
+	shop_coins = _label("0", 8, C_GOLD, head)
+	shop_list = _vbox(v, 3)
+	_button("LEAVE", v, close_shop)
+
+
+func open_shop(stock: Array) -> void:
+	for c in shop_list.get_children():
+		c.queue_free()
+	for entry in stock:
+		var id: String = entry["id"]
+		var item: Dictionary = DB.ITEMS[id]
+		var row := _hbox(shop_list, 6)
+		_icon(item["icon"], Vector2(14, 14), row)
+		var l := _label(item["name"], 8, C_TEXT, row)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.custom_minimum_size = Vector2(150, 0)
+		var b := _button("%d" % entry["price"], row, func() -> void: game.buy_item(entry))
+		b.icon = AnimLib.tex("items/goldcoin.png")
+		b.custom_minimum_size = Vector2(54, 16)
+		b.disabled = not game.can_buy(entry)
+	shop_coins.text = str(game.player.petalcoins)
+	shop_overlay.visible = true
+	_clear_touch_inputs()
+
+
+func close_shop() -> void:
+	shop_overlay.visible = false
+
+
+func refresh_shop(stock: Array) -> void:
+	if shop_overlay.visible:
+		open_shop(stock)
+
+
+# ------------------------------------------------------------------ inventory
+func _make_inventory_overlay() -> void:
+	inventory_overlay = _overlay()
+	inventory_panel = _centered_panel(inventory_overlay, Vector2(380, 0))
+	var v := _vbox(inventory_panel, 6)
+	var head := _hbox(v, 6)
+	_label("SATCHEL", 16, C_GOLD, head)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	_button("CLOSE", head, toggle_inventory)
+	var body := _hbox(v, 10)
+	var left := _vbox(body, 4)
+	_label("WEAPONS & GEAR  (tap to equip)", 8, C_DIM, left)
+	inventory_grid = GridContainer.new()
+	inventory_grid.columns = 6
+	inventory_grid.add_theme_constant_override("h_separation", 3)
+	inventory_grid.add_theme_constant_override("v_separation", 3)
+	left.add_child(inventory_grid)
+	inventory_desc = _label("", 8, C_TEXT, left)
+	inventory_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inventory_desc.custom_minimum_size = Vector2(200, 34)
+	var right := _vbox(body, 3)
+	_label("MALLOW", 8, C_GOLD, right)
+	inventory_stats = _label("", 8, C_TEXT, right)
+	inventory_text = inventory_stats
+
+
+func _refresh_inventory() -> void:
+	for c in inventory_grid.get_children():
+		c.queue_free()
+	var p: Node = game.player
+	var ids: Array = []
+	for w in p.weapons_owned:
+		ids.append(w)
+	for i in p.inventory:
+		ids.append(i)
+	for id in ids:
+		var item: Dictionary = DB.ITEMS[id]
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(28, 28)
+		b.icon = AnimLib.tex(item["icon"])
+		b.expand_icon = true
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var equipped: bool = (item["type"] == "weapon" and p.get_weapon_id() == id) or p.equipped.values().has(id)
+		if equipped:
+			b.add_theme_stylebox_override("normal", _box(Color(0.5, 0.26, 0.42), C_GOLD, 1, 3))
+		b.pressed.connect(_on_inventory_item.bind(id))
+		b.mouse_entered.connect(func() -> void: inventory_desc.text = "%s\n%s" % [item["name"], item["desc"]])
+		inventory_grid.add_child(b)
+	var lines := PackedStringArray()
+	lines.append("Hearts  %d / %d" % [ceili(p.health / 4.0), p.max_health / 4])
+	lines.append("Moontea  %d / %d" % [p.moontea_charges, p.moontea_max])
+	lines.append("Petalcoins  %d" % p.petalcoins)
+	lines.append("Moonseeds  %d / 4" % game.moonseeds.size())
+	lines.append("Speed  %d%%" % roundi(p.get_move_speed() / p.WALK_SPEED * 100.0))
+	lines.append("")
+	for slot in DB.EQUIP_SLOTS:
+		var eq: String = p.equipped.get(slot, "")
+		lines.append("%s: %s" % [slot.capitalize(), DB.ITEMS[eq]["name"] if eq != "" else "-"])
+	inventory_stats.text = "\n".join(lines)
+
+
+func _on_inventory_item(id: String) -> void:
+	var p: Node = game.player
+	var item: Dictionary = DB.ITEMS[id]
+	if item["type"] == "weapon":
+		p.weapon_index = p.weapons_owned.find(id)
+	else:
+		p.equip(id)
+	inventory_desc.text = "%s\n%s" % [item["name"], item["desc"]]
+	game.audio.play("menu5", 0.02, -4.0)
+	_refresh_inventory()
+
+
+func toggle_inventory() -> void:
+	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+		return
+	inventory_overlay.visible = not inventory_overlay.visible
+	if inventory_overlay.visible:
+		_clear_touch_inputs()
+		_refresh_inventory()
+	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible)
+
+
+# ------------------------------------------------------------------ map
+func _make_map_overlay() -> void:
+	map_overlay = _overlay(Color(0.04, 0.03, 0.08, 0.82))
+	map_view = WorldMapView.new()
+	map_view.hud = self
+	map_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	map_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_overlay.add_child(map_view)
+	var close := _button("CLOSE", map_overlay, toggle_map)
+	close.name = "MapClose"
+
+
+func toggle_map() -> void:
+	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+		return
+	map_overlay.visible = not map_overlay.visible
+	if map_overlay.visible:
+		_clear_touch_inputs()
+		map_view.queue_redraw()
+	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible)
+
+
+# ------------------------------------------------------------------ pause / settings
+func _make_pause_overlay() -> void:
+	pause_overlay = _overlay()
+	pause_panel = _centered_panel(pause_overlay, Vector2(300, 200))
+	var v := _vbox(pause_panel, 5)
+	var t := _label("PAUSED", 16, C_GOLD, v)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var resume := _button("RESUME", v, func() -> void: set_game_paused(false))
+	resume.name = "ResumeButton"
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 4)
+	v.add_child(grid)
+	deadzone_label = _label("DEAD ZONE  8%", 8, C_TEXT, grid)
+	deadzone_slider = _slider(0.0, 0.35, joystick_deadzone, 0.01, grid)
+	deadzone_slider.value_changed.connect(_on_deadzone_changed)
+	sensitivity_label = _label("SENSITIVITY  1.00x", 8, C_TEXT, grid)
+	sensitivity_slider = _slider(0.6, 1.8, joystick_sensitivity, 0.05, grid)
+	sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
+	_label("MUSIC", 8, C_TEXT, grid)
+	music_slider = _slider(0.0, 1.0, 0.7, 0.05, grid)
+	music_slider.value_changed.connect(func(x: float) -> void:
+		game.audio.music_volume = x
+		game.audio.apply_volumes())
+	_label("EFFECTS", 8, C_TEXT, grid)
+	sfx_slider = _slider(0.0, 1.0, 0.85, 0.05, grid)
+	sfx_slider.value_changed.connect(func(x: float) -> void:
+		game.audio.sfx_volume = x
+		game.audio.apply_volumes())
+	var row := _hbox(v, 4)
+	quality_button = _button("FX: HIGH", row, _toggle_quality)
+	touch_toggle = _button("TOUCH: ON", row, _toggle_touch)
+	var row2 := _hbox(v, 4)
+	_button("SAVE", row2, func() -> void:
+		game.save_game()
+		show_message("Journey saved."))
+	_button("SAVE & TITLE", row2, func() -> void:
+		game.save_game()
+		set_game_paused(false)
+		game.return_to_title())
+
+
+func _slider(minimum: float, maximum: float, initial: float, step: float, parent: Control) -> HSlider:
+	var s := HSlider.new()
+	s.min_value = minimum
+	s.max_value = maximum
+	s.step = step
+	s.value = initial
+	s.focus_mode = Control.FOCUS_NONE
+	s.custom_minimum_size = Vector2(120, 12)
+	parent.add_child(s)
+	return s
+
+
+func _toggle_quality() -> void:
+	game.environment.set_quality(not game.environment.quality_high)
+	quality_button.text = "FX: HIGH" if game.environment.quality_high else "FX: LOW"
+
+
+func _toggle_touch() -> void:
+	show_touch = not show_touch
+	touch_toggle.text = "TOUCH: ON" if show_touch else "TOUCH: OFF"
+
+
+func toggle_pause() -> void:
+	if title_overlay.visible or end_overlay.visible:
+		return
+	if inventory_overlay.visible:
+		toggle_inventory()
+		return
+	if map_overlay.visible:
+		toggle_map()
+		return
+	if shop_overlay.visible:
+		close_shop()
+		return
+	set_game_paused(not get_tree().paused)
+
+
+func set_game_paused(paused: bool) -> void:
+	if paused:
+		_clear_touch_inputs()
+	pause_overlay.visible = paused
+	touch_toggle.text = "TOUCH: ON" if show_touch else "TOUCH: OFF"
+	get_tree().paused = paused
+
+
+# ------------------------------------------------------------------ title / end
+func _make_title_overlay() -> void:
+	title_overlay = _overlay(Color(0.06, 0.04, 0.10, 0.25))
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_overlay.add_child(cc)
+	title_panel = VBoxContainer.new()
+	title_panel.add_theme_constant_override("separation", 6)
+	cc.add_child(title_panel)
+	title_heading = _label("PETALBOUND", 32, Color(1.0, 0.86, 0.92), title_panel)
+	title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_heading.add_theme_color_override("font_shadow_color", Color(0.45, 0.16, 0.36))
+	title_heading.add_theme_constant_override("shadow_offset_x", 2)
+	title_heading.add_theme_constant_override("shadow_offset_y", 2)
+	title_subheading = _label("Return the four Moonseeds. Wake the Moonwell.", 8, C_TEXT, title_panel)
+	title_subheading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(1, 8)
+	title_panel.add_child(spacer)
+	continue_button = _button("CONTINUE JOURNEY", title_panel, func() -> void: start_requested.emit(false))
+	title_button = _button("NEW JOURNEY", title_panel, func() -> void: start_requested.emit(true))
+	for b in [continue_button, title_button]:
+		b.custom_minimum_size = Vector2(150, 20)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var keys := _label("WASD move  SHIFT sprint  SPACE roll  C jump  J attack\nF mothlight  G guard  R moontea  Q swap  E talk  I bag  M map", 8, C_DIM, title_panel)
+	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+
+func show_title_menu(has_save: bool) -> void:
+	title_overlay.visible = true
+	continue_button.visible = has_save
+	_clear_touch_inputs()
+
+
+func hide_title_menu() -> void:
+	title_overlay.visible = false
+
+
+func _make_end_overlay() -> void:
+	end_overlay = _overlay(Color(0.05, 0.03, 0.09, 0.55))
+	var p := _centered_panel(end_overlay, Vector2(300, 120))
+	var v := _vbox(p, 6)
+	end_heading = _label("", 16, C_GOLD, v)
+	end_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	end_body = _label("", 8, C_TEXT, v)
+	end_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	end_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	end_button = _button("RISE AGAIN", v, func() -> void:
+		end_overlay.visible = false
+		retry_requested.emit())
+
+
+func show_game_over(message := "The petals fall... but the waystone remembers you.") -> void:
+	end_heading.text = "MALLOW FALLS"
+	end_body.text = message
+	end_button.text = "RISE AT WAYSTONE"
+	end_overlay.visible = true
+	_clear_touch_inputs()
+
+
+func show_victory(message := "The Moonwell blooms again. Colour returns to every petal in the valley.") -> void:
+	end_heading.text = "THE MOONWELL WAKES"
+	end_body.text = message
+	end_button.text = "KEEP EXPLORING"
+	end_overlay.visible = true
+	_clear_touch_inputs()
+
+
+# ------------------------------------------------------------------ public api
+func show_message(text: String, duration := 3.0) -> void:
+	message_label.text = text
+	message_timer = duration
+	message_label.modulate.a = 1.0
+
+
+func show_region(name: String, sub := "") -> void:
+	region_label.text = name.to_upper()
+	region_sub.text = sub
+	region_t = 3.2
+
+
+func show_item_get(id: String) -> void:
+	var item: Dictionary = DB.ITEMS[id]
+	item_banner_icon.texture = AnimLib.tex(item["icon"])
+	item_banner_title.text = String(item["name"]).to_upper()
+	item_banner_desc.text = item["desc"]
+	item_banner.visible = true
+	item_banner.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(item_banner, "modulate:a", 1.0, 0.2)
+	tw.tween_interval(2.6)
+	tw.tween_property(item_banner, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(func() -> void: item_banner.visible = false)
+
+
+func show_boss(boss: Node) -> void:
+	boss_panel.visible = true
+	boss_name.text = boss.title
+	boss_bar.max_value = boss.max_hp
+	boss_bar.value = boss.hp
+
+
+func hide_boss() -> void:
+	boss_panel.visible = false
+
+
+func set_interact_visible(visible_now: bool, label := "") -> void:
+	interact_button.visible = visible_now
+	interact_button.label = label
+
+
+func set_seed_count(amount: int, total := 4) -> void:
+	for i in range(seed_icons.size()):
+		seed_icons[i].modulate = Color(1, 1, 1, 1) if i < amount else Color(0.25, 0.22, 0.3, 0.8)
+		seed_icons[i].visible = i < total
+
+
+func start_dialogue(speaker: String, face: Texture2D, lines: Array) -> void:
+	dialogue_lines = lines.duplicate()
+	dialogue_index = 0
+	dialogue_name.text = speaker
+	dialogue_face.texture = face
+	dialogue_panel.visible = true
+	dialogue_open = true
+	_clear_touch_inputs()
+	_show_line()
+
+
+func _show_line() -> void:
+	while dialogue_index < dialogue_lines.size() and String(dialogue_lines[dialogue_index]).begins_with("@"):
+		var cmd := String(dialogue_lines[dialogue_index]).substr(1)
+		dialogue_index += 1
+		game.on_dialogue_command(cmd)
+		if cmd == "shop":
+			end_dialogue()
+			return
+	if dialogue_index >= dialogue_lines.size():
+		end_dialogue()
+		return
+	dialogue_text.text = dialogue_lines[dialogue_index]
+	dialogue_text.visible_characters = 0
+	dialogue_chars = 0.0
+	game.audio.play("voice1", 0.12, -12.0)
+
+
+func advance_dialogue() -> void:
+	if not dialogue_open:
+		return
+	if dialogue_text.visible_characters >= 0 and dialogue_text.visible_characters < dialogue_text.text.length():
+		dialogue_text.visible_characters = -1
+		return
+	dialogue_index += 1
+	_show_line()
+
+
+func end_dialogue() -> void:
+	dialogue_open = false
+	dialogue_panel.visible = false
+	game.on_dialogue_closed()
+
+
+func _on_dialogue_gui(event: InputEvent) -> void:
+	if (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+		advance_dialogue()
+		accept_event()
+
+
+func any_menu_open() -> bool:
+	return title_overlay.visible or pause_overlay.visible or inventory_overlay.visible or map_overlay.visible or end_overlay.visible or shop_overlay.visible or dialogue_open
+
+
+# ------------------------------------------------------------------ layout
+func _layout_controls() -> void:
+	if not is_instance_valid(hearts_box):
+		return
+	var vs := get_viewport_rect().size
+	if size != vs:
+		position = Vector2.ZERO
+		size = vs
+	safe_rect = _get_safe_rect()
+	(map_overlay.get_node("MapClose") as Control).position = Vector2(safe_rect.end.x - 50, safe_rect.position.y + 4)
+	var tl := safe_rect.position
+	var tr := Vector2(safe_rect.end.x, safe_rect.position.y)
+	hearts_box.position = tl
+	stamina_bar.position = tl + Vector2(1, 17)
+	var counters := get_node("CounterRow") as Control
+	counters.position = tl + Vector2(0, 25)
+	quest_label.position = tl + Vector2(0, 39)
+	minimap.position = tr + Vector2(-minimap.size.x, 0)
+	var seed_row := get_node("SeedRow") as Control
+	seed_row.position = minimap.position + Vector2(0, minimap.size.y + 3)
+	pause_button.position = minimap.position + Vector2(-26, 0)
+	map_button.position = minimap.position + Vector2(-36, 21)
+	bag_button.position = minimap.position + Vector2(-36, 42)
+	var wbox := get_node("WeaponBox") as Control
+	wbox.position = Vector2(safe_rect.end.x - 92, safe_rect.position.y + 84)
+	message_label.position = Vector2(safe_rect.get_center().x - 200, safe_rect.end.y - 62)
+	region_label.position = Vector2(safe_rect.get_center().x - 200, safe_rect.position.y + 50)
+	region_sub.position = region_label.position + Vector2(0, 20)
+	boss_panel.position = Vector2(safe_rect.get_center().x - 110, safe_rect.end.y - 26)
+	dialogue_panel.position = Vector2(safe_rect.get_center().x - 190, safe_rect.end.y - 70)
+	dialogue_panel.size = Vector2(380, 64)
+	item_banner.position = Vector2(safe_rect.get_center().x - 130, safe_rect.position.y + 74)
+	# touch cluster (bottom right)
+	var br := safe_rect.end
+	attack_button.center_at(br + Vector2(-34, -34))
+	dash_button.center_at(br + Vector2(-82, -22))
+	jump_button.center_at(br + Vector2(-34, -84))
+	mothlight_button.center_at(br + Vector2(-122, -24))
+	guard_button.center_at(br + Vector2(-84, -66))
+	heal_button.center_at(br + Vector2(-70, -108))
+	weapon_button.center_at(br + Vector2(-24, -124))
+	interact_button.center_at(br + Vector2(-128, -64))
+	joystick_radius = clampf(minf(safe_rect.size.x * 0.07, safe_rect.size.y * 0.12), 26.0, 42.0)
+	joystick_knob_radius = maxf(10.0, joystick_radius * 0.4)
+	joystick_home = Vector2(safe_rect.position.x + joystick_radius + 16, safe_rect.end.y - joystick_radius - 14)
+	sprint_button.center_at(joystick_home + Vector2(0, -joystick_radius - 26))
+	if joystick_touch_index == -1:
+		joystick_center = joystick_home
+	queue_redraw()
+
+
+func _get_safe_rect() -> Rect2:
+	var viewport_size := get_viewport_rect().size
+	var window_size := DisplayServer.window_get_size()
+	var margin := 8.0
+	var fallback := Rect2(Vector2(margin, margin), Vector2(maxf(1.0, viewport_size.x - margin * 2.0), maxf(1.0, viewport_size.y - margin * 2.0)))
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or window_size.x <= 0 or window_size.y <= 0:
+		return fallback
+	var display_safe := DisplayServer.get_display_safe_area()
+	var window_pos := DisplayServer.window_get_position()
+	var left := maxf(margin, clampf(float(display_safe.position.x - window_pos.x) / float(window_size.x), 0.0, 1.0) * viewport_size.x)
+	var top := maxf(margin, clampf(float(display_safe.position.y - window_pos.y) / float(window_size.y), 0.0, 1.0) * viewport_size.y)
+	var right := minf(viewport_size.x - margin, clampf(float(display_safe.end.x - window_pos.x) / float(window_size.x), 0.0, 1.0) * viewport_size.x)
+	var bottom := minf(viewport_size.y - margin, clampf(float(display_safe.end.y - window_pos.y) / float(window_size.y), 0.0, 1.0) * viewport_size.y)
+	if right - left < 300.0 or bottom - top < 200.0:
+		return fallback
+	return Rect2(Vector2(left, top), Vector2(right - left, bottom - top))
+
+
+# ------------------------------------------------------------------ per-frame
+func _process(delta: float) -> void:
+	if game == null or game.player == null:
+		return
+	var p: Node = game.player
+	_update_hearts(p.health, p.max_health)
+	coin_label.text = str(p.petalcoins)
+	tea_label.text = "%d/%d" % [p.moontea_charges, p.moontea_max]
+	clock_label.text = game.environment.clock_text()
+	var wid: String = p.get_weapon_id()
+	weapon_icon.texture = AnimLib.tex(DB.ITEMS[wid]["icon"])
+	weapon_label.text = p.get_weapon_name()
+	attack_button.icon = weapon_icon.texture
+	var next_w: String = p.weapons_owned[(p.weapon_index + 1) % p.weapons_owned.size()]
+	weapon_button.icon = AnimLib.tex(DB.ITEMS[next_w]["icon"])
+	mothlight_button.cooldown = p.mothlight_cooldown / 6.0
+	guard_button.cooldown = p.guard_cooldown / 10.0
+	heal_button.cooldown = 0.0 if p.moontea_charges > 0 else 1.0
+	heal_button.label = str(p.moontea_charges)
+	quest_label.text = game.quest_text()
+	if message_timer > 0.0:
+		message_timer -= delta
+		if message_timer < 0.5:
+			message_label.modulate.a = maxf(0.0, message_timer / 0.5)
+	if region_t > 0.0:
+		region_t -= delta
+		var a := clampf(minf(3.2 - region_t, region_t) / 0.6, 0.0, 1.0)
+		region_label.modulate.a = a
+		region_sub.modulate.a = a
+	if boss_panel.visible and game.active_boss:
+		boss_bar.value = lerpf(boss_bar.value, game.active_boss.hp, clampf(delta * 8.0, 0.0, 1.0))
+	if dialogue_open and dialogue_text.visible_characters >= 0:
+		dialogue_chars += delta * 55.0
+		dialogue_text.visible_characters = int(dialogue_chars)
+		if dialogue_text.visible_characters >= dialogue_text.text.length():
+			dialogue_text.visible_characters = -1
+	var playing: bool = game.game_started and not any_menu_open()
+	touch_root.visible = show_touch and playing
+	for n in [hearts_box, stamina_bar, quest_label, minimap, get_node("CounterRow"), get_node("SeedRow"), get_node("WeaponBox"), pause_button, bag_button, map_button]:
+		n.visible = game.game_started and not title_overlay.visible
+	minimap.queue_redraw()
+	queue_redraw()
+	if dialogue_open and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("attack")):
+		advance_dialogue()
+
+
+func _update_hearts(health: int, max_health: int) -> void:
+	var count := ceili(max_health / 4.0)
+	while hearts_box.get_child_count() < count:
+		var t := TextureRect.new()
+		var a := AtlasTexture.new()
+		a.atlas = heart_tex
+		a.region = Rect2(64, 0, 16, 16)
+		t.texture = a
+		t.custom_minimum_size = Vector2(13, 13)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		hearts_box.add_child(t)
+	while hearts_box.get_child_count() > count:
+		var c := hearts_box.get_child(hearts_box.get_child_count() - 1)
+		hearts_box.remove_child(c)
+		c.queue_free()
+	for i in range(count):
+		var quarters := clampi(health - i * 4, 0, 4)
+		var tr := hearts_box.get_child(i) as TextureRect
+		(tr.texture as AtlasTexture).region = Rect2(quarters * 16, 0, 16, 16)
+
+
+# ------------------------------------------------------------------ input
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause"):
+		toggle_pause()
+		get_viewport().set_input_as_handled()
+		return
+	if game == null or not game.game_started:
+		return
+	if title_overlay.visible or end_overlay.visible or get_tree().paused and not inventory_overlay.visible and not map_overlay.visible:
+		return
+	if event.is_action_pressed("inventory"):
+		toggle_inventory()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("map"):
+		toggle_map()
+		get_viewport().set_input_as_handled()
+		return
+	if any_menu_open():
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			var b := _button_at(touch.position)
+			if b != null:
+				_press_touch(b, touch.index)
+				get_viewport().set_input_as_handled()
+			elif joystick_touch_index == -1 and _can_start_joystick(touch.position):
+				joystick_touch_index = touch.index
+				joystick_center = touch.position
+				_update_joystick(touch.position)
+				get_viewport().set_input_as_handled()
+		else:
+			if touch.index == joystick_touch_index:
+				_end_joystick()
+				get_viewport().set_input_as_handled()
+			elif touch_held.has(touch.index):
+				_release_touch(touch.index)
+				get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if drag.index == joystick_touch_index:
+			_update_joystick(drag.position)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION and show_touch:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				var b2 := _button_at(mb.position)
+				if b2 != null:
+					_press_touch(b2, 100)
+					get_viewport().set_input_as_handled()
+			elif touch_held.has(100):
+				_release_touch(100)
+
+
+func _button_at(point: Vector2) -> TouchButton:
+	if not touch_root.visible:
+		return null
+	for b in touch_buttons:
+		if b.visible and b.hit(point):
+			return b
+	return null
+
+
+func _press_touch(b: TouchButton, index: int) -> void:
+	touch_held[index] = b
+	b.pressed_now = true
+	Input.action_press(b.action)
+	if b.action == "switch_weapon":
+		game.player.cycle_weapon()
+		Input.action_release(b.action)
+	queue_redraw()
+
+
+func _release_touch(index: int) -> void:
+	var b: TouchButton = touch_held[index]
+	touch_held.erase(index)
+	b.pressed_now = false
+	Input.action_release(b.action)
+
+
+func _can_start_joystick(point: Vector2) -> bool:
+	return point.x <= safe_rect.position.x + safe_rect.size.x * 0.48 and point.y >= safe_rect.position.y + safe_rect.size.y * 0.30
+
+
+func _update_joystick(point: Vector2) -> void:
+	var offset := point - joystick_center
+	if offset.length() > joystick_radius * 1.4:
+		joystick_center = point - offset.normalized() * joystick_radius * 1.4
+		offset = point - joystick_center
+	var raw_strength := minf(offset.length() / maxf(1.0, joystick_radius), 1.0)
+	joystick_raw_strength = raw_strength
+	joystick_raw_direction = offset.normalized() if raw_strength > 0.0 else Vector2.ZERO
+	if raw_strength <= joystick_deadzone:
+		joystick_vector = Vector2.ZERO
+	else:
+		var adjusted := (raw_strength - joystick_deadzone) / maxf(0.001, 1.0 - joystick_deadzone)
+		joystick_vector = joystick_raw_direction * minf(1.0, adjusted * joystick_sensitivity)
+	_apply_joystick_actions()
+	queue_redraw()
+
+
+func _end_joystick() -> void:
+	joystick_touch_index = -1
+	joystick_center = joystick_home
+	joystick_vector = Vector2.ZERO
+	joystick_raw_direction = Vector2.ZERO
+	joystick_raw_strength = 0.0
+	_apply_joystick_actions()
+	queue_redraw()
+
+
+func _apply_joystick_actions() -> void:
+	_set_axis_action("move_left", maxf(-joystick_vector.x, 0.0))
+	_set_axis_action("move_right", maxf(joystick_vector.x, 0.0))
+	_set_axis_action("move_up", maxf(-joystick_vector.y, 0.0))
+	_set_axis_action("move_down", maxf(joystick_vector.y, 0.0))
+	var full := joystick_vector.length() > 0.97
+	if full and not _sprint_from_stick:
+		_sprint_from_stick = true
+		Input.action_press("sprint")
+	elif not full and _sprint_from_stick:
+		_sprint_from_stick = false
+		if not touch_held.values().has(sprint_button):
+			Input.action_release("sprint")
+
+
+func _set_axis_action(action: String, strength: float) -> void:
+	if strength > 0.08:
+		Input.action_press(action, strength)
+	else:
+		Input.action_release(action)
+
+
+func _clear_touch_inputs() -> void:
+	_end_joystick()
+	for idx in touch_held.keys():
+		_release_touch(idx)
+	for action in ["dash", "attack", "skill", "guard", "heal", "interact", "jump", "sprint", "switch_weapon"]:
+		if InputMap.has_action(action):
+			Input.action_release(action)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_clear_touch_inputs()
+
+
+func _on_deadzone_changed(value: float) -> void:
+	joystick_deadzone = value
+	deadzone_label.text = "DEAD ZONE  %d%%" % roundi(value * 100.0)
+	if joystick_touch_index != -1:
+		_update_joystick(joystick_center + joystick_raw_direction * joystick_raw_strength * joystick_radius)
+
+
+func _on_sensitivity_changed(value: float) -> void:
+	joystick_sensitivity = value
+	sensitivity_label.text = "SENSITIVITY  %.2fx" % value
+	if joystick_touch_index != -1:
+		_update_joystick(joystick_center + joystick_raw_direction * joystick_raw_strength * joystick_radius)
+
+
+func _draw() -> void:
+	if not touch_root.visible:
+		return
+	var center := joystick_center if joystick_touch_index != -1 else joystick_home
+	draw_circle(center, joystick_radius + 3.0, Color(0.08, 0.05, 0.12, 0.25))
+	draw_circle(center, joystick_radius, Color(0.2, 0.14, 0.26, 0.42))
+	draw_arc(center, joystick_radius, 0.0, TAU, 40, Color(0.98, 0.78, 0.88, 0.6), 1.5)
+	var knob := center + joystick_vector * joystick_radius
+	draw_circle(knob, joystick_knob_radius, Color(0.86, 0.48, 0.66, 0.8))
+	draw_arc(knob, joystick_knob_radius, 0.0, TAU, 28, Color(1.0, 0.94, 0.86, 0.9), 1.5)
+
+
+# ------------------------------------------------------------------ inner widgets
+class TouchButton:
+	extends Control
+	var action := ""
+	var icon: Texture2D:
+		set(v):
+			icon = v
+			queue_redraw()
+	var radius := 16.0
+	var tint := Color.WHITE
+	var pressed_now := false:
+		set(v):
+			pressed_now = v
+			queue_redraw()
+	var cooldown := 0.0:
+		set(v):
+			if absf(v - cooldown) > 0.01:
+				queue_redraw()
+			cooldown = v
+	var label := "":
+		set(v):
+			if v != label:
+				label = v
+				queue_redraw()
+
+	func center_at(p: Vector2) -> void:
+		position = p - Vector2(radius, radius)
+
+	func hit(p: Vector2) -> bool:
+		return p.distance_to(position + Vector2(radius, radius)) <= radius + 4.0
+
+	func _draw() -> void:
+		var c := Vector2(radius, radius)
+		draw_circle(c, radius + 1.5, Color(0.06, 0.04, 0.1, 0.35))
+		var bg := Color(0.18, 0.12, 0.24, 0.62) if not pressed_now else Color(tint.r * 0.6, tint.g * 0.4, tint.b * 0.6, 0.85)
+		draw_circle(c, radius, bg)
+		draw_arc(c, radius, 0.0, TAU, 36, Color(tint.r, tint.g, tint.b, 0.85), 1.5)
+		if icon:
+			var s := minf(radius * 1.15, 22.0)
+			var sz := icon.get_size()
+			var k := s / maxf(sz.x, sz.y)
+			draw_texture_rect(icon, Rect2(c - sz * k / 2.0, sz * k), false, Color(1, 1, 1, 0.95 if cooldown <= 0.0 else 0.45))
+		if cooldown > 0.0:
+			draw_arc(c, radius - 2.5, -PI / 2.0, -PI / 2.0 + TAU * clampf(cooldown, 0.0, 1.0), 32, Color(0.05, 0.03, 0.08, 0.75), 4.0)
+		if label != "":
+			var f := get_theme_default_font()
+			draw_string(f, c + Vector2(-radius, radius + 9), label, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, 8, Color(1, 0.95, 0.85))
+
+
+class StaminaBar:
+	extends Control
+	var hud: Control
+
+	func _process(_d: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		if hud == null or hud.game == null or hud.game.player == null:
+			return
+		var p: Node = hud.game.player
+		var k: float = p.stamina / p.STAMINA_MAX
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.08, 0.05, 0.1, 0.75))
+		var col := Color(0.62, 0.92, 0.7) if k > 0.25 else Color(1.0, 0.55, 0.45)
+		draw_rect(Rect2(Vector2(1, 1), Vector2((size.x - 2) * k, size.y - 2)), col)
+		draw_rect(Rect2(Vector2.ZERO, size), Color(1, 0.9, 0.95, 0.5), false, 1.0)
+
+
+class Minimap:
+	extends Control
+	var hud: Control
+
+	func _draw() -> void:
+		if hud == null or hud.minimap_tex == null or hud.game == null:
+			return
+		var g: Node = hud.game
+		var ws: Vector2 = g.world.world_size
+		var ppos: Vector2 = g.player.global_position
+		var view := Vector2(72, 50)
+		var tex_size: Vector2 = hud.minimap_tex.get_size()
+		var tiles: Vector2 = ppos / 16.0
+		var src := Rect2(tiles - view / 2.0, view)
+		src.position = src.position.clamp(Vector2.ZERO, tex_size - view)
+		draw_rect(Rect2(Vector2(-2, -2), size + Vector2(4, 4)), Color(0.08, 0.05, 0.12, 0.85))
+		draw_texture_rect_region(hud.minimap_tex, Rect2(Vector2.ZERO, size), src, Color(1, 1, 1, 0.92))
+		var scale_v := size / view
+		for m in g.map_markers():
+			var mp: Vector2 = (m["pos"] / 16.0 - src.position) * scale_v
+			if Rect2(Vector2.ZERO, size).has_point(mp):
+				draw_rect(Rect2(mp - Vector2(1.5, 1.5), Vector2(3, 3)), m["color"])
+		var pp: Vector2 = (tiles - src.position) * scale_v
+		draw_circle(pp, 2.5, Color(1, 1, 1))
+		draw_circle(pp, 1.6, Color(0.95, 0.4, 0.62))
+		draw_rect(Rect2(Vector2(-2, -2), size + Vector2(4, 4)), Color(0.96, 0.72, 0.84, 0.9), false, 1.0)
+		var _u := ws
+
+
+class WorldMapView:
+	extends Control
+	var hud: Control
+
+	func _draw() -> void:
+		if hud == null or hud.minimap_tex == null:
+			return
+		var g: Node = hud.game
+		var tex_size: Vector2 = hud.minimap_tex.get_size()
+		var avail := size - Vector2(40, 60)
+		var k := minf(avail.x / tex_size.x, avail.y / tex_size.y)
+		var dsize := tex_size * k
+		var origin := (size - dsize) / 2.0 + Vector2(0, 10)
+		draw_rect(Rect2(origin - Vector2(3, 3), dsize + Vector2(6, 6)), Color(0.96, 0.72, 0.84, 0.9), false, 1.0)
+		draw_texture_rect(hud.minimap_tex, Rect2(origin, dsize), false)
+		var f := get_theme_default_font()
+		draw_string(f, Vector2(origin.x, origin.y - 10), "VALLEY OF PETALS", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 0.86, 0.6))
+		for m in g.map_markers():
+			var mp: Vector2 = origin + m["pos"] / 16.0 * k
+			draw_rect(Rect2(mp - Vector2(2, 2), Vector2(4, 4)), m["color"])
+			if m.has("label"):
+				draw_string(f, mp + Vector2(5, 3), m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 0.96, 0.9))
+		var pp: Vector2 = origin + g.player.global_position / 16.0 * k
+		draw_circle(pp, 3.5, Color.WHITE)
+		draw_circle(pp, 2.4, Color(0.95, 0.4, 0.62))

@@ -3,9 +3,11 @@
 **Status:** Proposed design and development roadmap  
 **Platform:** Godot 4, Android first, landscape, single-player and playable offline  
 **Genre:** Top-down pixel-art action adventure with light exploration, combat, quests, and upgrades  
-**Scope target:** A compact, polished adventure that can be built in small playable steps—not an open-world or live-service game.
+**Scope target:** An offline open-world action adventure. The project owner requested an open-world upgrade on 2026-10-11, and the world is built as one seamless, generated valley. It is not a live-service game.
 
-> **How to read this plan:** Phase 0 describes what is already in the repository. Later phases are the proposed full game. Anything not yet built is a design target, not a current feature.
+> **Open-world update (2026-10-11):** The repository now contains the open-world build described in `DEVELOPMENT_LOG.md`. It has six biomes, four guardians, four weapons, gear, shops, day/night and weather. Sections below that describe a compact, non-open-world scope are superseded where they conflict with that build.
+>
+> **How to read this plan:** Phase 0 describes the original MVP. Later phases are the proposed full game. Anything not yet built is a design target, not a current feature.
 
 ## 1. The game in one paragraph
 

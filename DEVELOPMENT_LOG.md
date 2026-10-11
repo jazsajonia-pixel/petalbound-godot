@@ -1,5 +1,70 @@
 # Development Log
 
+## Open-world update — 2026-10-11
+
+**Status:** A large upgrade to an open-world action adventure, as requested. The headless checks pass. **This build has not been tested on a phone**, so the Phase 1 real-device exit check is still outstanding.
+
+### What changed
+
+- **Scope:** The project moves from a single meadow slice to an open-world valley. `GAME_PLAN.md` is updated to match.
+- **Assets:**
+  - Imported 321 files from the CC0 **Ninja Adventure** pack (Pixel-boy & AAA): characters, monsters, bosses, tilesets, items, weapons, FX, UI, music and SFX. The import is reproducible with `tools/import_ninja_adventure.py`.
+  - Added the CC0 **Kenney Mini/Pixel** fonts.
+  - Credits are in `assets/packs/ASSET_CREDITS.md`.
+- **Character:** Mallow is now a fully animated four-direction sprite, a NinjaGreen base recoloured rose/plum by shader palette swap. It has walk, attack, jump, item-get and dead poses, and outfit recolours for armour and boots.
+- **Movement:**
+  - Mallow can walk, sprint (with a stamina bar), dodge-roll (i-frames and afterimages), jump (hopping low props, with a landing plunge attack), swim, and push.
+  - Dust, ripples and footstep SFX follow each move.
+- **Combat:**
+  - Weapons: Thornblade 3-hit combo, Bloomstaff homing bolt, Gale Bow charge shot, and Ironroot Hammer shockwave.
+  - Skills: Mothlight, Petalguard and Moontea.
+  - Hit feel: hit-stop, knockback, damage numbers, screen shake, flash and dissolve shaders.
+  - Enemies: 19 monster types across five AI styles, with wind-up tells.
+  - Bosses: four guardians with telegraphed multi-pattern fights, enrage, and a boss bar.
+- **World:**
+  - A seeded generator builds a 256×176-tile map with six biomes, roads, rivers and lakes.
+  - It places about 2,080 collidable props, about 9,700 decor sprites, 171 monsters, villages, 13 chests, 5 waystones, shops and breakables.
+  - Props are batched per chunk, and off-screen monsters are deactivated.
+- **Rendering:**
+  - New ground shader: biome palette blend, animated water, and shoreline foam.
+  - Foliage wind shader, sprite FX shader, atmosphere layer (fog, god-rays, vignette), and post-process (soft bloom, grade, saturation).
+  - Day/night cycle with 2D lights, plus regional weather.
+  - The blight desaturation lifts as Moonseeds return.
+  - A low-FX toggle is in Settings.
+- **Systems:**
+  - NPC dialogue and quests, shops, satchel with tap-to-equip, minimap and world map, and region banners.
+  - Region music crossfades and ambient loops.
+  - Save/load (`user://petalbound_save.json`, v2), autosave, waystone respawn, and the Moonwell ending.
+- **Controls:**
+  - Multi-touch buttons, including sprint/jump/roll and the context button.
+  - Stick-edge auto-sprint.
+  - Full keyboard and gamepad mappings.
+  - Orientation changed to sensor landscape (`orientation=4`).
+- **Visual QA fixes:**
+  - Removed the `source_color` hints that linearised the palette.
+  - Fixed double vertex-colour darkening.
+  - Switched bloom to a luma threshold.
+  - Toned down additive FX and night-light energy.
+  - Added a majority filter that removes blocky biome islands.
+
+### Validation
+
+- Godot 4.7.2 headless editor import/parse scan: passed.
+- Smoke tests: all five passed (`adventure_slice_smoke`, `player_facing_smoke`, `virtual_joystick_smoke`, `touch_buttons_smoke`, `world_bounds_smoke`).
+- A 40-second scripted soak run across every region, using all weapons and skills and saving, produced no script errors.
+- Rendered title, regions, night, combat, boss, dialogue, shop, satchel and map screens under Xvfb with the OpenGL3 driver for visual review. Selected screenshots are in `docs/screenshots/`.
+- Real Android touch feel, safe areas, thermals and sustained FPS: **not tested**.
+
+### Next recommended slice
+
+Play the build on a landscape Android phone for 5–10 minutes and check:
+- Joystick and button reach.
+- Text readability at 640×360.
+- FPS in dense forest areas and at night with lights.
+- Behaviour on app resume.
+
+After that, tune enemy density and boss HP from that playtest, and add side quests for the villagers.
+
 ## Current phase: Phase 1 — Mobile feel and character foundation
 
 **Status:** In progress. The Phase 1 exit check still requires a five-minute real-phone playtest; this environment cannot substitute for that.

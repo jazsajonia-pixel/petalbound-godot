@@ -4,6 +4,7 @@ func _initialize() -> void:
 	call_deferred("_run_test")
 
 func _run_test() -> void:
+	preload("res://scripts/systems/save.gd").path_override = "user://petalbound_test_save.json"
 	var packed_scene := load("res://scenes/main.tscn") as PackedScene
 	var game := packed_scene.instantiate()
 	root.add_child(game)

@@ -1,629 +1,1018 @@
 extends Node2D
+## Petalbound: open-world orchestration. Builds the world, actors and UI; owns combat
+## resolution, loot, interactions, regions, bosses, save/load and the Moonwell ending.
 
-const PLAYER_SCRIPT = preload("res://scripts/player.gd")
-const HUD_SCRIPT = preload("res://scripts/hud.gd")
-const ENEMY_SCRIPT = preload("res://scripts/enemy.gd")
-const WORLD_SIZE := Vector2(1800, 1100)
-const RUINS := [Vector2(420, 300), Vector2(760, 190), Vector2(1120, 465), Vector2(1450, 275), Vector2(560, 790), Vector2(1000, 900), Vector2(1450, 820)]
-const PATH_POINTS := [Vector2(130, 150), Vector2(310, 430), Vector2(630, 500), Vector2(880, 635), Vector2(1190, 570), Vector2(1470, 640), Vector2(1660, 545)]
-const SEEDS := [Vector2(345, 520), Vector2(900, 635), Vector2(1315, 610)]
-const SHRINE := Vector2(1660, 545)
-const CABIN := Vector2(255, 245)
-const CACHE := Vector2(635, 395)
-const POND_CENTER := Vector2(965, 318)
-const GROUND_TEXTURE = preload("res://assets/packs/mini_meadow/sheets/ground.png")
-const PALETTE_SHADER = preload("res://assets/shaders/meadow_palette.gdshader")
-const VIGNETTE_SHADER = preload("res://assets/shaders/meadow_vignette.gdshader")
-const PROP_FLOWER_PINK = preload("res://assets/packs/mini_meadow/tiles/flower_pink.png")
-const PROP_FLOWER_WHITE = preload("res://assets/packs/mini_meadow/tiles/flower_white.png")
-const PROP_BUSH = preload("res://assets/packs/mini_meadow/tiles/bush.png")
-const PROP_ROCK = preload("res://assets/packs/mini_meadow/tiles/rock.png")
-const PROP_PEBBLES = preload("res://assets/packs/mini_meadow/tiles/pebbles.png")
-const PROP_MUSHROOM = preload("res://assets/packs/mini_meadow/tiles/mushroom_red.png")
-const PROP_LOG = preload("res://assets/packs/mini_meadow/tiles/log.png")
-const PROP_STUMP = preload("res://assets/packs/mini_meadow/tiles/stump.png")
+const AnimLib := preload("res://scripts/core/anim_lib.gd")
+const DB := preload("res://scripts/data/db.gd")
+const Save := preload("res://scripts/systems/save.gd")
+const WorldScript := preload("res://scripts/world/world.gd")
+const PlayerScript := preload("res://scripts/actors/player.gd")
+const EnemyScript := preload("res://scripts/actors/enemy.gd")
+const BossScript := preload("res://scripts/actors/boss.gd")
+const NpcScript := preload("res://scripts/actors/npc.gd")
+const ProjectileScript := preload("res://scripts/combat/projectile.gd")
+const FxScript := preload("res://scripts/core/fx.gd")
+const AudioScript := preload("res://scripts/core/audio.gd")
+const EnvScript := preload("res://scripts/systems/environment.gd")
+const HudScript := preload("res://scripts/ui/hud.gd")
 
-var player: CharacterBody2D
+const CAMERA_ZOOM := 1.5
+const SHOPS := {
+	"pip": [{"id": "moontea", "price": 20}, {"id": "heart_piece", "price": 150, "once": "pip_heart"}],
+	"nomad": [{"id": "moontea", "price": 24}, {"id": "heart_piece", "price": 220, "once": "nomad_heart"}],
+}
+
+var world: Node2D
+var entities: Node2D
+var fx: Node2D
+var projectiles: Node2D
+var audio: Node
+var environment: Node
 var hud: Control
-var ground_layer: TileMapLayer
-var seed_taken: Array[bool] = [false, false, false]
-var seed_count := 0
-var elapsed := 0.0
-var petals: Array[Dictionary] = []
-var effect_bursts: Array[Dictionary] = []
-var enemies: Array[Node2D] = []
-var water_cells: Array[Vector2i] = []
-var water_frame := 0
-var water_timer := 0.0
-var won := false
+var hud_layer: CanvasLayer
+var camera: Camera2D
+var player: CharacterBody2D
+var enemies: Array = []
+var bosses: Array = []
+var npcs: Array = []
+var chests: Array = []
+var waystones: Array = []
+var pickups: Array = []
+var moonwell: Node2D
+var moonwell_light: PointLight2D
 var game_started := false
-var cache_opened := false
-var rng := RandomNumberGenerator.new()
-var light_texture: GradientTexture2D
+var game_over := false
+var victory := false
+var moonseeds: Array = []
+var defeated_bosses: Array = []
+var opened_chests: Array = []
+var flags: Dictionary = {}
+var discovered_waystones: Array = ["hearthgrove"]
+var last_waystone := "hearthgrove"
+var current_biome := 0
+var current_region := ""
+var active_boss: Node = null
+var shop_id := ""
+var talking_npc: Node = null
+var shake_strength := 0.0
+var shake_time := 0.0
+var _look := Vector2.ZERO
+var _interact_target: Dictionary = {}
+var _hitstop_active := false
+var _activation_t := 0.0
+var _title_t := 0.0
+var _save_t := 0.0
+var kills := 0
+
 
 func _ready() -> void:
-	_rng_setup()
-	_make_ground()
-	_make_props()
-	_make_petals()
-	_make_structures_and_collisions()
-	_make_world_bounds()
-	_make_player()
-	_make_camera()
-	_make_enemies()
-	_make_world_lighting()
-	_make_hud()
-	queue_redraw()
-
-func _rng_setup() -> void:
-	rng.seed = 40821
-
-func _make_ground() -> void:
-	var tile_set := TileSet.new()
-	tile_set.tile_size = Vector2i(16, 16)
-	var atlas := TileSetAtlasSource.new()
-	atlas.texture = GROUND_TEXTURE
-	atlas.texture_region_size = Vector2i(16, 16)
-	for x in range(9):
-		atlas.create_tile(Vector2i(x, 0))
-	tile_set.add_source(atlas, 0)
-	ground_layer = TileMapLayer.new()
-	ground_layer.name = "CC0MeadowGround"
-	ground_layer.tile_set = tile_set
-	ground_layer.z_index = -20
-	var palette := ShaderMaterial.new()
-	palette.shader = PALETTE_SHADER
-	palette.set_shader_parameter("meadow_tint", 0.68)
-	palette.set_shader_parameter("water_tint", 0.42)
-	ground_layer.material = palette
-	add_child(ground_layer)
-	for y in range(int(WORLD_SIZE.y / 16.0) + 1):
-		for x in range(int(WORLD_SIZE.x / 16.0) + 1):
-			var grass_cell := Vector2i(1 if rng.randf() < 0.22 else 0, 0)
-			ground_layer.set_cell(Vector2i(x, y), 0, grass_cell)
-	_paint_paths()
-	_paint_stone_courts()
-	_paint_pond()
-
-func _paint_paths() -> void:
-	for segment in range(PATH_POINTS.size() - 1):
-		var start: Vector2 = PATH_POINTS[segment]
-		var finish: Vector2 = PATH_POINTS[segment + 1]
-		var delta := finish - start
-		var steps := maxi(1, ceili(delta.length() / 8.0))
-		var across := Vector2(-delta.normalized().y, delta.normalized().x)
-		for step in range(steps + 1):
-			var point := start.lerp(finish, float(step) / float(steps))
-			var center := Vector2i(roundi(point.x / 16.0), roundi(point.y / 16.0))
-			for lane in range(-1, 2):
-				var side := Vector2i(roundi(across.x * lane), roundi(across.y * lane))
-				ground_layer.set_cell(center + side, 0, Vector2i(2, 0))
-
-func _paint_stone_courts() -> void:
-	for point in RUINS:
-		var center := Vector2i(roundi(point.x / 16.0), roundi(point.y / 16.0))
-		for y in range(-3, 4):
-			for x in range(-3, 4):
-				if absf(float(x)) + absf(float(y)) < 6.0:
-					ground_layer.set_cell(center + Vector2i(x, y), 0, Vector2i(4, 0))
-	var cabin_center := Vector2i(roundi(CABIN.x / 16.0), roundi((CABIN.y + 35.0) / 16.0))
-	for y in range(-2, 3):
-		for x in range(-4, 5):
-			ground_layer.set_cell(cabin_center + Vector2i(x, y), 0, Vector2i(4, 0))
-
-func _paint_pond() -> void:
-	var center := Vector2i(roundi(POND_CENTER.x / 16.0), roundi(POND_CENTER.y / 16.0))
-	for y in range(-5, 6):
-		for x in range(-7, 8):
-			var measure := pow(float(x) / 7.0, 2.0) + pow(float(y) / 5.0, 2.0)
-			if measure <= 1.0:
-				var cell := center + Vector2i(x, y)
-				if measure > 0.67:
-					ground_layer.set_cell(cell, 0, Vector2i(3, 0))
-				else:
-					water_cells.append(cell)
-					ground_layer.set_cell(cell, 0, Vector2i(5, 0))
-
-func _make_props() -> void:
-	var fixed_props: Array[Dictionary] = [
-		{"texture": PROP_LOG, "position": Vector2(400, 460), "scale": 2.0},
-		{"texture": PROP_STUMP, "position": Vector2(490, 590), "scale": 2.0, "solid": true},
-		{"texture": PROP_ROCK, "position": Vector2(780, 490), "scale": 2.0, "solid": true},
-		{"texture": PROP_MUSHROOM, "position": Vector2(1030, 385), "scale": 2.0},
-		{"texture": PROP_ROCK, "position": Vector2(1000, 386), "scale": 1.7},
-		{"texture": PROP_LOG, "position": Vector2(1230, 455), "scale": 2.0},
-		{"texture": PROP_STUMP, "position": Vector2(1390, 710), "scale": 2.0, "solid": true},
-		{"texture": PROP_ROCK, "position": Vector2(335, 760), "scale": 2.1, "solid": true},
-		{"texture": PROP_MUSHROOM, "position": Vector2(1520, 390), "scale": 2.0}
-	]
-	for prop in fixed_props:
-		_add_prop(prop["texture"], prop["position"], float(prop.get("scale", 1.0)), bool(prop.get("solid", false)))
-	var flower_textures := [PROP_FLOWER_PINK, PROP_FLOWER_WHITE]
-	for i in range(105):
-		var point := Vector2(rng.randf_range(54.0, WORLD_SIZE.x - 54.0), rng.randf_range(54.0, WORLD_SIZE.y - 54.0))
-		if _is_busy_location(point, 56.0):
-			continue
-		_add_prop(flower_textures[rng.randi_range(0, flower_textures.size() - 1)], point, 1.55)
-	for i in range(25):
-		var point := Vector2(rng.randf_range(85.0, WORLD_SIZE.x - 85.0), rng.randf_range(85.0, WORLD_SIZE.y - 85.0))
-		if _is_busy_location(point, 100.0):
-			continue
-		_add_prop(PROP_BUSH, point, 2.2, true)
-		if i % 3 == 0:
-			_add_prop(PROP_PEBBLES, point + Vector2(24, 13), 1.6)
-
-func _is_busy_location(point: Vector2, clearance: float) -> bool:
-	if point.distance_to(Vector2(130, 150)) < 88.0 or point.distance_to(CABIN) < 100.0 or point.distance_to(CACHE) < 78.0 or point.distance_to(POND_CENTER) < 140.0 or point.distance_to(SHRINE) < 110.0:
-		return true
-	for ruin in RUINS:
-		if point.distance_to(ruin) < clearance:
-			return true
-	for seed in SEEDS:
-		if point.distance_to(seed) < 52.0:
-			return true
-	for i in range(PATH_POINTS.size() - 1):
-		if _distance_to_segment(point, PATH_POINTS[i], PATH_POINTS[i + 1]) < clearance * 0.55:
-			return true
-	return false
-
-func _distance_to_segment(point: Vector2, start: Vector2, finish: Vector2) -> float:
-	var segment := finish - start
-	var t := clampf((point - start).dot(segment) / maxf(1.0, segment.length_squared()), 0.0, 1.0)
-	return point.distance_to(start + segment * t)
-
-func _add_prop(texture: Texture2D, point: Vector2, scale_factor: float, solid: bool = false) -> void:
-	var sprite := Sprite2D.new()
-	sprite.texture = texture
-	sprite.position = point
-	sprite.scale = Vector2.ONE * scale_factor
-	sprite.z_index = 1
-	add_child(sprite)
-	if solid:
-		_add_solid("FoliageBlocker", point + Vector2(0, 5), Vector2(20.0 * scale_factor, 11.0 * scale_factor))
-
-func _make_structures_and_collisions() -> void:
-	_add_solid("Cabin", CABIN + Vector2(0, 4), Vector2(104, 66))
-	_add_solid("OldBridgeFooting", Vector2(860, 720), Vector2(112, 20))
-	_add_solid("PondBank", POND_CENTER, Vector2(150, 92))
-	for point in RUINS:
-		_add_solid("MossyRuin", point + Vector2(0, 12), Vector2(56, 44))
-
-func _make_world_bounds() -> void:
-	var wall_thickness := 36.0
-	var horizontal_span := WORLD_SIZE.x + wall_thickness * 2.0
-	var vertical_span := WORLD_SIZE.y + wall_thickness * 2.0
-	_add_solid("WorldBoundLeft", Vector2(0, WORLD_SIZE.y * 0.5), Vector2(wall_thickness, vertical_span))
-	_add_solid("WorldBoundRight", Vector2(WORLD_SIZE.x, WORLD_SIZE.y * 0.5), Vector2(wall_thickness, vertical_span))
-	_add_solid("WorldBoundTop", Vector2(WORLD_SIZE.x * 0.5, 0), Vector2(horizontal_span, wall_thickness))
-	_add_solid("WorldBoundBottom", Vector2(WORLD_SIZE.x * 0.5, WORLD_SIZE.y), Vector2(horizontal_span, wall_thickness))
-
-func _add_solid(body_name: String, position: Vector2, size: Vector2) -> void:
-	var body := StaticBody2D.new()
-	body.name = body_name
-	body.position = position
-	var shape_node := CollisionShape2D.new()
-	var shape := RectangleShape2D.new()
-	shape.size = size
-	shape_node.shape = shape
-	body.add_child(shape_node)
-	add_child(body)
-
-func _make_petals() -> void:
-	for i in range(44):
-		petals.append({"pos": Vector2(rng.randf_range(0, WORLD_SIZE.x), rng.randf_range(0, WORLD_SIZE.y)), "speed": rng.randf_range(14.0, 38.0), "drift": rng.randf_range(-16.0, 16.0), "size": rng.randi_range(3, 5), "phase": rng.randf_range(0.0, TAU)})
-
-func _make_player() -> void:
-	player = CharacterBody2D.new()
+	randomize()
+	audio = AudioScript.new()
+	audio.name = "Audio"
+	add_child(audio)
+	world = WorldScript.new()
+	world.name = "World"
+	add_child(world)
+	entities = Node2D.new()
+	entities.name = "Entities"
+	entities.y_sort_enabled = true
+	add_child(entities)
+	world.build(entities)
+	projectiles = Node2D.new()
+	projectiles.name = "Projectiles"
+	projectiles.z_index = 5
+	add_child(projectiles)
+	fx = FxScript.new()
+	fx.name = "FX"
+	add_child(fx)
+	fx.shake_requested.connect(_on_shake)
+	player = PlayerScript.new()
 	player.name = "Mallow"
-	player.set_script(PLAYER_SCRIPT)
-	player.position = Vector2(130, 150)
-	add_child(player)
-
-func _make_camera() -> void:
-	var camera := Camera2D.new()
-	camera.zoom = Vector2(1.08, 1.08)
+	player.game = self
+	entities.add_child(player)
+	player.global_position = Vector2(world.data["start"][0], world.data["start"][1])
+	player.died.connect(_on_player_died)
+	camera = Camera2D.new()
+	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
 	camera.position_smoothing_enabled = true
-	camera.position_smoothing_speed = 4.0
+	camera.position_smoothing_speed = 6.0
 	camera.limit_left = 0
 	camera.limit_top = 0
-	camera.limit_right = int(WORLD_SIZE.x)
-	camera.limit_bottom = int(WORLD_SIZE.y)
-	player.add_child(camera)
+	camera.limit_right = int(world.world_size.x)
+	camera.limit_bottom = int(world.world_size.y)
+	add_child(camera)
 	camera.make_current()
-
-func _make_enemies() -> void:
-	for enemy in enemies:
-		if is_instance_valid(enemy):
-			enemy.queue_free()
-	enemies.clear()
-	_add_enemy("thornling", Vector2(530, 390))
-	_add_enemy("thornling", Vector2(690, 595))
-	_add_enemy("puffcap", Vector2(1060, 520))
-	_add_enemy("thornling", Vector2(1240, 735))
-	_add_enemy("puffcap", Vector2(1450, 450))
-	_add_enemy("thornling", Vector2(1510, 710))
-
-func _add_enemy(species: String, point: Vector2) -> void:
-	var enemy := Node2D.new()
-	enemy.name = "Thornling" if species == "thornling" else "Puffcap"
-	enemy.set_script(ENEMY_SCRIPT)
-	enemy.position = point
-	enemy.call("configure", species)
-	add_child(enemy)
-	enemies.append(enemy)
-
-func _make_world_lighting() -> void:
-	var gradient := Gradient.new()
-	gradient.offsets = PackedFloat32Array([0.0, 1.0])
-	gradient.colors = PackedColorArray([Color(1.0, 0.85, 0.53, 0.75), Color(0.86, 0.97, 0.78, 0.0)])
-	light_texture = GradientTexture2D.new()
-	light_texture.width = 128
-	light_texture.height = 128
-	light_texture.fill = GradientTexture2D.FILL_RADIAL
-	light_texture.fill_from = Vector2(0.5, 0.5)
-	light_texture.fill_to = Vector2(0.5, 0.05)
-	light_texture.gradient = gradient
-	_add_light(SHRINE, 0.9, 2.9, Color("ffe9a8"))
-	_add_light(CABIN + Vector2(0, 38), 0.42, 1.5, Color("ffd8a0"))
-	for seed in SEEDS:
-		_add_light(seed, 0.45, 1.1, Color("efffae"))
-	var atmosphere_layer := CanvasLayer.new()
-	atmosphere_layer.layer = 3
-	add_child(atmosphere_layer)
-	var vignette := ColorRect.new()
-	vignette.name = "MeadowVignette"
-	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var material := ShaderMaterial.new()
-	material.shader = VIGNETTE_SHADER
-	vignette.material = material
-	atmosphere_layer.add_child(vignette)
-
-func _add_light(point: Vector2, energy: float, scale_factor: float, tint: Color) -> void:
-	var light := PointLight2D.new()
-	light.position = point
-	light.texture = light_texture
-	light.color = tint
-	light.energy = energy
-	light.texture_scale = scale_factor
-	light.shadow_enabled = false
-	add_child(light)
-
-func _make_hud() -> void:
-	var hud_layer := CanvasLayer.new()
-	hud_layer.layer = 5
+	_spawn_npcs()
+	_spawn_enemies()
+	_spawn_bosses()
+	_spawn_chests()
+	_spawn_waystones()
+	_spawn_moonwell()
+	environment = EnvScript.new()
+	environment.name = "Environment"
+	add_child(environment)
+	environment.setup(self, self)
+	hud_layer = CanvasLayer.new()
+	hud_layer.layer = 10
 	add_child(hud_layer)
-	hud = Control.new()
-	hud.set_script(HUD_SCRIPT)
+	hud = HudScript.new()
+	hud.name = "HUD"
 	hud_layer.add_child(hud)
-	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud.call("setup")
+	hud.setup(self)
+	hud.build_minimap_texture(world.biome_image, world.field_image)
 	hud.start_requested.connect(_on_start_requested)
 	hud.retry_requested.connect(_on_retry_requested)
-	get_viewport().size_changed.connect(_on_viewport_resized)
-	hud.call("show_title_menu")
+	_enter_title()
 
-func _on_start_requested() -> void:
+
+# ------------------------------------------------------------------ spawning
+func _spawn_npcs() -> void:
+	for d in world.data["npcs"]:
+		var n := NpcScript.new()
+		n.setup(self, d)
+		entities.add_child(n)
+		npcs.append(n)
+	for d in world.data["animals"]:
+		var a := NpcScript.new()
+		a.setup(self, d, true)
+		entities.add_child(a)
+
+
+func _spawn_enemies() -> void:
+	for d in world.data["enemies"]:
+		if not DB.ENEMIES.has(d["s"]):
+			continue
+		var e := EnemyScript.new()
+		e.setup(self, d["s"], Vector2(d["x"], d["y"]))
+		entities.add_child(e)
+		enemies.append(e)
+
+
+func _spawn_bosses() -> void:
+	for d in world.data["bosses"]:
+		var b := BossScript.new()
+		b.setup(self, d["id"], d["kind"], Vector2(d["x"], d["y"]))
+		entities.add_child(b)
+		bosses.append(b)
+
+
+func _spawn_chests() -> void:
+	for d in world.data["chests"]:
+		var big: bool = d.get("big", false)
+		var tex: Texture2D = AnimLib.tex("items/bigtreasurechest.png" if big else "items/littletreasurechest.png")
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.hframes = 2
+		s.centered = false
+		s.offset = Vector2(-8, -tex.get_height())
+		s.position = Vector2(d["x"], d["y"])
+		entities.add_child(s)
+		var body := StaticBody2D.new()
+		body.collision_layer = 1
+		var cs := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = Vector2(14, 7)
+		cs.shape = rect
+		cs.position = Vector2(0, -4)
+		body.add_child(cs)
+		s.add_child(body)
+		var glow := PointLight2D.new()
+		glow.texture = WorldScript.light_texture()
+		glow.texture_scale = 0.45
+		glow.color = Color(1.0, 0.85, 0.5)
+		glow.energy = 0.3 if big else 0.15
+		glow.position = Vector2(0, -8)
+		s.add_child(glow)
+		chests.append({"id": d["id"], "item": d["item"], "sprite": s, "pos": Vector2(d["x"], d["y"]), "open": false, "glow": glow, "big": big})
+
+
+func _spawn_waystones() -> void:
+	var defs: Dictionary = world.prop_defs
+	for d in world.data["shrines"]:
+		var pos := Vector2(d["x"], d["y"])
+		var s := Sprite2D.new()
+		var r: Array = defs["statue_monk"]["rect"]
+		s.texture = world.sheet(defs["statue_monk"]["sheet"])
+		s.region_enabled = true
+		s.region_rect = Rect2(r[0], r[1], r[2], r[3])
+		s.centered = false
+		s.offset = Vector2(-floorf(r[2] / 2.0), -r[3])
+		s.position = pos
+		entities.add_child(s)
+		var circle := AnimatedSprite2D.new()
+		circle.sprite_frames = AnimLib.strip_frames("res://assets/packs/ninja_adventure/fx/magic_circle.png", 32, 8.0, true)
+		circle.position = pos + Vector2(0, 6)
+		circle.scale = Vector2(1.1, 0.7)
+		circle.z_index = -7
+		circle.modulate = Color(0.85, 0.75, 1.0, 0.0)
+		var m := CanvasItemMaterial.new()
+		m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		circle.material = m
+		add_child(circle)
+		circle.play("play")
+		var light := PointLight2D.new()
+		light.texture = WorldScript.light_texture()
+		light.color = Color(0.8, 0.7, 1.0)
+		light.energy = 0.0
+		light.texture_scale = 1.0
+		light.position = pos + Vector2(0, -14)
+		add_child(light)
+		var body := StaticBody2D.new()
+		var cs := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = Vector2(16, 8)
+		cs.shape = rect
+		cs.position = Vector2(0, -4)
+		body.add_child(cs)
+		s.add_child(body)
+		waystones.append({"id": d["id"], "name": d["name"], "pos": pos, "circle": circle, "light": light})
+
+
+func _spawn_moonwell() -> void:
+	var lm: Array = world.data["landmarks"]["moonwell"]
+	moonwell = Node2D.new()
+	moonwell.position = Vector2(lm[0], lm[1])
+	add_child(moonwell)
+	var circle := AnimatedSprite2D.new()
+	circle.sprite_frames = AnimLib.strip_frames("res://assets/packs/ninja_adventure/fx/magic_circle.png", 32, 6.0, true)
+	circle.scale = Vector2(2.6, 1.7)
+	circle.z_index = -7
+	circle.modulate = Color(0.75, 0.8, 1.0, 0.35)
+	var m := CanvasItemMaterial.new()
+	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	circle.material = m
+	circle.name = "Circle"
+	moonwell.add_child(circle)
+	circle.play("play")
+	var spirit := AnimatedSprite2D.new()
+	spirit.sprite_frames = AnimLib.strip_frames("res://assets/packs/ninja_adventure/fx/spirit_blue.png", 32, 8.0, true)
+	spirit.position = Vector2(0, -14)
+	spirit.modulate = Color(0.8, 0.85, 1.0, 0.5)
+	spirit.material = m
+	spirit.name = "Spirit"
+	moonwell.add_child(spirit)
+	spirit.play("play")
+	moonwell_light = PointLight2D.new()
+	moonwell_light.texture = WorldScript.light_texture()
+	moonwell_light.color = Color(0.7, 0.8, 1.0)
+	moonwell_light.energy = 0.3
+	moonwell_light.texture_scale = 2.4
+	moonwell.add_child(moonwell_light)
+
+
+# ------------------------------------------------------------------ title & start
+func _enter_title() -> void:
+	game_started = false
+	player.input_enabled = false
+	player.visible = false
+	environment.time_of_day = 0.74
+	var lake: Array = world.data["landmarks"]["lake_lumen"]
+	camera.position_smoothing_enabled = false
+	camera.global_position = Vector2(lake[0], lake[1]) + Vector2(-60, 40)
+	_title_t = 0.0
+	audio.play_music("title")
+	hud.show_title_menu(Save.exists())
+	hud.hide_boss()
+
+
+func _on_start_requested(new_game: bool = true) -> void:
+	if new_game:
+		Save.erase()
+		_reset_state()
+	else:
+		_reset_state()
+		load_game()
+	hud.hide_title_menu()
 	game_started = true
-	hud.call("hide_title_menu")
-	hud.call("show_message", "Find Moontea in the field kit. Clear a path to the shrine!")
+	game_over = false
+	player.visible = true
+	player.input_enabled = true
+	camera.position_smoothing_enabled = true
+	camera.global_position = player.global_position
+	camera.reset_smoothing()
+	current_region = ""
+	environment.fade = 1.0
+	create_tween().tween_property(environment, "fade", 0.0, 0.8)
+	_update_region(true)
+	hud.set_seed_count(moonseeds.size())
+	if new_game:
+		hud.show_message("Elder Alder is waiting in Hearthgrove. Press E to talk.", 5.0)
+	audio.play("accept", 0.0, -4.0)
+
+
+func _reset_state() -> void:
+	moonseeds.clear()
+	defeated_bosses.clear()
+	opened_chests.clear()
+	flags.clear()
+	discovered_waystones = ["hearthgrove"]
+	last_waystone = "hearthgrove"
+	victory = false
+	kills = 0
+	environment.time_of_day = 0.34
+	environment.blight = 0.6
+	world.ground_material.set_shader_parameter("moonwell_power", 0.0)
+	var p := player
+	p.base_hearts = 5
+	p.heart_pieces = 0
+	p.weapons_owned.assign(["thornblade", "bloomstaff"])
+	p.weapon_index = 0
+	p.inventory.assign(["plum_cloak"])
+	p.equipped = {"cloak": "plum_cloak"}
+	p.moontea_charges = 3
+	p.moontea_max = 3
+	p.petalcoins = 0
+	p.recalc_stats()
+	p.apply_outfit()
+	p.revive(Vector2(world.data["start"][0], world.data["start"][1]))
+	for c in chests:
+		c["open"] = false
+		(c["sprite"] as Sprite2D).frame = 0
+		c["glow"].visible = true
+	for b in bosses:
+		b.defeated = false
+		b.awake = false
+		b.hp = b.max_hp
+		b.visible = true
+		b.global_position = b.home
+		b.collision_layer = 16
+		b.collision_mask = 1
+		b.mat.set_shader_parameter("dissolve", 0.0)
+	for e in enemies:
+		e.respawn()
+		e.modulate.a = 1.0
+	for pk in pickups:
+		if is_instance_valid(pk["node"]):
+			pk["node"].queue_free()
+	pickups.clear()
+	_refresh_waystones()
+	active_boss = null
+
+
+func return_to_title() -> void:
+	hud.close_shop()
+	if hud.dialogue_open:
+		hud.end_dialogue()
+	_enter_title()
+
 
 func _on_retry_requested() -> void:
-	_reset_journey()
-	game_started = true
-	hud.call("hide_title_menu")
-	hud.call("show_message", "The meadow welcomes you back. Try another path.")
-
-func _reset_journey() -> void:
-	seed_taken = [false, false, false]
-	seed_count = 0
-	cache_opened = false
-	won = false
-	player.position = Vector2(130, 150)
-	player.velocity = Vector2.ZERO
-	player.weapon_index = 0
-	player.attack_combo = -1
-	player.combo_timer = 0.0
-	player.attack_left = 0.0
-	player.attack_cooldown = 0.0
-	player.dash_left = 0.0
-	player.cooldown_left = 0.0
-	player.invulnerable_left = 0.0
-	player.mothlight_cooldown = 0.0
-	player.guard_cooldown = 0.0
-	player.guard_time_left = 0.0
-	player.guard_active = false
-	player.moontea_charges = 3
-	player.petalcoins = 0
-	player.charm_equipped = false
-	player.cloak_equipped = true
-	player.max_health = player.MAX_HEALTH_BASE
-	player.health = player.max_health
-	_make_enemies()
-
-func _process(delta: float) -> void:
-	if not game_started:
+	if victory:
+		game_over = false
+		player.input_enabled = true
 		return
-	elapsed += delta
-	water_timer += delta
-	if water_timer >= 0.22:
-		water_timer = 0.0
-		water_frame = (water_frame + 1) % 4
-		for cell in water_cells:
-			ground_layer.set_cell(cell, 0, Vector2i(5 + water_frame, 0))
-	_update_petals(delta)
-	_update_effects(delta)
-	_update_enemies(delta)
-	_handle_player_actions()
-	_handle_collectibles()
-	_check_player_state()
-	if is_instance_valid(hud):
-		hud.call("set_seed_count", seed_count, SEEDS.size())
-		hud.call("set_status", player.call("get_status"))
-	queue_redraw()
+	game_over = false
+	var ws := _waystone(last_waystone)
+	player.revive(ws["pos"] + Vector2(0, 18))
+	player.input_enabled = true
+	camera.global_position = player.global_position
+	camera.reset_smoothing()
+	for e in enemies:
+		if e.alive:
+			e.global_position = e.home
+			e.aggro = false
+	for b in bosses:
+		if not b.defeated:
+			b.awake = false
+			b.hp = b.max_hp
+			b.global_position = b.home
+	active_boss = null
+	hud.hide_boss()
+	current_region = ""
+	_update_region(true)
+	environment.fade = 1.0
+	create_tween().tween_property(environment, "fade", 0.0, 0.8)
 
-func _update_petals(delta: float) -> void:
-	for i in range(petals.size()):
-		var petal: Dictionary = petals[i]
-		var point: Vector2 = petal["pos"]
-		point.y += float(petal["speed"]) * delta
-		point.x += (float(petal["drift"]) + sin(elapsed * 1.2 + float(petal["phase"])) * 10.0) * delta
-		if point.y > WORLD_SIZE.y + 10.0:
-			point.y = -8.0
-			point.x = rng.randf_range(0, WORLD_SIZE.x)
-		petal["pos"] = point
-		petals[i] = petal
 
-func _update_effects(delta: float) -> void:
-	for i in range(effect_bursts.size() - 1, -1, -1):
-		var effect: Dictionary = effect_bursts[i]
-		effect["time"] = float(effect["time"]) - delta
-		if float(effect["time"]) <= 0.0:
-			effect_bursts.remove_at(i)
-		else:
-			effect_bursts[i] = effect
+func _on_player_died() -> void:
+	game_over = true
+	player.input_enabled = false
+	audio.play("gameover", 0.0, -2.0)
+	fx.shake(5.0, 0.3)
+	var tw := create_tween()
+	tw.tween_interval(1.1)
+	tw.tween_callback(func() -> void: hud.show_game_over())
 
-func _update_enemies(delta: float) -> void:
-	for i in range(enemies.size() - 1, -1, -1):
-		var enemy := enemies[i]
-		if not is_instance_valid(enemy):
-			enemies.remove_at(i)
-			continue
-		var attacked: bool = enemy.call("tick", delta, player.global_position)
-		if attacked:
-			var old_health: int = player.health
-			var blocked: bool = player.guard_active
-			player.call("take_damage")
-			if old_health > player.health:
-				hud.call("show_message", "Thornling hit! Find a clear opening and dash away.")
-			elif blocked:
-				hud.call("show_message", "Petalguard caught the strike!")
 
-func _handle_player_actions() -> void:
-	if Input.is_action_just_pressed("attack"):
-		_try_player_attack()
-	if Input.is_action_just_pressed("skill"):
-		_cast_mothlight()
-	if Input.is_action_just_pressed("guard"):
-		if player.call("activate_petalguard"):
-			hud.call("show_message", "Petalguard is ready to soften one hit.")
-	if Input.is_action_just_pressed("heal"):
-		if player.call("drink_moontea"):
-			hud.call("show_message", "A sip of Moontea restores one heart.")
-	if Input.is_action_just_pressed("switch_weapon"):
-		player.call("cycle_weapon")
-		var weapon_name: String = player.call("get_weapon_name")
-		hud.call("show_message", "Equipped %s." % weapon_name.capitalize())
-	if Input.is_action_just_pressed("interact"):
-		_open_cache()
-	if player.global_position.distance_to(CACHE) < 68.0 and not cache_opened:
-		hud.call("set_interact_visible", true, "OPEN CACHE")
+# ------------------------------------------------------------------ main loop
+func _process(delta: float) -> void:
+	audio.listener_pos = camera.global_position
+	if not game_started:
+		_title_t += delta
+		var lake: Array = world.data["landmarks"]["lake_lumen"]
+		camera.global_position = Vector2(lake[0], lake[1]) + Vector2(-60 + sin(_title_t * 0.08) * 120.0, 30 + cos(_title_t * 0.06) * 40.0)
+		world.update_foliage(Vector2(-9999, -9999), environment.gust)
+		return
+	player.input_enabled = not game_over and not hud.any_menu_open() and not get_tree().paused
+	_update_camera(delta)
+	world.update_foliage(player.global_position, environment.gust)
+	_update_pickups(delta)
+	_update_interactables()
+	_activation_t -= delta
+	if _activation_t <= 0.0:
+		_activation_t = 0.25
+		_update_activation()
+		_update_region(false)
+	if not get_tree().paused and not game_over:
+		if Input.is_action_just_pressed("interact"):
+			_interact()
+		if Input.is_action_just_pressed("switch_weapon") and not hud.touch_held.size():
+			player.cycle_weapon()
+		if Input.is_action_just_pressed("skill"):
+			player.activate_mothlight()
+		if Input.is_action_just_pressed("guard"):
+			player.activate_petalguard()
+		if Input.is_action_just_pressed("heal"):
+			if not player.drink_moontea():
+				if player.moontea_charges <= 0:
+					hud.show_message("Your Moontea flask is empty. Rest at a waystone.", 2.0)
+	var mw_power: float = world.ground_material.get_shader_parameter("moonwell_power")
+	moonwell_light.energy = (0.15 + mw_power * 0.7) * (0.4 + environment.darkness) + sin(Time.get_ticks_msec() / 600.0) * 0.08
+	_save_t += delta
+	if _save_t > 45.0 and not game_over and active_boss == null:
+		_save_t = 0.0
+		save_game()
+
+
+func _update_camera(delta: float) -> void:
+	var target := player.global_position + Vector2(0, -8)
+	var look := player.velocity * 0.22
+	if active_boss and is_instance_valid(active_boss):
+		target = target.lerp(active_boss.global_position, 0.3)
+		look *= 0.3
+	_look = _look.lerp(look, clampf(delta * 3.0, 0.0, 1.0))
+	camera.global_position = target + _look
+	if shake_time > 0.0:
+		shake_time -= delta
+		camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_strength * (shake_time / 0.3 + 0.3)
 	else:
-		hud.call("set_interact_visible", false)
+		camera.offset = camera.offset.lerp(Vector2.ZERO, clampf(delta * 12.0, 0.0, 1.0))
 
-func _open_cache() -> bool:
-	if cache_opened or player.global_position.distance_to(CACHE) >= 60.0:
+
+func _on_shake(strength: float, duration: float) -> void:
+	shake_strength = maxf(shake_strength if shake_time > 0.0 else 0.0, strength)
+	shake_time = maxf(shake_time, duration)
+
+
+func _update_activation() -> void:
+	var pp := player.global_position
+	var now := Time.get_ticks_msec() / 1000.0
+	for e in enemies:
+		var near: bool = e.global_position.distance_to(pp) < 420.0
+		e.set_physics_process(near and e.alive)
+		if not e.alive and e.respawn_at > 0.0 and now > e.respawn_at and e.home.distance_to(pp) > 320.0:
+			e.respawn_at = -1.0
+			e.respawn()
+
+
+func _update_region(force: bool) -> void:
+	current_biome = world.biome_at(player.global_position)
+	var name: String = world.region_name(player.global_position)
+	if name == current_region and not force:
+		return
+	current_region = name
+	var sub := ""
+	match name:
+		"Hearthgrove":
+			sub = "a village of lanterns and soft bread"
+		"The Moonwell":
+			sub = "heart of the valley"
+		"Lake Lumen":
+			sub = "where the moon used to bathe"
+		_:
+			sub = ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells"][clampi(current_biome, 0, 5)]
+	hud.show_region(name, sub)
+	if active_boss == null:
+		var track: String = DB.REGION_MUSIC[clampi(current_biome, 0, 5)]
+		if name == "Hearthgrove":
+			track = "village"
+		elif name == "The Moonwell" or environment.is_night():
+			track = "night" if not victory else "ending"
+		audio.play_music(track)
+	audio.play_ambient(["bird", "wind", "wind", "wind", "rain", "water1"][clampi(current_biome, 0, 5)] if environment.quality_high else "")
+
+
+# ------------------------------------------------------------------ combat api
+func player_targetable() -> bool:
+	return game_started and not game_over and player.state != player.State.DEAD
+
+
+func hittable_targets(center: Vector2, radius: float) -> Array:
+	var out: Array = []
+	for e in enemies:
+		if e.alive and (e.global_position + Vector2(0, -5)).distance_to(center) <= radius:
+			out.append(e)
+	for b in bosses:
+		if b.awake and not b.defeated and (b.global_position + Vector2(0, -10)).distance_to(center) <= radius + float(b.cfg["radius"]):
+			out.append(b)
+	return out
+
+
+func damage_target(t: Node, amount: int, from: Vector2, force: float) -> void:
+	t.hurt(amount, from, force)
+
+
+func melee_hit(center: Vector2, radius: float, damage: int, force: float, _dir: Vector2, _kind: String) -> int:
+	var hits := 0
+	for t in hittable_targets(center, radius):
+		damage_target(t, damage, player.global_position, force)
+		hits += 1
+	for b in world.break_at(center, radius + 4.0):
+		_break_prop(b)
+		hits += 0
+	return hits
+
+
+func _break_prop(b: Dictionary) -> void:
+	var pos: Vector2 = b["pos"]
+	var kind: String = b["kind"]
+	if kind.begins_with("bush"):
+		fx.burst("leaf", pos, 10, 70.0, Color(1, 1, 1), 120.0)
+		fx.burst("grass", pos, 6, 50.0, Color(1, 1, 1), 120.0)
+		audio.play("grass", 0.12, -6.0, pos)
+	else:
+		fx.burst("wood" if kind in ["crate", "barrel"] else "rock", pos, 10, 80.0, Color(1, 1, 1), 200.0)
+		audio.play("explosion" if kind in ["crate", "barrel"] else "hit1", 0.12, -8.0, pos)
+	var roll := randf()
+	if roll < 0.35:
+		spawn_coin(pos, 1 + randi() % 2)
+	elif roll < 0.45 and player.health < player.max_health:
+		spawn_heart(pos)
+
+
+func auto_aim(origin: Vector2, facing: Vector2, reach: float) -> Vector2:
+	var best: Node2D = null
+	var best_score := -1.0
+	for t in hittable_targets(origin, reach):
+		var to: Vector2 = (t.global_position + Vector2(0, -5)) - origin
+		var dot := facing.dot(to.normalized())
+		if dot > 0.55:
+			var score := dot - to.length() / reach * 0.4
+			if score > best_score:
+				best_score = score
+				best = t
+	if best:
+		return ((best.global_position + Vector2(0, -5)) - (origin + Vector2(0, -8))).normalized()
+	return facing
+
+
+func nearest_enemy(pos: Vector2, reach: float) -> Node2D:
+	var best: Node2D = null
+	var bd := reach
+	for t in hittable_targets(pos, reach):
+		var d := pos.distance_to(t.global_position)
+		if d < bd:
+			bd = d
+			best = t
+	return best
+
+
+func spawn_projectile(d: Dictionary) -> void:
+	var p := ProjectileScript.new()
+	projectiles.add_child(p)
+	p.setup(self, d)
+
+
+func area_damage_player(center: Vector2, radius: float, amount: int) -> void:
+	if player_targetable() and player.global_position.distance_to(center) <= radius and not player.airborne:
+		if player.take_damage(amount, center):
+			on_player_hit()
+
+
+func on_player_hit() -> void:
+	fx.shake(3.0, 0.18)
+	environment.damage_flash = 0.6
+	audio.play("hit2", 0.08, -2.0)
+	hitstop(0.05)
+
+
+func hitstop(duration: float) -> void:
+	if _hitstop_active:
+		return
+	_hitstop_active = true
+	Engine.time_scale = 0.08
+	await get_tree().create_timer(duration, true, false, true).timeout
+	Engine.time_scale = 1.0
+	_hitstop_active = false
+
+
+func flash_light(pos: Vector2, color: Color, energy: float, duration: float) -> void:
+	var l := PointLight2D.new()
+	l.texture = WorldScript.light_texture()
+	l.color = color
+	l.energy = energy
+	l.texture_scale = 2.4
+	l.global_position = pos
+	add_child(l)
+	var tw := l.create_tween()
+	tw.tween_property(l, "energy", 0.0, duration)
+	tw.tween_callback(l.queue_free)
+
+
+func emote(node: Node2D, index: int) -> void:
+	var s := Sprite2D.new()
+	s.texture = AnimLib.tex("ui/emote/emote%d.png" % index)
+	s.position = Vector2(0, -22)
+	node.add_child(s)
+	s.scale = Vector2(0.2, 0.2)
+	var tw := s.create_tween()
+	tw.tween_property(s, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.7)
+	tw.tween_property(s, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(s.queue_free)
+
+
+func on_enemy_killed(e: Node) -> void:
+	kills += 1
+	e.respawn_at = Time.get_ticks_msec() / 1000.0 + 90.0
+	var coins: int = int(e.cfg.get("coins", 1))
+	spawn_coin(e.global_position, coins)
+	if randf() < 0.18 and player.health < player.max_health:
+		spawn_heart(e.global_position)
+	hitstop(0.04)
+
+
+func on_boss_awake(b: Node) -> void:
+	active_boss = b
+	hud.show_boss(b)
+	hud.show_region(b.title, "guardian of the Moonseed")
+	audio.play_music("boss", 0.8)
+	audio.play("alert2", 0.0, -2.0)
+	fx.shake(3.0, 0.4)
+	emote(player, 21)
+
+
+func on_boss_sleep(b: Node) -> void:
+	if active_boss == b:
+		active_boss = null
+		hud.hide_boss()
+		current_region = ""
+		_update_region(true)
+
+
+func on_boss_defeated(b: Node) -> void:
+	defeated_bosses.append(b.boss_id)
+	active_boss = null
+	hud.hide_boss()
+	audio.play("success3", 0.0, -1.0)
+	hitstop(0.25)
+	_spawn_moonseed(b.global_position + Vector2(0, -4), b.boss_id)
+	for i in range(10):
+		spawn_coin(b.global_position + Vector2(randf_range(-20, 20), randf_range(-10, 10)), 3)
+	current_region = ""
+	_update_region(true)
+
+
+# ------------------------------------------------------------------ pickups
+func spawn_coin(pos: Vector2, amount: int) -> void:
+	for i in range(clampi(amount, 1, 6)):
+		var s := AnimatedSprite2D.new()
+		s.sprite_frames = AnimLib.strip_frames("res://assets/packs/ninja_adventure/items/coin2.png", 10, 10.0, true)
+		s.play("play")
+		s.offset = Vector2(0, -5)
+		_add_pickup(s, pos, "coin", 1)
+
+
+func spawn_heart(pos: Vector2) -> void:
+	var s := Sprite2D.new()
+	s.texture = AnimLib.tex("items/heart.png")
+	s.offset = Vector2(0, -4)
+	_add_pickup(s, pos, "heart", 4)
+
+
+func _spawn_moonseed(pos: Vector2, id: String) -> void:
+	var s := Sprite2D.new()
+	s.texture = AnimLib.tex("items/seedlarge.png")
+	s.offset = Vector2(0, -8)
+	var l := PointLight2D.new()
+	l.texture = WorldScript.light_texture()
+	l.color = Color(0.8, 0.85, 1.0)
+	l.energy = 1.2
+	l.texture_scale = 1.4
+	s.add_child(l)
+	_add_pickup(s, pos, "moonseed", 1, id)
+
+
+func _add_pickup(node: Node2D, pos: Vector2, kind: String, value: int, id := "") -> void:
+	node.position = pos
+	entities.add_child(node)
+	var v := Vector2.from_angle(randf() * TAU) * randf_range(20.0, 55.0) if kind != "moonseed" else Vector2.ZERO
+	pickups.append({"node": node, "kind": kind, "value": value, "vel": v, "h": 0.0, "vh": 90.0 if kind != "moonseed" else 0.0, "t": 0.0, "id": id})
+
+
+func _update_pickups(delta: float) -> void:
+	var pp := player.global_position
+	for i in range(pickups.size() - 1, -1, -1):
+		var pk: Dictionary = pickups[i]
+		var n: Node2D = pk["node"]
+		if not is_instance_valid(n):
+			pickups.remove_at(i)
+			continue
+		pk["t"] += delta
+		pk["vh"] -= 320.0 * delta
+		pk["h"] = maxf(0.0, pk["h"] + pk["vh"] * delta)
+		if pk["h"] <= 0.0 and pk["vh"] < 0.0:
+			pk["vh"] = -pk["vh"] * 0.4 if absf(pk["vh"]) > 30.0 else 0.0
+		pk["vel"] = (pk["vel"] as Vector2).move_toward(Vector2.ZERO, 80.0 * delta)
+		n.position += pk["vel"] * delta
+		var bob: float = sin(pk["t"] * 3.0) * 2.0 if pk["kind"] == "moonseed" else 0.0
+		(n as Node2D).set("offset", Vector2(0, -5.0 - pk["h"] + bob) if pk["kind"] != "moonseed" else Vector2(0, -12.0 + bob))
+		var d := n.global_position.distance_to(pp)
+		if pk["t"] > 0.35 and d < 46.0 and pk["kind"] != "moonseed" and player_targetable():
+			n.position = n.position.move_toward(pp, (160.0 + (46.0 - d) * 6.0) * delta)
+		if pk["t"] > 0.3 and d < 9.0 and player_targetable():
+			_collect(pk)
+			n.queue_free()
+			pickups.remove_at(i)
+		elif pk["t"] > 40.0 and pk["kind"] != "moonseed":
+			n.queue_free()
+			pickups.remove_at(i)
+
+
+func _collect(pk: Dictionary) -> void:
+	match pk["kind"]:
+		"coin":
+			player.add_petalcoins(pk["value"])
+			audio.play("coin", 0.1, -8.0)
+		"heart":
+			player.health = mini(player.max_health, player.health + int(pk["value"]))
+			player.health_changed.emit()
+			audio.play("heal", 0.1, -8.0)
+		"moonseed":
+			if not moonseeds.has(pk["id"]):
+				moonseeds.append(pk["id"])
+			hud.set_seed_count(moonseeds.size())
+			player.pose_item(AnimLib.tex("items/seedlarge.png"), 1.6)
+			hud.show_item_get("moonseed")
+			audio.play("levelup1", 0.0, -1.0)
+			fx.spawn("spark_circle", player.global_position + Vector2(0, -16), 0.0, 1.8, Color(0.85, 0.9, 1.0), null, true)
+			environment.blight = 0.6 - moonseeds.size() * 0.12
+			save_game()
+
+
+# ------------------------------------------------------------------ interaction
+func _update_interactables() -> void:
+	var pp := player.global_position
+	var best: Dictionary = {}
+	var bd := 26.0
+	for n in npcs:
+		var d: float = n.global_position.distance_to(pp)
+		if d < bd:
+			bd = d
+			best = {"type": "npc", "node": n, "label": "TALK"}
+	for c in chests:
+		if c["open"]:
+			continue
+		var d2: float = (c["pos"] as Vector2).distance_to(pp)
+		if d2 < bd:
+			bd = d2
+			best = {"type": "chest", "chest": c, "label": "OPEN"}
+	for w in waystones:
+		var d3: float = (w["pos"] as Vector2).distance_to(pp + Vector2(0, -6))
+		if d3 < bd + 4.0:
+			bd = d3
+			best = {"type": "waystone", "ws": w, "label": "REST"}
+	if moonwell.global_position.distance_to(pp) < 44.0:
+		best = {"type": "moonwell", "label": "MOONWELL"}
+	_interact_target = best
+	hud.set_interact_visible(not best.is_empty(), best.get("label", ""))
+
+
+func _interact() -> void:
+	if _interact_target.is_empty() or hud.any_menu_open():
+		return
+	match _interact_target["type"]:
+		"npc":
+			_talk(_interact_target["node"])
+		"chest":
+			_open_chest(_interact_target["chest"])
+		"waystone":
+			_rest_at(_interact_target["ws"])
+		"moonwell":
+			_use_moonwell()
+
+
+func _talk(n: Node) -> void:
+	talking_npc = n
+	n.talking = true
+	var face: Texture2D = AnimLib.tex("npcs/%s/faceset.png" % n.sprite_name)
+	var lines := DB.dialogue(n.npc_id, moonseeds.size(), flags)
+	shop_id = n.npc_id if n.is_shop else ""
+	hud.start_dialogue(n.display_name, face, lines)
+
+
+func on_dialogue_command(cmd: String) -> void:
+	match cmd:
+		"moontea":
+			flags["mira_tea"] = true
+			player.give_item("moontea")
+			hud.show_item_get("moontea")
+			audio.play("success1", 0.0, -4.0)
+		"shop":
+			if SHOPS.has(shop_id):
+				hud.open_shop(_shop_stock())
+
+
+func on_dialogue_closed() -> void:
+	if talking_npc and is_instance_valid(talking_npc):
+		talking_npc.talking = false
+	talking_npc = null
+
+
+func _shop_stock() -> Array:
+	var out: Array = []
+	for e in SHOPS.get(shop_id, []):
+		if e.has("once") and flags.get(e["once"], false):
+			continue
+		out.append(e)
+	return out
+
+
+func can_buy(entry: Dictionary) -> bool:
+	if player.petalcoins < int(entry["price"]):
 		return false
-	if not player.call("equip_moonheart_charm"):
+	if entry["id"] == "moontea" and player.moontea_charges >= player.moontea_max and player.moontea_max >= 6:
 		return false
-	cache_opened = true
-	hud.call("show_message", "Moonheart Charm equipped: +1 maximum heart.")
 	return true
 
-func _try_player_attack() -> void:
-	if not player.call("try_attack"):
+
+func buy_item(entry: Dictionary) -> void:
+	if not can_buy(entry):
+		audio.play("cancel", 0.0, -4.0)
 		return
-	var staff: bool = player.weapon_index == 1
-	var finisher: bool = not staff and player.attack_combo == 2
-	var max_range := 255.0 if staff else (92.0 if finisher else 76.0)
-	var min_dot := 0.18 if staff else -0.1
-	var target: Node2D
-	var nearest := max_range
-	for enemy in enemies:
-		if not is_instance_valid(enemy):
-			continue
-		var offset: Vector2 = enemy.global_position - player.global_position
-		var distance := offset.length()
-		if distance <= 0.1 or distance > max_range:
-			continue
-		if player.facing.dot(offset.normalized()) < min_dot:
-			continue
-		if distance < nearest:
-			nearest = distance
-			target = enemy
-	if target != null:
-		var amount := 2 if finisher else 1
-		_damage_enemy(target, amount)
-		if staff:
-			effect_bursts.append({"from": player.global_position + Vector2(0, -10), "to": target.global_position, "time": 0.20, "duration": 0.20, "kind": "bolt"})
-		else:
-			effect_bursts.append({"from": target.global_position, "to": target.global_position, "time": 0.24, "duration": 0.24, "kind": "slash"})
+	player.petalcoins -= int(entry["price"])
+	player.give_item(entry["id"])
+	if entry.has("once"):
+		flags[entry["once"]] = true
+	audio.play("coin", 0.0, -4.0)
+	hud.show_item_get(entry["id"])
+	hud.refresh_shop(_shop_stock())
 
-func _cast_mothlight() -> void:
-	if not player.call("activate_mothlight"):
+
+func _open_chest(c: Dictionary) -> void:
+	c["open"] = true
+	opened_chests.append(c["id"])
+	var s: Sprite2D = c["sprite"]
+	s.frame = 1
+	c["glow"].visible = false
+	var id: String = c["item"]
+	audio.play("secret2" if c["big"] else "success1", 0.0, -3.0)
+	fx.spawn("spark_circle", c["pos"] + Vector2(0, -10), 0.0, 1.2, Color(1, 0.92, 0.7), null, true)
+	fx.burst("spark", c["pos"] + Vector2(0, -10), 10, 60.0, Color(1, 0.9, 0.6), -20.0)
+	player.give_item(id)
+	player.pose_item(AnimLib.tex(DB.ITEMS[id]["icon"]), 1.3)
+	hud.show_item_get(id)
+	save_game()
+
+
+func _rest_at(w: Dictionary) -> void:
+	var first: bool = not discovered_waystones.has(w["id"])
+	if first:
+		discovered_waystones.append(w["id"])
+	last_waystone = w["id"]
+	player.heal_full()
+	_refresh_waystones()
+	fx.spawn("aura", player.global_position + Vector2(0, -8), 0.0, 1.6, Color(0.85, 0.8, 1.0), null, true)
+	fx.burst("spark", w["pos"] + Vector2(0, -14), 14, 50.0, Color(0.85, 0.8, 1.0), -30.0, 1.0)
+	audio.play("magic1" if not first else "secret2", 0.0, -3.0)
+	hud.show_message(("Waystone awakened: %s. " % w["name"] if first else "") + "Hearts and Moontea restored. Journey saved.", 3.0)
+	save_game()
+
+
+func _refresh_waystones() -> void:
+	for w in waystones:
+		var on: bool = discovered_waystones.has(w["id"])
+		w["circle"].modulate.a = 0.7 if on else 0.0
+		w["light"].energy = 0.45 if on else 0.0
+
+
+func _use_moonwell() -> void:
+	if victory:
+		hud.show_message("The Moonwell hums softly. The valley is whole again.", 3.0)
 		return
-	var target: Node2D
-	var nearest := 370.0
-	for enemy in enemies:
-		if not is_instance_valid(enemy):
-			continue
-		var distance: float = player.global_position.distance_to(enemy.global_position)
-		if distance < nearest:
-			nearest = distance
-			target = enemy
-	if target == null:
-		hud.call("show_message", "Mothlight is ready; move closer to a thornling.")
+	if moonseeds.size() < 4:
+		hud.show_message("The Moonwell is dim. Moonseeds returned: %d / 4." % moonseeds.size(), 3.0)
+		audio.play("voice5", 0.0, -8.0)
 		return
-	effect_bursts.append({"from": player.global_position + Vector2(0, -12), "to": target.global_position, "time": 0.45, "duration": 0.45, "kind": "mothlight"})
-	_damage_enemy(target, 2)
-	hud.call("show_message", "Mothlight finds its mark.")
+	victory = true
+	player.input_enabled = false
+	audio.play_music("ending", 2.0)
+	audio.play("levelup1", 0.0, 0.0)
+	fx.shake(4.0, 0.8)
+	for i in range(4):
+		fx.spawn("spark_circle", moonwell.global_position + Vector2.from_angle(TAU * i / 4.0) * 22.0, 0.0, 1.4, Color(0.85, 0.9, 1.0), null, true)
+	var tw := create_tween()
+	tw.tween_method(func(v: float) -> void: world.ground_material.set_shader_parameter("moonwell_power", v), 0.0, 1.0, 2.5)
+	tw.parallel().tween_property(environment, "blight", 0.0, 3.0)
+	tw.parallel().tween_property(moonwell.get_node("Circle"), "modulate:a", 1.0, 2.0)
+	tw.tween_callback(func() -> void:
+		flash_light(moonwell.global_position, Color(0.85, 0.9, 1.0), 3.0, 2.0)
+		hud.show_victory()
+		save_game())
 
-func _damage_enemy(enemy: Node2D, amount: int) -> void:
-	if enemy.call("take_damage", amount):
-		var dead_position := enemy.global_position
-		enemies.erase(enemy)
-		enemy.queue_free()
-		player.call("add_petalcoins", 3)
-		_spawn_burst(dead_position, 8)
-		hud.call("show_message", "A tangle dissolves.  +3 Petalcoins")
 
-func _spawn_burst(point: Vector2, count: int) -> void:
-	for i in range(count):
-		var angle := TAU * float(i) / float(count) + rng.randf_range(-0.12, 0.12)
-		var velocity := Vector2.from_angle(angle) * rng.randf_range(28.0, 82.0)
-		effect_bursts.append({"from": point, "to": point + velocity, "time": 0.42, "duration": 0.42, "kind": "petal"})
+func set_menu_pause(paused: bool) -> void:
+	get_tree().paused = paused
 
-func _handle_collectibles() -> void:
-	for i in range(SEEDS.size()):
-		if not seed_taken[i] and player.global_position.distance_to(SEEDS[i]) < 28.0:
-			seed_taken[i] = true
-			seed_count += 1
-			hud.call("show_message", "Moonseed gathered.  %d / %d" % [seed_count, SEEDS.size()])
-			_spawn_burst(SEEDS[i], 6)
-	if seed_count == SEEDS.size() and not won and player.global_position.distance_to(SHRINE) < 52.0:
-		won = true
-		hud.call("show_victory", "Three Moonseeds wake the old shrine. The path can bloom again.")
 
-func _check_player_state() -> void:
-	if player.health <= 0 and not won:
-		game_started = false
-		hud.call("show_game_over", "The thornlings overwhelm you. Keep the charm close and save Moontea for a quiet moment.")
+func quest_text() -> String:
+	if victory:
+		return "The Moonwell blooms. Explore freely."
+	if not flags.get("met_alder", false) and moonseeds.is_empty():
+		if talking_npc and talking_npc.npc_id == "alder":
+			flags["met_alder"] = true
+		return "Speak with Elder Alder in Hearthgrove."
+	if moonseeds.size() >= 4:
+		return "Return the Moonseeds to the Moonwell (north)."
+	var remaining := PackedStringArray()
+	for b in bosses:
+		if not b.defeated:
+			remaining.append(b.title.capitalize())
+	return "Moonseeds %d/4. Guardians: %s" % [moonseeds.size(), ", ".join(remaining)]
 
-func _draw() -> void:
-	_draw_hut()
-	_draw_bench_and_lanterns()
-	_draw_ruins()
-	_draw_cache()
-	_draw_shrine()
-	for i in range(SEEDS.size()):
-		if not seed_taken[i]:
-			_draw_seed(SEEDS[i], elapsed + float(i))
-	for petal in petals:
-		var point: Vector2 = petal["pos"]
-		var size := int(petal["size"])
-		var sway := sin(elapsed * 1.8 + float(petal["phase"])) * 1.5
-		draw_rect(Rect2(point.x + sway, point.y, size, size * 2), Color("ed9dac"))
-		draw_rect(Rect2(point.x + size + sway, point.y + 1, size, size), Color("f5c0c4"))
-	_draw_effects()
 
-func _draw_hut() -> void:
-	var base := CABIN
-	draw_rect(Rect2(base + Vector2(-52, -28), Vector2(104, 76)), Color(0.19, 0.32, 0.30, 0.28))
-	draw_rect(Rect2(base + Vector2(-48, -46), Vector2(96, 70)), Color("dbcfae"))
-	draw_rect(Rect2(base + Vector2(-54, -51), Vector2(108, 30)), Color("69516c"))
-	draw_colored_polygon(PackedVector2Array([base + Vector2(-62, -48), base + Vector2(0, -88), base + Vector2(62, -48)]), Color("6c536e"))
-	draw_line(base + Vector2(-48, -49), base + Vector2(0, -83), Color("c18a9a"), 4.0, true)
-	draw_line(base + Vector2(0, -83), base + Vector2(48, -49), Color("c18a9a"), 4.0, true)
-	draw_rect(Rect2(base + Vector2(-34, -28), Vector2(18, 19)), Color("91c6bb"))
-	draw_rect(Rect2(base + Vector2(17, -28), Vector2(18, 19)), Color("91c6bb"))
-	draw_rect(Rect2(base + Vector2(-8, -19), Vector2(18, 43)), Color("574561"))
-	draw_circle(base + Vector2(5, 1), 2.2, Color("f3d597"))
-	draw_rect(Rect2(base + Vector2(-22, 31), Vector2(44, 7)), Color("b89d7e"))
-	draw_rect(Rect2(base + Vector2(-16, 39), Vector2(32, 6)), Color("8b7b67"))
-	draw_rect(Rect2(base + Vector2(-5, -75), Vector2(10, 7)), Color("edd49a"))
+func map_markers() -> Array:
+	var out: Array = []
+	for w in waystones:
+		var wm := {"pos": w["pos"], "color": Color(0.8, 0.7, 1.0) if discovered_waystones.has(w["id"]) else Color(0.45, 0.4, 0.5)}
+		if w["id"] != "hearthgrove":
+			wm["label"] = w["name"].replace(" Waystone", "")
+		out.append(wm)
+	for b in bosses:
+		if not b.defeated:
+			out.append({"pos": b.home, "color": Color(1.0, 0.35, 0.35), "label": b.title.capitalize()})
+	for c in chests:
+		if not c["open"] and c["big"]:
+			out.append({"pos": c["pos"], "color": Color(1.0, 0.85, 0.4)})
+	out.append({"pos": moonwell.global_position, "color": Color(0.6, 0.85, 1.0), "label": "Moonwell"})
+	out.append({"pos": Vector2(world.data["landmarks"]["hearthgrove"][0], world.data["landmarks"]["hearthgrove"][1]), "color": Color(1, 0.75, 0.5), "label": "Hearthgrove"})
+	return out
 
-func _draw_bench_and_lanterns() -> void:
-	var bench := Vector2(330, 290)
-	draw_rect(Rect2(bench + Vector2(-28, -9), Vector2(56, 12)), Color("8b695f"))
-	draw_rect(Rect2(bench + Vector2(-23, -16), Vector2(46, 8)), Color("c39979"))
-	draw_rect(Rect2(bench + Vector2(-20, 2), Vector2(5, 16)), Color("634d56"))
-	draw_rect(Rect2(bench + Vector2(15, 2), Vector2(5, 16)), Color("634d56"))
-	for point in [Vector2(200, 325), Vector2(390, 330), Vector2(1570, 590), Vector2(1710, 595)]:
-		draw_rect(Rect2(point + Vector2(-3, -20), Vector2(6, 34)), Color("594a5e"))
-		draw_rect(Rect2(point + Vector2(-9, -31), Vector2(18, 16)), Color("6d586f"))
-		draw_circle(point + Vector2(0, -24), 5.0, Color("ffe5a1", 0.92))
-		draw_line(point + Vector2(-12, 14), point + Vector2(12, 14), Color("6f6d60"), 4.0, true)
 
-func _draw_ruins() -> void:
-	for point in RUINS:
-		var r := Rect2(point - Vector2(30, 20), Vector2(60, 58))
-		draw_rect(Rect2(r.position + Vector2(5, 7), r.size), Color(0.25, 0.46, 0.43, 0.35))
-		draw_rect(r, Color("e8eadb"))
-		draw_rect(Rect2(r.position + Vector2(7, 6), Vector2(46, 9)), Color("f6f3df"))
-		draw_rect(Rect2(r.position + Vector2(8, 21), Vector2(44, 7)), Color("c6d5c4"))
-		draw_rect(Rect2(r.position + Vector2(7, 41), Vector2(47, 9)), Color("d1ddcf"))
-		draw_rect(Rect2(r.position + Vector2(18, 6), Vector2(4, 44)), Color("a6c5b0"))
-		for vine in range(4):
-			var vx := r.position.x + 11 + vine * 12
-			draw_rect(Rect2(vx, r.position.y - 3 + (vine % 2) * 10, 4, 18), Color("39a99b"))
-			draw_rect(Rect2(vx - 3, r.position.y + 14 + (vine % 2) * 6, 4, 16), Color("4fbea4"))
-		for i in range(4):
-			var rock: Vector2 = point + Vector2(-58 + i * 36, 47 + (i % 2) * 9)
-			draw_rect(Rect2(rock, Vector2(15, 9)), Color("758f88"))
-			draw_rect(Rect2(rock + Vector2(3, -3), Vector2(9, 4)), Color("9bb0a2"))
+func _waystone(id: String) -> Dictionary:
+	for w in waystones:
+		if w["id"] == id:
+			return w
+	return waystones[0]
 
-func _draw_cache() -> void:
-	var glow := 0.12 + (sin(elapsed * 2.0) + 1.0) * 0.06
-	draw_circle(CACHE + Vector2(0, 5), 24.0, Color(0.96, 0.86, 0.55, glow))
-	draw_rect(Rect2(CACHE + Vector2(-17, -5), Vector2(34, 25)), Color("805f67"))
-	draw_rect(Rect2(CACHE + Vector2(-19, -14), Vector2(38, 12)), Color("c29473"))
-	draw_rect(Rect2(CACHE + Vector2(-3, -13), Vector2(6, 24)), Color("f0d596"))
-	if cache_opened:
-		draw_rect(Rect2(CACHE + Vector2(-2, -17), Vector2(4, 5)), Color("fff5c2"))
 
-func _draw_seed(point: Vector2, phase: float) -> void:
-	var bob := sin(phase * 2.2) * 3.0
-	var shimmer := 0.20 + (sin(phase * 3.0) + 1.0) * 0.08
-	draw_circle(point + Vector2(0, 4), 15, Color(0.76, 1.0, 0.82, shimmer))
-	draw_rect(Rect2(point.x - 5, point.y - 9 + bob, 10, 14), Color("f9e99a"))
-	draw_rect(Rect2(point.x - 2, point.y - 13 + bob, 5, 5), Color("fff6c5"))
-	draw_rect(Rect2(point.x + 5, point.y - 4 + bob, 4, 6), Color("d2d68d"))
-	draw_line(point + Vector2(-11, bob), point + Vector2(11, bob), Color(1, 1, 0.8, 0.55), 1.0, true)
+# ------------------------------------------------------------------ save / load
+func save_game() -> bool:
+	if not game_started:
+		return false
+	var p := player
+	return Save.write({
+		"pos": [p.global_position.x, p.global_position.y],
+		"heart_pieces": p.heart_pieces, "health": p.health,
+		"weapons": p.weapons_owned, "weapon_index": p.weapon_index,
+		"inventory": p.inventory, "equipped": p.equipped,
+		"coins": p.petalcoins, "tea": p.moontea_charges, "tea_max": p.moontea_max,
+		"seeds": moonseeds, "bosses": defeated_bosses, "chests": opened_chests, "flags": flags,
+		"waystones": discovered_waystones, "last_waystone": last_waystone,
+		"time": environment.time_of_day, "victory": victory,
+	})
 
-func _draw_shrine() -> void:
-	var glow := 0.18 + (sin(elapsed * 2.0) + 1.0) * 0.08
-	draw_circle(SHRINE, 55, Color(0.95, 0.98, 0.78, glow))
-	draw_circle(SHRINE, 34, Color(0.86, 1.0, 0.87, glow * 0.65))
-	draw_rect(Rect2(SHRINE + Vector2(-30, 4), Vector2(10, 42)), Color("d7e6d4"))
-	draw_rect(Rect2(SHRINE + Vector2(20, 4), Vector2(10, 42)), Color("d7e6d4"))
-	draw_rect(Rect2(SHRINE + Vector2(-30, -5), Vector2(60, 11)), Color("f3f1db"))
-	draw_rect(Rect2(SHRINE + Vector2(-19, -18), Vector2(38, 13)), Color("c9ded0"))
-	draw_rect(Rect2(SHRINE + Vector2(-7, 20), Vector2(14, 25)), Color("8ed1b5"))
-	for petal in range(4):
-		var angle := elapsed * 0.35 + TAU * float(petal) / 4.0
-		var orbit := Vector2.from_angle(angle) * 29.0
-		draw_circle(SHRINE + orbit, 3.0, Color("f1b1c1", 0.82))
 
-func _draw_effects() -> void:
-	for effect in effect_bursts:
-		var from: Vector2 = effect["from"]
-		var to: Vector2 = effect["to"]
-		var time_left := float(effect["time"])
-		var duration := maxf(0.01, float(effect["duration"]))
-		var age := 1.0 - time_left / duration
-		var kind: String = effect["kind"]
-		if kind == "slash":
-			draw_arc(to, 25.0 + age * 8.0, -2.5, -0.4, 20, Color(1.0, 0.85, 0.62, time_left / duration), 4.0, true)
-		elif kind == "bolt" or kind == "mothlight":
-			var point := from.lerp(to, age)
-			var tint := Color("a6f1dc") if kind == "bolt" else Color("fff1ae")
-			draw_line(from, point, Color(tint.r, tint.g, tint.b, 0.85), 3.0, true)
-			draw_circle(point, 7.0 if kind == "mothlight" else 5.0, Color(tint.r, tint.g, tint.b, 0.92))
-			draw_circle(point, 13.0, Color(tint.r, tint.g, tint.b, 0.28))
-		elif kind == "petal":
-			var point := from.lerp(to, age)
-			draw_rect(Rect2(point, Vector2(4, 7)), Color(0.95, 0.58, 0.68, time_left / duration))
-
-func _on_viewport_resized() -> void:
-	if is_instance_valid(hud):
-		hud.call("set_anchors_and_offsets_preset", Control.PRESET_FULL_RECT)
+func load_game() -> bool:
+	var d := Save.read()
+	if d.is_empty():
+		return false
+	var p := player
+	p.heart_pieces = int(d.get("heart_pieces", 0))
+	p.weapons_owned.assign(d.get("weapons", ["thornblade", "bloomstaff"]))
+	p.weapon_index = clampi(int(d.get("weapon_index", 0)), 0, p.weapons_owned.size() - 1)
+	p.inventory.assign(d.get("inventory", ["plum_cloak"]))
+	p.equipped = d.get("equipped", {"cloak": "plum_cloak"})
+	p.petalcoins = int(d.get("coins", 0))
+	p.moontea_max = int(d.get("tea_max", 3))
+	p.recalc_stats()
+	p.apply_outfit()
+	var pos: Array = d.get("pos", world.data["start"])
+	p.revive(Vector2(pos[0], pos[1]))
+	p.health = clampi(int(d.get("health", p.max_health)), 1, p.max_health)
+	p.moontea_charges = int(d.get("tea", 3))
+	moonseeds = d.get("seeds", [])
+	defeated_bosses = d.get("bosses", [])
+	opened_chests = d.get("chests", [])
+	flags = d.get("flags", {})
+	discovered_waystones = d.get("waystones", ["hearthgrove"])
+	last_waystone = d.get("last_waystone", "hearthgrove")
+	environment.time_of_day = float(d.get("time", 0.34))
+	victory = bool(d.get("victory", false))
+	for c in chests:
+		if opened_chests.has(c["id"]):
+			c["open"] = true
+			(c["sprite"] as Sprite2D).frame = 1
+			c["glow"].visible = false
+	for b in bosses:
+		if defeated_bosses.has(b.boss_id):
+			b.defeated = true
+			b.visible = false
+			b.collision_layer = 0
+			if not moonseeds.has(b.boss_id):
+				_spawn_moonseed(b.home, b.boss_id)
+	environment.blight = 0.0 if victory else 0.6 - moonseeds.size() * 0.12
+	world.ground_material.set_shader_parameter("moonwell_power", 1.0 if victory else 0.0)
+	_refresh_waystones()
+	hud.set_seed_count(moonseeds.size())
+	return true

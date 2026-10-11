@@ -1,60 +1,53 @@
 extends SceneTree
+## The open world is fenced on all four sides: Mallow can walk (or swim) to the edge but never leave it.
 
 func _initialize() -> void:
 	call_deferred("_run_test")
 
 func _run_test() -> void:
-	var packed_scene := load("res://scenes/main.tscn") as PackedScene
-	var game := packed_scene.instantiate()
+	preload("res://scripts/systems/save.gd").path_override = "user://petalbound_test_save.json"
+	var game: Node = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
 	await physics_frame
-	var menu_hud := game.get("hud") as Control
-	var start_button := menu_hud.get("title_button") as Button if menu_hud != null else null
-	if start_button == null:
-		push_error("Could not find the start button in the title menu.")
-		quit(1)
-		return
-	start_button.pressed.emit()
+	(game.hud.title_button as Button).pressed.emit()
 	await process_frame
 	await physics_frame
-
-	var player := game.get("player") as CharacterBody2D
-	if player == null:
-		push_error("Could not find the player in the main scene.")
-		quit(1)
-		return
-	for child in game.get_children():
-		if child is StaticBody2D and not child.name.begins_with("WorldBound"):
-			child.set_deferred("collision_layer", 0)
-			child.set_deferred("collision_mask", 0)
-
+	var player: CharacterBody2D = game.player
+	var world_size: Vector2 = game.world.world_size
+	# clear props and creatures so only the world fence can stop the walk
+	game.world.solids.collision_layer = 0
+	game.world.low_solids.collision_layer = 0
+	for e in game.enemies:
+		e.set_physics_process(false)
+		e.collision_layer = 0
+	for n in game.npcs:
+		n.collision_layer = 0
 	var scenarios: Array[Dictionary] = [
-		{"action": "move_left", "start": Vector2(220, 500), "axis": "x", "direction": "min", "limit": 36.0},
-		{"action": "move_right", "start": Vector2(1580, 500), "axis": "x", "direction": "max", "limit": 1764.0},
-		{"action": "move_up", "start": Vector2(900, 250), "axis": "y", "direction": "min", "limit": 36.0},
-		{"action": "move_down", "start": Vector2(220, 830), "axis": "y", "direction": "max", "limit": 1064.0}
+		{"action": "move_left", "start": Vector2(70, 1400), "axis": "x", "dir": -1},
+		{"action": "move_right", "start": Vector2(world_size.x - 70, 1400), "axis": "x", "dir": 1},
+		{"action": "move_up", "start": Vector2(2000, 70), "axis": "y", "dir": -1},
+		{"action": "move_down", "start": Vector2(1200, world_size.y - 60), "axis": "y", "dir": 1},
 	]
-
-	for scenario in scenarios:
-		for action in ["move_left", "move_right", "move_up", "move_down"]:
-			Input.action_release(action)
-		player.global_position = scenario["start"]
+	for sc in scenarios:
+		for a in ["move_left", "move_right", "move_up", "move_down"]:
+			Input.action_release(a)
+		player.global_position = sc["start"]
 		player.velocity = Vector2.ZERO
 		await physics_frame
-		Input.action_press(scenario["action"])
-		for frame in range(90):
+		Input.action_press(sc["action"])
+		for i in range(110):
 			await physics_frame
-		Input.action_release(scenario["action"])
+			game._activation_t = 1.0
+		Input.action_release(sc["action"])
 		await physics_frame
-
-		var coordinate: float = player.global_position.x if scenario["axis"] == "x" else player.global_position.y
-		var limit: float = scenario["limit"]
-		var reached_bound: bool = coordinate <= limit if scenario["direction"] == "min" else coordinate >= limit
-		if not reached_bound:
-			push_error("Player did not reach the %s world bound; coordinate was %s." % [scenario["action"], coordinate])
+		var c: float = player.global_position.x if sc["axis"] == "x" else player.global_position.y
+		var size_axis: float = world_size.x if sc["axis"] == "x" else world_size.y
+		var inside := c > 0.0 and c < size_axis
+		var reached := c < 30.0 if sc["dir"] < 0 else c > size_axis - 30.0
+		if not inside or not reached:
+			push_error("%s: coordinate %s (inside=%s reached=%s)" % [sc["action"], c, inside, reached])
 			quit(1)
 			return
-
-	print("World-bounds smoke test passed: player was stopped at all four edges.")
+	print("World-bounds smoke test passed: Mallow reached and was stopped at all four edges of the open world.")
 	quit(0)
