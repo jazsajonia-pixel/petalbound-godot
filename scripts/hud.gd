@@ -49,6 +49,14 @@ func _register_pause_action() -> void:
 		key_event.physical_keycode = key
 		InputMap.action_add_event("pause", key_event)
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_clear_touch_inputs()
+
+func _clear_touch_inputs() -> void:
+	_end_joystick()
+	Input.action_release("dash")
+
 func _label(text: String, pos: Vector2, size: Vector2, font_size: int) -> Label:
 	var label := Label.new()
 	label.text = text
@@ -309,8 +317,7 @@ func set_game_paused(paused: bool) -> void:
 	if not is_instance_valid(pause_overlay):
 		return
 	if paused:
-		_end_joystick()
-		Input.action_release("dash")
+		_clear_touch_inputs()
 	pause_overlay.visible = paused
 	get_tree().paused = paused
 

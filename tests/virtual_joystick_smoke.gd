@@ -71,6 +71,12 @@ func _run_test() -> void:
 		pause_works = paused and pause_overlay.visible
 		resume_button.pressed.emit()
 		resume_works = not paused and not pause_overlay.visible
+	hud.joystick_touch_index = 9
+	hud.joystick_vector = Vector2.RIGHT
+	hud.call("_apply_joystick_actions")
+	Input.action_press("dash")
+	hud.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var focus_loss_clears_inputs: bool = hud.joystick_touch_index == -1 and hud.joystick_vector == Vector2.ZERO and not Input.is_action_pressed("move_left") and not Input.is_action_pressed("move_right") and not Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down") and not Input.is_action_pressed("dash")
 	if not moved_right:
 		push_error("Virtual joystick drag did not move the player right.")
 	if not joystick_released:
@@ -79,8 +85,10 @@ func _run_test() -> void:
 		push_error("Joystick dead-zone or sensitivity settings did not change input response.")
 	if not pause_works or not resume_works:
 		push_error("Pause/resume did not show the overlay and restore the tree state.")
-	if not moved_right or not joystick_released or not joystick_settings_work or not pause_works or not resume_works:
+	if not focus_loss_clears_inputs:
+		push_error("Application focus loss did not clear held touch controls.")
+	if not moved_right or not joystick_released or not joystick_settings_work or not pause_works or not resume_works or not focus_loss_clears_inputs:
 		quit(1)
 		return
-	print("Mobile-controls smoke test passed: joystick drag/release, tuning settings, and pause/resume work.")
+	print("Mobile-controls smoke test passed: joystick drag/release, tuning, pause/resume, and focus-loss input cleanup work.")
 	quit(0)

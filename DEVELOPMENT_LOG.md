@@ -11,6 +11,7 @@
 - Kept the dash action on a large lower-right button and positioned HUD controls relative to the display safe area with an inset fallback.
 - Set the camera to a modest 1.15× zoom for closer player framing.
 - Added a safe-area-aware PAUSE button and a centered RESUME overlay; Esc/P also toggles pause on desktop, and opening pause clears joystick input.
+- Touch joystick axes and dash input are now cleared when the application loses focus, preventing missed release events from leaving movement stuck after switching apps; pause uses the same cleanup path.
 - Added invisible collision walls around the meadow so Mallow cannot leave the playable world.
 - Added original front-, back-, and side-facing code-drawn Mallow poses with a subtle alternating walk step and idle ear flick. This is still prototype drawing, not the planned authored sprite sheet.
 - Movement now selects distinct cardinal and diagonal facing states; diagonal front/back poses add small asymmetry cues. Sprite art remains code-drawn prototype work, not the planned authored sprite sheet.
@@ -24,10 +25,10 @@
 - Godot 4.7.2 headless editor scan: passed without script parse errors.
 - Godot 4.7.2 headless editor import: passed; all 86 PNGs in the preserved Mini Meadow pack imported successfully.
 - Godot 4.7.2 headless project startup (`--quit-after 180`): passed without runtime errors.
-- Headless controls smoke test: passed; simulated joystick drag/release, dead-zone and sensitivity response, and pause/resume were checked.
+- Headless controls smoke test: passed; simulated joystick drag/release, dead-zone and sensitivity response, pause/resume, and application focus-loss cleanup were checked.
 - World-bounds smoke test: passed; simulated movement was stopped at all four edges.
 - Character-facing smoke test: passed; four cardinal and four diagonal movement combinations select their corresponding pose states.
-- Real-device touch feel, notch/safe-area behavior, and stuck-input behavior: not tested in this environment; test after pulling in Godot Android.
+- Real-device touch feel, notch/safe-area behavior, and app background/resume behavior: not tested in this environment; test after pulling in Godot Android.
 
 ### Next recommended slice
 

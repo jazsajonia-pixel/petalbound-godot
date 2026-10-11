@@ -10,6 +10,7 @@ Open `project.godot` in Godot 4.3 or newer. The project uses the Compatibility r
 - **Dash:** Space / Shift, or the on-screen DASH button
 - **Pause / resume:** on-screen PAUSE button, or Esc / P on a keyboard
 - **Joystick tuning:** adjust dead zone and sensitivity from the pause overlay; changes apply immediately
+- **App switching:** held touch movement and dash inputs clear when the app loses focus
 - **Goal:** Gather three moonseeds, then reach the glowing shrine
 
 The on-screen controls are intentionally included for touch play. On a phone, clone or pull this repository into a folder Godot can access (for example, a folder under Documents), then open `project.godot` from Godot's project browser.
