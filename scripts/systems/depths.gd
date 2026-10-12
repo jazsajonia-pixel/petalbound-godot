@@ -54,6 +54,16 @@ func targets() -> Array:
 	return _targets
 
 
+## Wave foes are enemies (with an "alive" flag); guardian echoes are bosses
+## (no "alive" member, but a "defeated" one). Node.get() takes one argument,
+## so read the members defensively and treat a missing "alive" as alive.
+func _target_alive(t: Node) -> bool:
+	var v = t.get("alive")
+	if v == null:
+		v = true
+	return bool(v) and not bool(t.get("defeated"))
+
+
 func _next_wave() -> void:
 	wave += 1
 	_between_t = 0.0
@@ -96,7 +106,7 @@ func _process(delta: float) -> void:
 		return
 	for i in range(_targets.size() - 1, -1, -1):
 		var t: Node = _targets[i]
-		if not is_instance_valid(t) or not t.get("alive", false) or t.get("defeated", false):
+		if not is_instance_valid(t) or not _target_alive(t):
 			_targets.remove_at(i)
 	if _targets.is_empty():
 		_between_t += delta

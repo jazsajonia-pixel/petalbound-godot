@@ -20,7 +20,7 @@ var _bobber: Sprite2D = null
 
 
 func start(p_game: Node, pos: Vector2) -> bool:
-	var p := p_game.player
+	var p = p_game.player
 	if active or p.swimming or p.state != p.State.MOVE or p.health <= 0:
 		return false
 	if not p_game.world.is_water(pos):

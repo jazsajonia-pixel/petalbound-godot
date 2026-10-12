@@ -170,12 +170,12 @@ func _run_test() -> void:
 
 	# ---- arts overlay, journeys overlay, skill bar
 	game.hud.toggle_arts()
-	check(game.hud.arts_overlay.visible and get_tree().paused, "The arts overlay should open and pause.")
+	check(game.hud.arts_overlay.visible and paused, "The arts overlay should open and pause.")
 	game.hud.toggle_arts()
 	game.hud.toggle_journeys()
-	check(game.hud.journeys_overlay.visible and get_tree().paused, "The journeys overlay should open and pause.")
+	check(game.hud.journeys_overlay.visible and paused, "The journeys overlay should open and pause.")
 	game.hud.toggle_journeys()
-	check(not get_tree().paused, "Closing overlays should unpause.")
+	check(not paused, "Closing overlays should unpause.")
 	game.hud._refresh_skill_bar()
 	check(game.hud.skill_slots.size() == 4, "The skill bar should have four slots.")
 	var slot_visible: int = 0
