@@ -19,12 +19,26 @@ const FishingScript := preload("res://scripts/systems/fishing.gd")
 const DepthsScript := preload("res://scripts/systems/depths.gd")
 const CompanionScript := preload("res://scripts/actors/companion.gd")
 const Ach := preload("res://scripts/systems/achievements.gd")
+const ClassDB := preload("res://scripts/data/classdb.gd")
+const QuestSys := preload("res://scripts/systems/quests.gd")
 
 const CAMERA_ZOOM := 1.5
 const SHOPS := {
 	"pip": [{"id": "moontea", "price": 20}, {"id": "heart_piece", "price": 150, "once": "pip_heart"}, {"id": "fishing_rod", "price": 60, "once": "pip_rod"}],
-	"nomad": [{"id": "moontea", "price": 24}, {"id": "heart_piece", "price": 220, "once": "nomad_heart"}],
+	"nomad": [{"id": "moontea", "price": 24}, {"id": "starlocket", "price": 300, "once": "nomad_locket"}, {"id": "heart_piece", "price": 220, "once": "nomad_heart"}],
+	"kaede": [{"id": "moontea", "price": 22}, {"id": "duskfan", "price": 220, "once": "kaede_fan"}, {"id": "sunplate", "price": 260, "once": "kaede_plate"}, {"id": "heart_piece", "price": 200, "once": "kaede_heart"}],
 }
+
+## Enterable buildings: doors stand just south of the village house props; the
+## rooms themselves are built on quiet water in the far south of the map.
+const HOUSES := [
+	{"id": "house_mira", "name": "Mira's Cottage", "door": Vector2(1072, 1818), "center": Vector2(320, 2704), "size": Vector2(176, 128)},
+	{"id": "house_tallow", "name": "Tallow's Home", "door": Vector2(1408, 1802), "center": Vector2(560, 2704), "size": Vector2(176, 128)},
+	{"id": "house_kit", "name": "Kit's House", "door": Vector2(1040, 2026), "center": Vector2(800, 2704), "size": Vector2(176, 128)},
+	{"id": "house_alder", "name": "Elder's Hall", "door": Vector2(1200, 1738), "center": Vector2(1040, 2704), "size": Vector2(200, 136)},
+	{"id": "crypt", "name": "Hollow Crypt", "door": Vector2(2848, 2528), "center": Vector2(1280, 2704), "size": Vector2(256, 176), "dungeon": true},
+]
+const CRYPT_KINDS := ["skull", "skull", "spirit", "spirit", "eye", "slime3"]
 
 const MOONPETAL_SPOTS := [[122, 97], [125, 33], [82, 114], [199, 51], [217, 115], [279, 64], [287, 80]]
 const NIGHT_WISP_SPOTS := [["spirit", 70, 110], ["bluebat", 120, 40], ["spirit", 130, 100], ["bluebat", 192, 52], ["spirit", 212, 116], ["spirit2", 284, 92]]
@@ -81,6 +95,12 @@ var night_wisps: Array = []
 var _night_was := false
 var _descend_prompted := false
 var _ach_t := 0.0
+## Journeys (quests), houses and the Hollow Crypt.
+var quests: Dictionary = {}
+var current_interior: Dictionary = {}
+var crypt_enemies: Array = []
+var crypt_boss: Node = null
+var crypt_cleared_once := false
 
 
 func _ready() -> void:
@@ -91,6 +111,8 @@ func _ready() -> void:
 	world = WorldScript.new()
 	world.name = "World"
 	add_child(world)
+	for h in HOUSES:
+		world.interior_footprints.append([h["center"].x, h["center"].y, h["size"].x, h["size"].y])
 	entities = Node2D.new()
 	entities.name = "Entities"
 	entities.y_sort_enabled = true
@@ -120,12 +142,14 @@ func _ready() -> void:
 	camera.limit_bottom = int(world.world_size.y)
 	add_child(camera)
 	camera.make_current()
+	_inject_runtime_content()
 	_spawn_npcs()
 	_spawn_enemies()
 	_spawn_bosses()
 	_spawn_chests()
 	_spawn_waystones()
 	_spawn_moonwell()
+	_build_all_interiors()
 	environment = EnvScript.new()
 	environment.name = "Environment"
 	add_child(environment)
@@ -286,6 +310,235 @@ func _spawn_moonwell() -> void:
 	moonwell.add_child(moonwell_light)
 
 
+# ------------------------------------------------------------------ houses & the Hollow Crypt
+func _inject_runtime_content() -> void:
+	# interior villagers and the crypt chest ride the normal spawn pipelines
+	var npcs: Array = world.data["npcs"]
+	npcs.append({"id": "rosa", "sprite": "woman", "name": "Rosa", "x": 292.0, "y": 2692.0, "wander": 10})
+	npcs.append({"id": "jun", "sprite": "villager3", "name": "Jun", "x": 772.0, "y": 2696.0, "wander": 14})
+	npcs.append({"id": "fen", "sprite": "oldman", "name": "Old Fen", "x": 1016.0, "y": 2690.0, "wander": 8})
+	world.data["chests"].append({"id": "c_hall_tea", "x": 1064.0, "y": 2696.0, "item": "moontea"})
+	world.data["chests"].append({"id": "c_crypt", "x": 1352.0, "y": 2656.0, "item": "sunplate", "big": true})
+
+
+func _build_all_interiors() -> void:
+	for h in HOUSES:
+		_build_interior(h)
+		# a warm doorway light outside every entrance
+		var l := PointLight2D.new()
+		l.texture = WorldScript.light_texture()
+		l.color = Color(0.75, 0.78, 1.0) if h.get("dungeon", false) else Color(1.0, 0.82, 0.55)
+		l.energy = 0.35
+		l.texture_scale = 0.7
+		l.position = h["door"] + Vector2(0, -8)
+		add_child(l)
+		h["_in_door"] = h["center"] + Vector2(0, h["size"].y / 2.0 - 10.0)
+
+
+func _flat_sprite(parent: Node, color: Color, rect: Rect2, z: int) -> void:
+	var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	var s := Sprite2D.new()
+	s.texture = ImageTexture.create_from_image(img)
+	s.centered = false
+	s.modulate = color
+	s.position = rect.position
+	s.scale = rect.size / 2.0
+	s.z_index = z
+	parent.add_child(s)
+
+
+func _interior_prop(kind: String, x: float, y: float, collide := true) -> void:
+	var def: Dictionary = world.prop_defs.get(kind, {})
+	if def.is_empty():
+		return
+	var r: Array = def["rect"]
+	var s := Sprite2D.new()
+	s.texture = world.sheet(def["sheet"])
+	s.region_enabled = true
+	s.region_rect = Rect2(r[0], r[1], r[2], r[3])
+	s.centered = false
+	s.offset = Vector2(-floorf(r[2] / 2.0), -r[3])
+	s.position = Vector2(x, y)
+	entities.add_child(s)
+	if collide:
+		var body := StaticBody2D.new()
+		body.collision_layer = 1
+		var cs := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = Vector2(minf(r[2], 14.0), 6.0)
+		cs.shape = rect
+		cs.position = Vector2(0, -3)
+		body.add_child(cs)
+		s.add_child(body)
+
+
+func _build_interior(h: Dictionary) -> void:
+	var size: Vector2 = h["size"]
+	var c: Vector2 = h["center"]
+	var dungeon: bool = h.get("dungeon", false)
+	var room := Node2D.new()
+	room.name = "Interior_" + h["id"]
+	add_child(room)
+	var floor_c := Color(0.10, 0.08, 0.13) if dungeon else Color(0.30, 0.19, 0.13)
+	var wall_c := Color(0.16, 0.12, 0.16) if dungeon else Color(0.19, 0.12, 0.11)
+	_flat_sprite(room, floor_c, Rect2(c - size / 2.0, size), -9)
+	var t := 12.0
+	_flat_sprite(room, wall_c, Rect2(c.x - size.x / 2.0, c.y - size.y / 2.0 - t, size.x, t), -7)
+	_flat_sprite(room, wall_c, Rect2(c.x - size.x / 2.0, c.y + size.y / 2.0, size.x, t), -7)
+	_flat_sprite(room, wall_c, Rect2(c.x - size.x / 2.0 - t, c.y - size.y / 2.0, t, size.y), -7)
+	_flat_sprite(room, wall_c, Rect2(c.x + size.x / 2.0, c.y - size.y / 2.0, t, size.y), -7)
+	var body := StaticBody2D.new()
+	body.collision_layer = 1
+	room.add_child(body)
+	for wall in [Rect2(c.x - size.x / 2.0, c.y - size.y / 2.0 - t, size.x, t), Rect2(c.x - size.x / 2.0, c.y + size.y / 2.0, size.x, t),
+			Rect2(c.x - size.x / 2.0 - t, c.y - size.y / 2.0, t, size.y), Rect2(c.x + size.x / 2.0, c.y - size.y / 2.0, t, size.y)]:
+		var cs := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = wall.size
+		cs.shape = rect
+		cs.position = wall.get_center()
+		body.add_child(cs)
+	# doormat inside the exit
+	_flat_sprite(room, Color(0.45, 0.30, 0.22), Rect2(c.x - 10.0, c.y + size.y / 2.0 - 14.0, 20.0, 8.0), -8)
+	# lighting
+	for lx in [-0.28, 0.28]:
+		var l := PointLight2D.new()
+		l.texture = WorldScript.light_texture()
+		l.color = Color(0.75, 0.85, 1.0) if dungeon else Color(1.0, 0.78, 0.5)
+		l.energy = 0.55
+		l.texture_scale = 1.1
+		l.position = c + Vector2(size.x * lx, -14.0)
+		room.add_child(l)
+	if dungeon:
+		for g in [[-70.0, -40.0], [56.0, -52.0], [-18.0, -64.0], [70.0, -18.0], [-84.0, 6.0], [24.0, -30.0]]:
+			_interior_prop(["grave", "cross", "bones", "skull_bone", "grave", "bones"][int(absf(g[0] + 84.0) / 28.0) % 6], c.x + g[0], c.y + g[1])
+		_interior_prop("pillar", c.x - 96.0, c.y - 48.0)
+		_interior_prop("pillar", c.x + 96.0, c.y - 48.0)
+		_interior_prop("stone_lantern", c.x - 20.0, c.y - 20.0)
+		_interior_prop("stone_lantern", c.x + 20.0, c.y - 20.0)
+		_interior_prop("arch", h["door"].x, h["door"].y, false)
+		return
+	match h["id"]:
+		"house_mira":
+			_interior_prop("oven", c.x - 44.0, c.y - 30.0)
+			_interior_prop("bench", c.x + 24.0, c.y - 26.0)
+			_interior_prop("pot_red", c.x + 52.0, c.y - 6.0)
+			_interior_prop("plant_pot", c.x - 62.0, c.y - 8.0)
+			_interior_prop("crate", c.x + 48.0, c.y - 46.0)
+			_interior_prop("pot", c.x - 30.0, c.y - 50.0)
+		"house_tallow":
+			_interior_prop("crate", c.x - 48.0, c.y - 28.0)
+			_interior_prop("crate", c.x - 34.0, c.y - 40.0)
+			_interior_prop("barrel", c.x + 44.0, c.y - 30.0)
+			_interior_prop("bench", c.x + 12.0, c.y - 24.0)
+			_interior_prop("sign", c.x + 54.0, c.y - 8.0)
+			_interior_prop("plant_pot", c.x - 58.0, c.y - 8.0)
+		"house_kit":
+			_interior_prop("bench", c.x - 34.0, c.y - 30.0)
+			_interior_prop("plant_pot", c.x + 44.0, c.y - 28.0)
+			_interior_prop("pot_red", c.x - 54.0, c.y - 10.0)
+			_interior_prop("crate", c.x + 52.0, c.y - 10.0)
+			_interior_prop("mailbox", c.x + 8.0, c.y - 44.0)
+		"house_alder":
+			_interior_prop("pillar", c.x - 60.0, c.y - 40.0)
+			_interior_prop("pillar", c.x + 60.0, c.y - 40.0)
+			_interior_prop("bench", c.x - 30.0, c.y - 22.0)
+			_interior_prop("bench", c.x + 30.0, c.y - 22.0)
+			_interior_prop("oven", c.x, c.y - 52.0)
+			_interior_prop("statue_monk", c.x, c.y - 62.0, false)
+			_interior_prop("pot", c.x - 74.0, c.y - 8.0)
+			_interior_prop("pot", c.x + 74.0, c.y - 8.0)
+
+
+func _spawn_crypt_contents() -> void:
+	if not crypt_enemies.is_empty():
+		return
+	var h := _house("crypt")
+	var c: Vector2 = h["center"]
+	var i := 0
+	for kind in CRYPT_KINDS:
+		var e := EnemyScript.new()
+		var ang := -PI / 2.0 + TAU * float(i) / float(CRYPT_KINDS.size()) * 0.6
+		e.setup(self, kind, c + Vector2.from_angle(ang) * randf_range(40.0, 76.0) + Vector2(0, -20.0))
+		entities.add_child(e)
+		enemies.append(e)
+		crypt_enemies.append(e)
+		i += 1
+	var b := BossScript.new()
+	b.setup(self, "crypt_revenant", "giantspirit", c + Vector2(0, -52.0))
+	b.title = "THE HOLLOW REVENANT"
+	b.max_hp = 160
+	b.hp = b.max_hp
+	entities.add_child(b)
+	b.set_meta("dungeon", true)
+	crypt_boss = b
+
+
+func _clear_crypt_contents() -> void:
+	for e in crypt_enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+			enemies.erase(e)
+	crypt_enemies.clear()
+	if is_instance_valid(crypt_boss):
+		if active_boss == crypt_boss:
+			active_boss = null
+			hud.hide_boss()
+		crypt_boss.queue_free()
+	crypt_boss = null
+
+
+func _house(id: String) -> Dictionary:
+	for h in HOUSES:
+		if h["id"] == id:
+			return h
+	return {}
+
+
+func _use_door(h: Dictionary) -> void:
+	if current_interior.is_empty():
+		if h.get("dungeon", false) and not flags.get("crypt_open", false) and not crypt_cleared_once:
+			# the crypt opens with a rumble the first time
+			flags["crypt_open"] = true
+		if h.get("dungeon", false):
+			_spawn_crypt_contents()
+		current_interior = h
+		player.velocity = Vector2.ZERO
+		player.knockback = Vector2.ZERO
+		environment.fade = 1.0
+		var tw := create_tween()
+		tw.tween_method(func(v: float) -> void: environment.fade = v, 1.0, 0.0, 0.5)
+		player.global_position = h["_in_door"] + Vector2(0, -6.0)
+		camera.global_position = player.global_position
+		camera.reset_smoothing()
+		audio.play("menu2", 0.03, -6.0)
+		if h.get("dungeon", false):
+			hud.show_message("The Hollow Crypt. The air remembers every name here.", 3.0)
+			audio.play_music("night", 0.6)
+		else:
+			hud.show_message("%s" % h["name"], 2.0)
+	else:
+		if h.get("dungeon", false) and is_instance_valid(crypt_boss) and crypt_boss.awake and not crypt_boss.defeated:
+			hud.show_message("The Revenant bars the door. Finish what you started.", 2.5)
+			return
+		var out: Dictionary = current_interior
+		current_interior = {}
+		if out.get("dungeon", false):
+			_clear_crypt_contents()
+		player.velocity = Vector2.ZERO
+		player.knockback = Vector2.ZERO
+		environment.fade = 1.0
+		var tw := create_tween()
+		tw.tween_method(func(v: float) -> void: environment.fade = v, 1.0, 0.0, 0.5)
+		player.global_position = out["door"] + Vector2(0, 14.0)
+		camera.global_position = player.global_position
+		camera.reset_smoothing()
+		audio.play("menu2", 0.03, -6.0)
+		current_region = ""
+		_update_region(true)
+
+
 # ------------------------------------------------------------------ night & companion content
 func _spawn_moonpetals() -> void:
 	for spot in MOONPETAL_SPOTS:
@@ -404,7 +657,16 @@ func _reset_state() -> void:
 	p.moontea_charges = 3
 	p.moontea_max = 3
 	p.petalcoins = 0
+	p.classes.clear()
+	p.class_nodes.clear()
+	p.skill_bar.clear()
+	p.skill_cd.clear()
+	p.buffs.clear()
+	p.xp = 0
+	p.level = 1
+	p.skill_points = 0
 	p.recalc_stats()
+	p.focus = p.focus_max
 	p.apply_outfit()
 	p.revive(Vector2(world.data["start"][0], world.data["start"][1]))
 	for c in chests:
@@ -443,6 +705,10 @@ func _reset_state() -> void:
 	if depths.active:
 		depths.ascend(true)
 	fishing.cancel()
+	_clear_crypt_contents()
+	crypt_cleared_once = false
+	current_interior = {}
+	quests.clear()
 	_refresh_waystones()
 	active_boss = null
 
@@ -527,6 +793,9 @@ func _process(delta: float) -> void:
 			if not player.drink_moontea():
 				if player.moontea_charges <= 0:
 					hud.show_message("Your Moontea flask is empty. Rest at a waystone.", 2.0)
+		for i in range(4):
+			if Input.is_action_just_pressed("art%d" % (i + 1)):
+				player.cast_slot(i)
 	var mw_power: float = world.ground_material.get_shader_parameter("moonwell_power")
 	moonwell_light.energy = (0.15 + mw_power * 0.7) * (0.4 + environment.darkness) + sin(Time.get_ticks_msec() / 600.0) * 0.08
 	_save_t += delta
@@ -599,6 +868,14 @@ func _content_tick(delta: float) -> void:
 
 
 func _update_region(force: bool) -> void:
+	if not current_interior.is_empty():
+		# inside a house or the crypt: show the room name, leave the music alone
+		current_biome = clampi(world.biome_at(player.global_position), 0, 6)
+		if current_region != current_interior["name"] or force:
+			current_region = current_interior["name"]
+			hud.show_region(current_interior["name"], "inside")
+			audio.play_ambient("")
+		return
 	current_biome = world.biome_at(player.global_position)
 	var name: String = world.region_name(player.global_position)
 	if name == current_region and not force:
@@ -640,6 +917,8 @@ func hittable_targets(center: Vector2, radius: float) -> Array:
 	for b in bosses:
 		if b.awake and not b.defeated and (b.global_position + Vector2(0, -10)).distance_to(center) <= radius + float(b.cfg["radius"]):
 			out.append(b)
+	if is_instance_valid(crypt_boss) and crypt_boss.awake and not crypt_boss.defeated and (crypt_boss.global_position + Vector2(0, -10)).distance_to(center) <= radius + float(crypt_boss.cfg["radius"]):
+		out.append(crypt_boss)
 	for t in depths.targets():
 		if is_instance_valid(t) and t.get("alive", true) and not t.get("defeated", false) and (t.global_position + Vector2(0, -5)).distance_to(center) <= radius:
 			out.append(t)
@@ -770,6 +1049,8 @@ func on_enemy_killed(e: Node) -> void:
 	if kills >= 100:
 		unlock_achievement("bane_of_blight")
 	var coins: int = int(e.cfg.get("coins", 1))
+	player.add_xp(3 + coins)
+	_quest_progress("kills")
 	spawn_coin(e.global_position, coins)
 	if randf() < 0.18 and player.health < player.max_health:
 		spawn_heart(e.global_position)
@@ -797,6 +1078,21 @@ func on_boss_sleep(b: Node) -> void:
 func on_boss_defeated(b: Node) -> void:
 	active_boss = null
 	hud.hide_boss()
+	if b.has_meta("dungeon"):
+		# Hollow Crypt guardian: loot and a flag, but no Moonseed or world-state change
+		audio.play("success3", 0.0, -1.0)
+		hitstop(0.25)
+		player.add_petalcoins(80)
+		for i in range(6):
+			spawn_coin(b.global_position + Vector2(randf_range(-20, 20), randf_range(-10, 10)), 4)
+		player.give_item("moonveil_ring")
+		player.pose_item(AnimLib.tex(DB.ITEMS["moonveil_ring"]["icon"]), 1.6)
+		hud.show_item_get("moonveil_ring")
+		flags["crypt_cleared"] = true
+		crypt_cleared_once = true
+		_quest_progress("flag", "crypt_cleared")
+		save_game()
+		return
 	if String(b.boss_id).begins_with("echo_"):
 		# guardian echoes from the Depths: no Moonseed, no world-state change
 		audio.play("success3", 0.0, -1.0)
@@ -804,6 +1100,7 @@ func on_boss_defeated(b: Node) -> void:
 		get_tree().create_timer(2.0, true, false, true).timeout.connect(b.queue_free)
 		return
 	defeated_bosses.append(b.boss_id)
+	_quest_progress("boss")
 	audio.play("success3", 0.0, -1.0)
 	hitstop(0.25)
 	_spawn_moonseed(b.global_position + Vector2(0, -4), b.boss_id)
@@ -925,6 +1222,18 @@ func _update_interactables() -> void:
 		if d3 < bd + 4.0:
 			bd = d3
 			best = {"type": "waystone", "ws": w, "label": "REST"}
+	if not current_interior.is_empty():
+		# the way out stands at the south wall of whatever room we are in
+		var d4: float = (current_interior["_in_door"] as Vector2).distance_to(pp)
+		if d4 < 30.0:
+			bd = d4
+			best = {"type": "door", "house": current_interior, "label": "LEAVE"}
+	else:
+		for h in HOUSES:
+			var d5: float = (h["door"] as Vector2).distance_to(pp)
+			if d5 < 26.0 and d5 < bd:
+				bd = d5
+				best = {"type": "door", "house": h, "label": "ENTER"}
 	if environment.is_night() and not game_over:
 		for mp in moonpetals:
 			if mp["taken"]:
@@ -955,6 +1264,8 @@ func _interact() -> void:
 			_open_chest(_interact_target["chest"])
 		"waystone":
 			_rest_at(_interact_target["ws"])
+		"door":
+			_use_door(_interact_target["house"])
 		"moonwell":
 			_use_moonwell()
 		"moonpetal":
@@ -971,8 +1282,68 @@ func _talk(n: Node) -> void:
 	n.talking = true
 	var face: Texture2D = AnimLib.tex("npcs/%s/faceset.png" % n.sprite_name)
 	var lines := DB.dialogue(n.npc_id, moonseeds.size(), flags)
-	shop_id = n.npc_id if n.is_shop else ""
+	shop_id = n.npc_id if (n.is_shop or SHOPS.has(n.npc_id)) else ""
+	_quest_on_talk(n.npc_id)
 	hud.start_dialogue(n.display_name, face, lines)
+
+
+## Journeys: talking to a giver starts their quests; talking again claims the
+## finished ones. Talk-objective quests resolve when the target NPC is met.
+func _quest_on_talk(npc_id: String) -> void:
+	for q in QuestSys.QUESTS:
+		if q["giver"] != npc_id:
+			continue
+		var e: Dictionary = QuestSys.entry(quests, q["id"])
+		if e["s"] == QuestSys.STATE_AVAILABLE:
+			e["s"] = QuestSys.STATE_ACTIVE
+			hud.show_message("Journey begun: %s" % q["name"], 3.0)
+			audio.play("menu2", 0.04, -6.0)
+		elif e["s"] == QuestSys.STATE_DONE:
+			e["s"] = QuestSys.STATE_CLAIMED
+			_pay_quest_reward(q)
+	for q in QuestSys.QUESTS:
+		if q["type"] == "talk" and q["target"] == npc_id:
+			_quest_progress("talk", npc_id)
+
+
+func _quest_progress(type: String, key := "", amount := 1) -> void:
+	for q in QuestSys.QUESTS:
+		if q["type"] != type:
+			continue
+		if q.has("target") and q["target"] != key:
+			continue
+		var e: Dictionary = QuestSys.entry(quests, q["id"])
+		if e["s"] != QuestSys.STATE_ACTIVE:
+			continue
+		e["n"] = mini(int(e["n"]) + amount, int(q["goal"]))
+		if QuestSys.mark_done(quests, q["id"]):
+			hud.show_message("Journey done: %s! Report back to %s." % [q["name"], q["giver"].capitalize()], 4.0)
+			audio.play("success1", 0.02, -4.0)
+			save_game()
+
+
+func _pay_quest_reward(q: Dictionary) -> void:
+	var r: Dictionary = q["reward"]
+	var parts := PackedStringArray()
+	if r.has("coins"):
+		player.add_petalcoins(int(r["coins"]))
+		spawn_coin(player.global_position + Vector2(0, -6), clampi(int(r["coins"]) / 4, 1, 6))
+		parts.append("+%d Petalcoins" % int(r["coins"]))
+	if r.has("xp"):
+		player.add_xp(int(r["xp"]))
+		parts.append("+%d XP" % int(r["xp"]))
+	if r.has("item"):
+		player.give_item(r["item"])
+		hud.show_item_get(r["item"])
+		parts.append(DB.ITEMS[r["item"]]["name"])
+	audio.play("levelup1", 0.02, -3.0)
+	fx.spawn("spark_circle", player.global_position + Vector2(0, -10), 0.0, 1.4, Color(1.0, 0.85, 0.6), null, true)
+	hud.show_message("Journey rewarded: %s! %s" % [q["name"], ", ".join(parts)], 4.0)
+	save_game()
+
+
+func journey_text() -> String:
+	return QuestSys.tracker_text(quests)
 
 
 func on_dialogue_command(cmd: String) -> void:
@@ -1047,6 +1418,7 @@ func _rest_at(w: Dictionary) -> void:
 		discovered_waystones.append(w["id"])
 	last_waystone = w["id"]
 	player.heal_full()
+	_quest_progress("waystone", w["id"])
 	_refresh_waystones()
 	fx.spawn("aura", player.global_position + Vector2(0, -8), 0.0, 1.6, Color(0.85, 0.8, 1.0), null, true)
 	fx.burst("spark", w["pos"] + Vector2(0, -14), 14, 50.0, Color(0.85, 0.8, 1.0), -30.0, 1.0)
@@ -1121,7 +1493,7 @@ func on_perfect_parry(p: Node2D) -> void:
 	flash_light(pos, Color(0.9, 0.8, 1.0), 1.2, 0.4)
 	p.stamina = minf(p.STAMINA_MAX, p.stamina + 30.0)
 	p.invulnerable_left = maxf(p.invulnerable_left, 0.5)
-	melee_hit(pos, 64.0, 3, 240.0, Vector2.ZERO, "parry")
+	melee_hit(pos, 64.0, 3, 130.0, Vector2.ZERO, "parry")
 	audio.play("magic1", 0.05, -2.0)
 	audio.play("impact", 0.05, -2.0)
 	hitstop(0.12)
@@ -1149,6 +1521,7 @@ func _gather_moonpetal(mp: Dictionary) -> void:
 	player.moontea_charges = mini(player.moontea_max, player.moontea_charges + 1)
 	player.health_changed.emit()
 	player.add_petalcoins(8)
+	_quest_progress("moonpetals")
 	player.pose_item(AnimLib.tex(DB.ITEMS["moontea"]["icon"]), 1.3)
 	hud.show_message("You gather a moonpetal. Moontea +1, Petalcoins +8.", 2.5)
 	audio.play("heal", 0.05, -4.0)
@@ -1208,6 +1581,8 @@ func map_markers() -> Array:
 	for c in chests:
 		if not c["open"] and c["big"]:
 			out.append({"pos": c["pos"], "color": Color(1.0, 0.85, 0.4)})
+	if not flags.get("crypt_cleared", false):
+		out.append({"pos": _house("crypt")["door"], "color": Color(0.9, 0.5, 1.0), "label": "Crypt"})
 	out.append({"pos": moonwell.global_position, "color": Color(0.6, 0.85, 1.0), "label": "Moonwell"})
 	out.append({"pos": Vector2(world.data["landmarks"]["hearthgrove"][0], world.data["landmarks"]["hearthgrove"][1]), "color": Color(1, 0.75, 0.5), "label": "Hearthgrove"})
 	return out
@@ -1235,6 +1610,9 @@ func save_game() -> bool:
 		"waystones": discovered_waystones, "last_waystone": last_waystone,
 		"time": environment.time_of_day, "victory": victory,
 		"achievements": achievements, "stats": stats, "moth": moth_active,
+		"xp": p.xp, "level": p.level, "points": p.skill_points, "focus": p.focus,
+		"classes": p.classes, "nodes": p.class_nodes, "bar": p.skill_bar,
+		"quests": quests,
 	})
 
 
@@ -1250,12 +1628,30 @@ func load_game() -> bool:
 	p.equipped = d.get("equipped", {"cloak": "plum_cloak"})
 	p.petalcoins = int(d.get("coins", 0))
 	p.moontea_max = int(d.get("tea_max", 3))
+	p.xp = int(d.get("xp", 0))
+	p.level = clampi(int(d.get("level", 1)), 1, ClassDB.LEVEL_CAP)
+	p.skill_points = int(d.get("points", 0))
+	p.classes.assign(d.get("classes", []))
+	p.class_nodes = d.get("nodes", {})
+	p.skill_bar.assign(d.get("bar", []))
+	quests = d.get("quests", {})
 	p.recalc_stats()
 	p.apply_outfit()
 	var pos: Array = d.get("pos", world.data["start"])
 	p.revive(Vector2(pos[0], pos[1]))
+	# if the save was written inside a room, put Mallow back in that room
+	for h in HOUSES:
+		var hc: Vector2 = h["center"]
+		var hs: Vector2 = h["size"]
+		if absf(p.global_position.x - hc.x) < hs.x / 2.0 + 8.0 and absf(p.global_position.y - hc.y) < hs.y / 2.0 + 8.0:
+			current_interior = h
+			if h.get("dungeon", false):
+				_spawn_crypt_contents()
+			break
 	p.health = clampi(int(d.get("health", p.max_health)), 1, p.max_health)
 	p.moontea_charges = int(d.get("tea", 3))
+	p.focus = clampf(float(d.get("focus", float(p.focus_max))), 0.0, float(p.focus_max))
+	p._refresh_skill_bar()
 	moonseeds = d.get("seeds", [])
 	defeated_bosses = d.get("bosses", [])
 	opened_chests = d.get("chests", [])

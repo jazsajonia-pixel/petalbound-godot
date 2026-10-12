@@ -53,6 +53,7 @@ var lights: Array[PointLight2D] = []
 var breakables: Array[Dictionary] = []
 var prop_count := 0
 var solid_grid := PackedByteArray()
+var interior_footprints: Array = []
 var _sheets: Dictionary = {}
 var _shadow_tex: Texture2D
 
@@ -73,6 +74,7 @@ func build(entities_parent: Node2D) -> void:
 	if field_image.is_compressed():
 		field_image.decompress()
 	_expand_starfall()
+	_clear_interiors()
 	biome_tex = ImageTexture.create_from_image(biome_image)
 	field_tex = ImageTexture.create_from_image(field_image)
 	solid_grid.resize(tiles.x * tiles.y)
@@ -429,6 +431,25 @@ func _star_clear_water(cx: float, cy: float, rx: float, ry: float) -> void:
 					if px < 0 or py < 0 or px >= field_image.get_width() or py >= field_image.get_height():
 						continue
 					field_image.set_pixel(px, py, Color(0.0, 0.0, 0.0))
+
+
+## Punch quiet land into the far-south sea for every enterable interior, so
+## the ground shader, minimap and is_water() treat the rooms as solid ground.
+func _clear_interiors() -> void:
+	for f in interior_footprints:
+		var cx := float(f[0])
+		var cy := float(f[1])
+		var w := float(f[2])
+		var h := float(f[3])
+		var x0 := int((cx - w * 0.5 - 12.0) / 16.0 * field_res)
+		var x1 := int((cx + w * 0.5 + 12.0) / 16.0 * field_res)
+		var y0 := int((cy - h * 0.5 - 12.0) / 16.0 * field_res)
+		var y1 := int((cy + h * 0.5 + 12.0) / 16.0 * field_res)
+		for py in range(y0, y1):
+			for px in range(x0, x1):
+				if px < 0 or py < 0 or px >= field_image.get_width() or py >= field_image.get_height():
+					continue
+				field_image.set_pixel(px, py, Color(0.0, 0.0, 0.0))
 
 
 func _star_free(tx: float, ty: float, occupied: Dictionary, rad: float) -> bool:

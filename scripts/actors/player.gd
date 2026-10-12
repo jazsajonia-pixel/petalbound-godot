@@ -1,9 +1,12 @@
 extends CharacterBody2D
 ## Mallow, the rose-hooded wanderer. Walk, sprint, dodge-roll, jump hedges, swim,
 ## four weapons with distinct attacks, two skills, outfits that recolour the sprite.
+## Petal Arts update: class lines with skill trees, focus, XP levels, target-snapping
+## melee with a range hint, softer knockback, and an equipment-driven defense stat.
 
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const DB := preload("res://scripts/data/db.gd")
+const ClassDB := preload("res://scripts/data/classdb.gd")
 const SPRITE_SHADER := preload("res://assets/shaders/sprite_fx.gdshader")
 const HERO := "res://assets/packs/ninja_adventure/hero/"
 
@@ -81,6 +84,19 @@ var _hammer_pending := -1.0
 var _was_swimming := false
 var fishing := false
 var parry_cooldown := 0.0
+## Petal Arts: bound class lines, trees, the skill bar, focus and levels.
+var classes: Array[String] = []
+var class_nodes: Dictionary = {}
+var skill_bar: Array[String] = []
+var skill_cd: Dictionary = {}
+var buffs: Dictionary = {}
+var xp := 0
+var level := 1
+var skill_points := 0
+const FOCUS_BASE := 40
+var focus := 40.0
+var focus_max := 40.0
+var range_hint: Node2D
 
 var cloak_equipped: bool:
 	get:
@@ -150,6 +166,10 @@ func _ready() -> void:
 	guard_fx.visible = false
 	guard_fx.modulate = Color(1.0, 0.8, 0.95, 0.9)
 	add_child(guard_fx)
+	range_hint = RangeHint.new()
+	range_hint.radius = 26.0
+	range_hint.visible = false
+	add_child(range_hint)
 	apply_outfit()
 	recalc_stats()
 	health = max_health
@@ -164,7 +184,7 @@ func _register_inputs() -> void:
 	_add_keys("dash", [KEY_SPACE])
 	_add_keys("sprint", [KEY_SHIFT])
 	_add_keys("jump", [KEY_C, KEY_L])
-	_add_keys("attack", [KEY_J, KEY_K, KEY_ENTER])
+	_add_keys("attack", [KEY_J, KEY_ENTER])
 	_add_keys("skill", [KEY_F])
 	_add_keys("guard", [KEY_G])
 	_add_keys("heal", [KEY_R])
@@ -174,6 +194,12 @@ func _register_inputs() -> void:
 	_add_keys("map", [KEY_M])
 	_add_keys("pause", [KEY_ESCAPE, KEY_P])
 	_add_keys("photo", [KEY_F9])
+	_add_keys("arts", [KEY_K])
+	_add_keys("journeys", [KEY_H])
+	_add_keys("art1", [KEY_1])
+	_add_keys("art2", [KEY_2])
+	_add_keys("art3", [KEY_3])
+	_add_keys("art4", [KEY_4])
 	_add_joy("attack", JOY_BUTTON_X)
 	_add_joy("dash", JOY_BUTTON_B)
 	_add_joy("jump", JOY_BUTTON_A)
@@ -267,16 +293,78 @@ func recalc_stats() -> void:
 	for slot in equipped:
 		var item: Dictionary = DB.ITEMS.get(equipped[slot], {})
 		hearts += int(item.get("hearts", 0))
+	hearts += int(_tree_sum("hearts"))
 	var old_max := max_health
 	max_health = hearts * HEART
 	if max_health > old_max:
 		health = mini(max_health, health + (max_health - old_max))
 	health = mini(health, max_health)
+	var old_focus := focus_max
+	focus_max = float(FOCUS_BASE + 2 * (level - 1) + int(_tree_sum("focus")))
+	for slot in equipped:
+		focus_max += float(DB.ITEMS.get(equipped[slot], {}).get("focus", 0.0))
+	focus = clampf(focus, 0.0, focus_max)
+	if focus_max > old_focus and old_focus > 0.0:
+		focus += focus_max - old_focus
+		focus = clampf(focus, 0.0, focus_max)
 	health_changed.emit()
 
 
+## Sum of one stat ("hearts", "focus", "atk", "defense", "crit", "speed", "cd")
+## across every owned tree node of every bound class.
+func _tree_sum(stat: String) -> float:
+	var total := 0.0
+	for cid in classes:
+		var nodes: Dictionary = class_nodes.get(cid, {})
+		for nid in nodes:
+			var node: Dictionary = ClassDB.class_of(cid).get("tree", {}).get(nid, {})
+			total += float(node.get("effect", {}).get(stat, 0.0))
+	return total
+
+
+func attack_bonus() -> int:
+	var bonus := int(_tree_sum("atk"))
+	if classes.size() >= 2:
+		bonus += 1  # dual-line synergy
+	return bonus
+
+
+func defense_total() -> int:
+	var d := int(_tree_sum("defense"))
+	for slot in equipped:
+		d += int(DB.ITEMS.get(equipped[slot], {}).get("defense", 0))
+	if buffs.has("bulwark"):
+		d += 2
+	return d
+
+
+func crit_chance() -> float:
+	var c := 0.03 + _tree_sum("crit")
+	for slot in equipped:
+		c += float(DB.ITEMS.get(equipped[slot], {}).get("crit", 0.0))
+	if buffs.has("marked"):
+		c += 0.30
+	if buffs.has("shadow"):
+		c = 1.0
+	return clampf(c, 0.0, 1.0)
+
+
+func skill_cd_scale() -> float:
+	return clampf(1.0 - _tree_sum("cd"), 0.5, 1.0)
+
+
+## Roll a critical on a damage number; celebrate when it lands.
+func _roll_crit(dmg: int) -> int:
+	if randf() < crit_chance():
+		if game:
+			game.fx.number(global_position + Vector2(0, -22), "CRIT!", Color("ffd27a"), true)
+			game.audio.play("secret2", 0.06, -6.0)
+		return dmg * 2
+	return dmg
+
+
 func get_move_speed() -> float:
-	var mult := 1.0
+	var mult := 1.0 + _tree_sum("speed")
 	for slot in equipped:
 		mult += float(DB.ITEMS.get(equipped[slot], {}).get("speed", 0.0))
 	return WALK_SPEED * mult
@@ -366,6 +454,233 @@ func equip_moonheart_charm() -> bool:
 	return true
 
 
+# ------------------------------------------------------------------ petal arts
+func xp_needed() -> int:
+	return ClassDB.xp_needed(level)
+
+
+func add_xp(amount: int) -> void:
+	if amount <= 0:
+		return
+	xp += amount
+	var leveled := false
+	while level < ClassDB.LEVEL_CAP and xp >= xp_needed():
+		xp -= xp_needed()
+		level += 1
+		skill_points += 1
+		leveled = true
+	recalc_stats()
+	if leveled and game:
+		game.fx.spawn("spark_circle", global_position + Vector2(0, -10), 0.0, 1.6, Color(1.0, 0.85, 0.6), null, true)
+		game.fx.number(global_position + Vector2(0, -26), "LEVEL %d" % level, Color("ffd27a"), true)
+		game.audio.play("levelup1", 0.02, -2.0)
+		game.hud.show_message("Level %d! A Petal Art point to spend — press K." % level, 3.5)
+
+
+func bind_class(id: String) -> bool:
+	if not ClassDB.CLASSES.has(id) or classes.has(id):
+		return false
+	if classes.is_empty():
+		classes.append(id)
+	elif classes.size() == 1 and level >= ClassDB.COMBINE_LEVEL:
+		classes.append(id)
+	else:
+		return false
+	if not class_nodes.has(id):
+		class_nodes[id] = {}
+	_refresh_skill_bar()
+	if game:
+		var def: Dictionary = ClassDB.CLASSES[id]
+		game.audio.play("secret2", 0.0, -3.0)
+		game.fx.spawn("aura", global_position + Vector2(0, -8), 0.0, 1.4, def["color"], null, true)
+		game.hud.show_message("%s line bound%s. Arts 1-4 on the keys." % [def["name"], " (combined)" if classes.size() == 2 else ""], 3.5)
+	return true
+
+
+func spend_node(class_id: String, node_id: String) -> bool:
+	if not classes.has(class_id):
+		return false
+	var node: Dictionary = ClassDB.class_of(class_id).get("tree", {}).get(node_id, {})
+	if node.is_empty() or skill_points < 1:
+		return false
+	var owned: Dictionary = class_nodes.get(class_id, {})
+	if owned.has(node_id):
+		return false
+	for need in node.get("needs", []):
+		if not owned.has(need):
+			return false
+	owned[node_id] = true
+	class_nodes[class_id] = owned
+	skill_points -= 1
+	recalc_stats()
+	if game:
+		game.audio.play("levelup1", 0.03, -4.0)
+		game.fx.burst("spark", global_position + Vector2(0, -12), 8, 60.0, Color(1, 0.9, 0.7), -40.0)
+	return true
+
+
+## Keep the four art slots filled with bound-class skills, primary line first.
+func _refresh_skill_bar() -> void:
+	skill_bar.clear()
+	var seen: Dictionary = {}
+	var add := func(ids: Array) -> void:
+		for sid in ids:
+			if skill_bar.size() >= 4 or seen.has(sid):
+				continue
+			seen[sid] = true
+			skill_bar.append(sid)
+	for cid in classes:
+		add.call(ClassDB.class_of(cid).get("skills", []))
+
+
+func cast_slot(index: int) -> void:
+	if index < 0 or index >= skill_bar.size():
+		return
+	cast_skill(skill_bar[index])
+
+
+func cast_skill(id: String) -> bool:
+	var def: Dictionary = ClassDB.skill_of(id)
+	if def.is_empty() or not game:
+		return false
+	if state != State.MOVE and state != State.ATTACK:
+		return false
+	if fishing or swimming or game.game_over:
+		return false
+	if float(skill_cd.get(id, 0.0)) > 0.0:
+		game.audio.play("cancel", 0.0, -8.0)
+		return false
+	var cost := int(def["cost"])
+	if focus < cost:
+		game.hud.show_message("Not enough focus for %s." % def["name"], 1.5)
+		game.audio.play("cancel", 0.0, -8.0)
+		return false
+	focus -= cost
+	skill_cd[id] = float(def["cd"]) * skill_cd_scale()
+	_begin_attack(0.24, 0.30)
+	var atk := attack_bonus()
+	var tint := Color(String(def.get("tint", "ffd9f2")))
+	match String(def["exec"]):
+		"strike":
+			_swing_weapon(0.22, true)
+			var center := global_position + Vector2(0, -6) + facing * 15.0
+			game.fx.spawn(String(def.get("fx", "slash_double")), center, facing.angle(), 1.1, tint, null, true)
+			game.audio.play("slash3", 0.08, -2.0)
+			var hits: int = game.melee_hit(center, float(def["radius"]), _roll_crit(int(def["dmg"]) + atk), float(def["knock"]), facing, "art")
+			if hits > 0:
+				game.hitstop(0.07)
+		"flurry":
+			_swing_weapon(0.2, false)
+			for i in range(int(def.get("hits", 3))):
+				_fist_after(0.12 * float(i), int(def["dmg"]) + atk, tint)
+		"volley":
+			_swing_weapon(0.18, false, true)
+			for i in range(int(def["count"])):
+				_shoot_after(0.09 * float(i) - (0.09 if i == 0 else 0.0), def, atk)
+			game.audio.play("slash5", 0.08, -4.0)
+		"pierce":
+			_swing_weapon(0.18, false, true)
+			var dir: Vector2 = game.auto_aim(global_position, facing, 200.0)
+			game.spawn_projectile({"kind": String(def["kind"]), "pos": global_position + Vector2(0, -9) + dir * 8.0,
+				"dir": dir, "speed": float(def["speed"]), "damage": _roll_crit(int(def["dmg"]) + atk),
+				"team": "player", "pierce": true, "life": 1.4})
+			game.fx.spawn("spark", global_position + Vector2(0, -9) + dir * 10.0, 0.0, 0.6, tint, null, true)
+			game.audio.play("magic1", 0.08, -4.0)
+		"burst_point":
+			var point := global_position + facing * float(def.get("dist", 64.0))
+			game.fx.ring(point, float(def["radius"]), float(def["delay"]), tint)
+			game.audio.play("magic3", 0.05, -6.0)
+			get_tree().create_timer(float(def["delay"])).timeout.connect(func() -> void:
+				if game == null:
+					return
+				game.fx.spawn("explosion", point, 0.0, 0.9, Color(1.0, 0.92, 0.6, 0.9), null, true)
+				game.fx.shake(3.0, 0.2)
+				game.audio.play("impact", 0.06, -2.0)
+				game.melee_hit(point, float(def["radius"]), _roll_crit(int(def["dmg"]) + atk), 110.0, facing, "art"))
+		"blink":
+			var step_dir := facing
+			var dist := float(def["dist"])
+			if class_nodes.get("nightbloom", {}).has("veilwalker"):
+				dist += 24.0
+			for i in range(10, 0, -1):
+				var probe := global_position + step_dir * dist * float(i) / 10.0
+				if not game.world.is_solid(probe + Vector2(0, -4.0)) and not game.world.is_solid(probe + Vector2(0, 2.0)) and not game.world.is_water(probe):
+					global_position = probe
+					break
+			buffs[String(def["buff"])] = float(def["time"])
+			invulnerable_left = maxf(invulnerable_left, 0.35)
+			for i in range(4):
+				_afterimage()
+			game.fx.spawn("ripple", global_position + Vector2(0, -4), 0.0, 1.2, tint)
+			game.audio.play("spirit", 0.05, -4.0)
+		"buff":
+			buffs[String(def["buff"])] = float(def["time"])
+			if def.has("invuln"):
+				invulnerable_left = maxf(invulnerable_left, float(def["invuln"]))
+				guard_fx.visible = true
+				guard_fx.play("play")
+			if def.has("fx"):
+				game.fx.spawn(String(def["fx"]), global_position + Vector2(0, -8), 0.0, 1.5, tint, null, true)
+			game.audio.play("magic1", 0.05, -3.0)
+		"heal":
+			health = mini(max_health, health + int(def["heal"]))
+			health_changed.emit()
+			game.fx.spawn("aura", global_position + Vector2(0, -8), 0.0, 1.3, tint, null, true)
+			game.fx.burst("spark", global_position + Vector2(0, -10), 10, 50.0, Color(0.8, 1.0, 0.85), -40.0)
+			game.fx.number(global_position + Vector2(0, -18), "+2", Color("9cf5a5"))
+			game.audio.play("heal", 0.03, -3.0)
+		"aoe":
+			var hits2: int = game.melee_hit(global_position + Vector2(0, -6), float(def["radius"]), _roll_crit(int(def["dmg"]) + atk), float(def["knock"]), Vector2.ZERO, "art")
+			if def.has("invuln"):
+				invulnerable_left = maxf(invulnerable_left, float(def["invuln"]))
+			game.fx.ring(global_position + Vector2(0, -6), float(def["radius"]), 0.4, tint)
+			game.fx.burst("spark", global_position + Vector2(0, -10), 14, 90.0, tint, -30.0)
+			game.audio.play("magic3", 0.05, -2.0)
+			if hits2 > 0:
+				game.hitstop(0.05)
+		"vamp":
+			var hits3: int = game.melee_hit(global_position + Vector2(0, -6), float(def["radius"]), _roll_crit(int(def["dmg"]) + atk), float(def.get("knock", 60.0)), Vector2.ZERO, "art")
+			if hits3 > 0:
+				var per := int(def.get("heal", 2))
+				if class_nodes.get("gravetender", {}).has("second_breath"):
+					per += 1
+				health = mini(max_health, health + per * hits3)
+				health_changed.emit()
+				game.fx.burst("spark", global_position + Vector2(0, -12), 6 * hits3, 60.0, tint, -60.0)
+				game.fx.number(global_position + Vector2(0, -18), "+%d" % (per * hits3), Color("9cf5a5"))
+			game.fx.ring(global_position + Vector2(0, -6), float(def["radius"]), 0.35, tint)
+			game.audio.play("spirit" if hits3 > 0 else "magic1", 0.05, -3.0)
+	return true
+
+
+func _fist_after(delay: float, dmg: int, tint: Color) -> void:
+	get_tree().create_timer(delay).timeout.connect(func() -> void:
+		if game == null or state == State.DEAD:
+			return
+		var center := global_position + Vector2(0, -6) + facing * 14.0
+		game.fx.spawn("slash", center, facing.angle(), 0.7, tint, null, true)
+		game.audio.play("slash" if int(delay * 20.0) % 2 == 0 else "slash2", 0.08, -5.0)
+		game.melee_hit(center, 18.0, _roll_crit(dmg), 50.0, facing, "art"))
+
+
+func _shoot_after(delay: float, def: Dictionary, atk: int) -> void:
+	get_tree().create_timer(maxf(delay, 0.01)).timeout.connect(func() -> void:
+		if game == null or state == State.DEAD:
+			return
+		var dir: Vector2 = game.auto_aim(global_position, facing, 220.0)
+		var spread := float(def.get("spread", 0.0))
+		var n := int(def.get("count", 3))
+		var idx := int(round(delay / 0.09)) if n > 1 else 0
+		var angle_off := 0.0
+		if spread > 0.0 and n > 1:
+			angle_off = (-1.0 + 2.0 * float(idx) / float(n - 1)) * spread
+		dir = dir.rotated(angle_off)
+		game.spawn_projectile({"kind": String(def["kind"]), "pos": global_position + Vector2(0, -9) + dir * 8.0,
+			"dir": dir, "speed": float(def["speed"]), "damage": _roll_crit(int(def["dmg"]) + atk),
+			"team": "player", "homing": float(def.get("homing", 0.0)), "life": 1.0})
+		game.audio.play("launch", 0.08, -8.0))
+
+
 func add_petalcoins(amount: int) -> void:
 	petalcoins += maxi(0, amount)
 	health_changed.emit()
@@ -437,6 +752,13 @@ func _tick_timers(delta: float) -> void:
 	_lock_t = maxf(0.0, _lock_t - delta)
 	invulnerable_left = maxf(0.0, invulnerable_left - delta)
 	parry_cooldown = maxf(0.0, parry_cooldown - delta)
+	for b in buffs.keys():
+		buffs[b] = float(buffs[b]) - delta
+		if float(buffs[b]) <= 0.0:
+			buffs.erase(b)
+	for k in skill_cd.keys():
+		skill_cd[k] = maxf(0.0, float(skill_cd[k]) - delta)
+	focus = minf(focus_max, focus + 6.0 * delta)
 	attack_left = maxf(0.0, attack_left - delta)
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
 	combo_timer = maxf(0.0, combo_timer - delta)
@@ -595,7 +917,7 @@ func _land() -> void:
 			plunge = false
 			game.fx.spawn("explosion", global_position + Vector2(0, -6), 0.0, 0.7, Color(1, 0.9, 1.0, 0.85))
 			game.fx.shake(2.5, 0.16)
-			game.melee_hit(global_position, 24.0, 3, 220.0, Vector2.ZERO, "plunge")
+			game.melee_hit(global_position, 24.0, _roll_crit(3 + attack_bonus()), 140.0, Vector2.ZERO, "plunge")
 			game.audio.play("impact", 0.1, -2.0)
 
 
@@ -606,7 +928,7 @@ func try_attack() -> bool:
 		return false
 	var wid := get_weapon_id()
 	match wid:
-		"thornblade":
+		"thornblade", "duskfan":
 			_attack_blade()
 		"bloomstaff":
 			_attack_staff()
@@ -630,6 +952,7 @@ func _begin_attack(lock: float, cooldown: float) -> void:
 
 
 func _attack_blade() -> void:
+	_snap_to_target(40.0)
 	if combo_timer <= 0.0:
 		attack_combo = -1
 	attack_combo = (attack_combo + 1) % 3
@@ -642,8 +965,9 @@ func _attack_blade() -> void:
 	if game:
 		game.fx.spawn("slash_double" if finisher else "slash", center, facing.angle() + (0.0 if attack_combo != 1 else PI), 1.15 if finisher else 0.9, Color(1, 0.86, 0.95) if not finisher else Color(1, 0.95, 0.75), null, true)
 		game.audio.play("slash" if attack_combo == 0 else ("slash2" if attack_combo == 1 else "slash3"), 0.08, -3.0)
-		var dmg := 4 if finisher else 2
-		var hits: int = game.melee_hit(center, 21.0 if finisher else 17.0, dmg, 230.0 if finisher else 120.0, facing, "blade")
+		var base := int(DB.ITEMS[get_weapon_id()].get("damage", 2))
+		var dmg := _roll_crit(base + attack_bonus() if not finisher else base * 2 + attack_bonus())
+		var hits: int = game.melee_hit(center, 21.0 if finisher else 17.0, dmg, 110.0 if finisher else 55.0, facing, "blade")
 		if hits > 0:
 			game.hitstop(0.06 if finisher else 0.035)
 
@@ -683,15 +1007,33 @@ func _attack_hammer() -> void:
 func _hammer_impact() -> void:
 	if game == null:
 		return
+	_snap_to_target(44.0)
 	var center := global_position + Vector2(0, -3) + facing * 16.0
 	game.fx.spawn("explosion", center, 0.0, 0.8, Color(1, 0.95, 0.85, 0.9))
 	game.fx.burst("rock", center, 10, 90.0, Color(1, 1, 1), 220.0)
 	game.fx.ring(center, 30.0, 0.25, Color(1.0, 0.9, 0.7, 0.8), false)
 	game.fx.shake(4.0, 0.22)
 	game.audio.play("impact3", 0.06, -1.0)
-	var hits: int = game.melee_hit(center, 28.0, 5, 300.0, facing, "hammer")
+	var base := int(DB.ITEMS[get_weapon_id()].get("damage", 5))
+	var hits: int = game.melee_hit(center, 28.0, _roll_crit(base + attack_bonus()), 160.0, facing, "hammer")
 	if hits > 0:
 		game.hitstop(0.08)
+
+
+## Target-snapping melee: if the closest enemy is within reach and not behind
+## Mallow, turn the swing toward it so basic attacks follow the fight.
+func _snap_to_target(reach: float) -> void:
+	if game == null:
+		return
+	var t: Node2D = game.nearest_enemy(global_position, reach * 1.6)
+	if t == null:
+		return
+	var to: Vector2 = (t.global_position + Vector2(0, -5)) - global_position
+	if to.length() > reach * 1.6:
+		return
+	if facing.dot(to.normalized()) < -0.2:
+		return
+	_set_facing(to)
 
 
 func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
@@ -740,7 +1082,7 @@ func activate_mothlight() -> bool:
 		game.fx.burst("spark", global_position + Vector2(0, -8), 18, 120.0, Color(1, 0.85, 0.75), 0.0, 0.8)
 		game.audio.play("magic3", 0.05, -2.0)
 		game.flash_light(global_position, Color(1.0, 0.75, 0.85), 0.55, 0.5)
-		game.melee_hit(global_position + Vector2(0, -6), 72.0, 3, 240.0, Vector2.ZERO, "mothlight")
+		game.melee_hit(global_position + Vector2(0, -6), 72.0, _roll_crit(3 + attack_bonus()), 130.0, Vector2.ZERO, "mothlight")
 	return true
 
 
@@ -792,6 +1134,8 @@ func take_damage(amount: int = 2, from := Vector2.INF) -> bool:
 		return false
 	if invulnerable_left > 0.0:
 		return false
+	if amount > 1 and defense_total() > 0:
+		amount = maxi(1, amount - defense_total())
 	health = maxi(0, health - amount)
 	invulnerable_left = 1.0
 	bow_charge = -1.0
@@ -800,7 +1144,7 @@ func take_damage(amount: int = 2, from := Vector2.INF) -> bool:
 		poise -= float(DB.ITEMS.get(equipped[slot], {}).get("poise", 0.0))
 	if from != Vector2.INF:
 		var away := (global_position - from).normalized()
-		knockback = away * 210.0 * poise
+		knockback = away * 140.0 * poise
 	_flash(Color(1, 0.35, 0.4))
 	hit_taken.emit(amount)
 	health_changed.emit()
@@ -926,6 +1270,13 @@ func _update_visuals(delta: float) -> void:
 	var s := 1.0 - clampf(h / 30.0, 0.0, 0.45)
 	shadow.scale = Vector2(0.5, 0.42) * s
 	shadow.visible = not swimming or airborne
+	# basic-attack range hint: shows whenever a target hovers near melee reach
+	if range_hint != null:
+		var wid := get_weapon_id()
+		var melee: bool = wid == "thornblade" or wid == "duskfan" or wid == "ironroot_hammer"
+		var near := game != null and game.nearest_enemy(global_position, 40.0) != null
+		range_hint.visible = melee and near and state == State.MOVE and not swimming and not airborne and game.game_started
+		range_hint.pulse(delta)
 	if invulnerable_left > 0.0 and state != State.ROLL and state != State.DEAD:
 		sprite.modulate.a = 0.45 if int(invulnerable_left * 20.0) % 2 == 0 else 1.0
 	else:
@@ -951,3 +1302,20 @@ func _update_visuals(delta: float) -> void:
 			_ripple_t = 0.9
 			game.fx.spawn("ripple", global_position, 0.0, 1.1, Color(1, 1, 1, 0.6))
 
+
+
+# ------------------------------------------------------------------ inner widgets
+class RangeHint:
+	extends Node2D
+	## A faint pulsing ring that shows basic-attack reach when enemies are near.
+	var radius := 26.0
+	var _t := 0.0
+
+	func pulse(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var a := 0.22 + 0.14 * (0.5 + 0.5 * sin(_t * 5.0))
+		draw_arc(Vector2(0, -4), radius, 0.0, TAU, 48, Color(1.0, 0.55, 0.75, a), 1.5)
+		draw_arc(Vector2(0, -4), radius - 2.5, 0.0, TAU, 48, Color(1.0, 0.75, 0.85, a * 0.5), 1.0)

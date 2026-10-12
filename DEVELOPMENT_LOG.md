@@ -1,5 +1,31 @@
 # Development Log
 
+## Petal Arts update — 2026-10-12
+
+**Status:** All requested features implemented (attack target snap + range hint, softer knockback, enterable houses, quests, classes with combining and trees, equipment, Kaede's shop, the Hollow Crypt dungeon). **The headless checks have NOT been run in this environment** — it has no Godot binary — so they must pass before this leaves draft status. **This build has not been tested on a phone.**
+
+### What changed
+
+- **Combat feel:** `scripts/actors/player.gd` — basic melee (blade, hammer, Duskfan) now snaps toward the closest enemy in reach (`_snap_to_target`), and a faint pulsing ring (`RangeHint`) shows basic-attack range whenever a target hovers near. Knockback was re-tuned to feel weighty instead of launchy: blade 55/110, hammer 160, plunge 140, parry shockwave 130, mothlight 130, enemy-hits-Mallow 140 (down from 120–300).
+- **Petal Arts (classes):** new `scripts/data/classdb.gd` — seven Albion-inspired lines (Warden/warrior, Pugilist/fighter, Nightbloom/assassin, Lumimancer/mage, Gravetender/necromancer, Windrunner/ranger, Petalweaver/cleric), each with two active arts and a four-node destiny-style tree. Kills grant XP (`add_xp`, cap 20); levels grant a point and focus (mana, regen 6/s). Bind a primary anytime, combine one secondary at level 5+ (max two lines, +1 attack synergy). Arts cast on keys 1-4 with focus costs and cooldowns; 14 archetypes implemented in `cast_skill` (strikes, flurries, volleys, piercing bolts, point bursts, blinks, buffs, heals, aoe rings, vampiric reaps). Critical hits double damage and roll from gear + tree + buffs.
+- **Journeys (quests):** new `scripts/systems/quests.gd` — six quests with givers (Alder, Mira, Kit, Kaede, Lumen, Sora), objectives (kills, moonpetals, talk, boss, waystone, flag) and rewards (coins/XP/items). Talk to a giver to start, complete objectives through normal play, talk again to claim. HUD journey tracker line; H opens the Journeys log.
+- **Enterable houses:** `scripts/core/main.gd` — four Hearthgrove homes open through door prompts; interiors are built at runtime on the quiet far-south sea (floor, walls, colliders, lights, furniture, doormats), with three interior villagers (Rosa, Jun, Old Fen) and a tea chest in the Elder's Hall. `scripts/world/world.gd` gained `interior_footprints` + `_clear_interiors()` so the ground shader, minimap and `is_water()` treat the rooms as land.
+- **Hollow Crypt dungeon:** the graveyard door in Glasswater Marsh opens into a dungeon room with six keepers and **the Hollow Revenant** (a dungeon boss that bars the door until defeated). It drops the Moonveil Ring, 80 coins and the `crypt_cleared` flag — no Moonseed, no world-state change, no respawn. A map marker points at the crypt until cleared.
+- **Equipment & shops:** new items in `scripts/data/db.gd` — Duskfan (weapon), Sunplate Vest (+2 defense), Moonveil Ring (+6% crit), Star Locket (+1 heart, +10 focus); defense reduces incoming damage. Kaede of the Watch now runs a shop (moontea, duskfan, sunplate, heart bloom); the nomad sells the Star Locket.
+- **HUD:** `scripts/ui/hud.gd` — ARTS overlay (K) for binding lines and spending tree points, Journeys overlay (H), a 1-4 skill bar with icons and cooldown counts, XP and focus gauges, a journey tracker line, satchel lines for level/XP/focus/arts/journeys, and an ARTS top button. Controls: K arts, H journeys, 1-4 arts; K removed from attack, J removed from journeys to avoid collisions.
+- **Save/load:** the save gains `xp`, `level`, `points`, `focus`, `classes`, `nodes`, `bar` and `quests` (all optional; older saves default cleanly).
+- **Tests:** new `tests/growth_smoke.gd` covers levels, binding/combining, tree nodes, art casting, journeys lifecycle, Kaede's shop, houses, the crypt (including no-Moonseed and door-bar logic), overlays, target snap and knockback, and the save/load round-trip.
+- **Docs:** README updated (classes, quests, houses, crypt, equipment, new controls, seven smoke tests).
+
+### Validation (must run before merging)
+
+```sh
+godot --headless --editor --path . --quit
+for t in tests/*.gd; do godot --headless --path . -s "$t"; done
+```
+
+Run both on a machine with Godot 4.7.2. The headless editor scan and all seven smoke tests (including the two prior batches: Starfall content and this growth update) must pass before merging. Real-device checks remain outstanding as before.
+
 ## Starfall content update — 2026-10-12
 
 **Status:** All suggested features implemented (fishing, night content, post-game Depths, moth companion, perfect parry, feats, photo mode, villager night schedules) plus the Starfall Rise map expansion. **The headless checks have NOT been run in this environment** — it has no Godot binary — so they must pass before this is merged to `main`. **This build has not been tested on a phone.** Additionally, the work filesystem was wiped mid-task by the sandbox; the code was rebuilt from the committed originals plus the recorded edit specs, so `scripts/world/world.gd`'s new expansion helpers deserve an extra read during review.
