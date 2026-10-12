@@ -28,17 +28,6 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
 
-[rendering]
-
-textures/canvas_textures/default_texture_filter=0
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.08, 0.06, 0.12, 1)
-
-[input_devices]
-
-pointing/emulate_mouse_from_touch=true
-
 [layer_names]
 
 2d_physics/layer_1="solids"
@@ -47,6 +36,9 @@ pointing/emulate_mouse_from_touch=true
 2d_physics/layer_4="npcs"
 2d_physics/layer_5="enemies"
 
-[physics]
+[rendering]
 
-common/physics_ticks_per_second=60
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.08, 0.06, 0.12, 1)
