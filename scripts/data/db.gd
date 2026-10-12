@@ -12,6 +12,8 @@ const ITEMS := {
 		"desc": "Fires seeking moonlight bolts that light up the dark.", "damage": 3},
 	"gale_bow": {"name": "Gale Bow", "type": "weapon", "icon": NA + "items/weapons/bow.png", "hand": NA + "items/weapons/bow.png",
 		"desc": "Long-range arrows. Hold attack to charge a piercing gale shot.", "damage": 3},
+	"duskfan": {"name": "Duskfan", "type": "weapon", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
+		"desc": "A nightsteel fan-blade. Swift cuts; the finisher bites deeper.", "damage": 3},
 	"ironroot_hammer": {"name": "Ironroot Hammer", "type": "weapon", "icon": NA + "items/weapons/hammer.png", "hand": NA + "items/weapons/hammer_hand.png",
 		"desc": "Slow, crushing swings that send a shockwave through the ground.", "damage": 5},
 	"plum_cloak": {"name": "Plum Wayfarer Cloak", "type": "cloak", "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png",
@@ -24,6 +26,12 @@ const ITEMS := {
 		"desc": "+12% speed and much faster stamina recovery.", "speed": 0.12, "stamina_regen": 0.6},
 	"ember_ring": {"name": "Ember Ring", "type": "ring", "icon": NA + "ui/skill/ring.png",
 		"desc": "Staff bolts and arrows deal +1 damage.", "ranged_bonus": 1},
+	"moonveil_ring": {"name": "Moonveil Ring", "type": "ring", "icon": NA + "ui/skill/ring.png",
+		"desc": "Woven from crypt-moonlight. +6% critical chance.", "crit": 0.06},
+	"sunplate": {"name": "Sunplate Vest", "type": "armor", "icon": NA + "ui/skill/armor.png",
+		"desc": "Radiant plate from the Watch forge. +2 defense.", "defense": 2},
+	"starlocket": {"name": "Star Locket", "type": "charm", "icon": NA + "ui/skill/amulet.png",
+		"desc": "Hums with starlight. +1 heart and +10 focus.", "hearts": 1, "focus": 10},
 	"moontea": {"name": "Moontea", "type": "consumable", "icon": NA + "items/lifepot.png",
 		"desc": "Restores two hearts. Waystones refill your flask."},
 	"heart_piece": {"name": "Heart Bloom", "type": "upgrade", "icon": NA + "items/heart.png",
@@ -32,6 +40,8 @@ const ITEMS := {
 		"desc": "A seed of the Moonwell's light. Return four to the Moonwell."},
 	"coins_25": {"name": "25 Petalcoins", "type": "coins", "icon": NA + "items/goldcoin.png", "amount": 25, "desc": "A pouch of Petalcoins."},
 	"coins_50": {"name": "50 Petalcoins", "type": "coins", "icon": NA + "items/moneybag.png", "amount": 50, "desc": "A heavy pouch of Petalcoins."},
+	"fishing_rod": {"name": "Willow Fishing Rod", "type": "tool", "icon": NA + "items/weapons/lance.png",
+		"desc": "A light willow rod. Face any water and press E to cast. Fish bite fast!"},
 }
 
 const EQUIP_SLOTS := ["cloak", "armor", "charm", "boots", "ring"]
@@ -59,6 +69,13 @@ const ENEMIES := {
 	"bluebat": {"name": "Gloam Bat", "hp": 5, "speed": 56.0, "ai": "flyer", "dmg": 2, "sight": 160.0, "coins": 3, "fps": 12.0},
 }
 
+const FISH := {
+	"dewfin": {"name": "Dewfin", "coins": 6, "weight": 50, "night": false, "biome": -1, "tint": "9adcf0"},
+	"redbreast": {"name": "Redbreast", "coins": 12, "weight": 28, "night": false, "biome": -1, "tint": "f0956b"},
+	"moonkoi": {"name": "Moonkoi", "coins": 25, "weight": 14, "night": true, "biome": -1, "tint": "cfc4ff"},
+	"starfin": {"name": "Starfin", "coins": 40, "weight": 8, "night": false, "biome": 6, "tint": "ffe9a8"},
+}
+
 const BOSSES := {
 	"giantbamboo": {"hp": 140, "frame": 62, "anims": {"idle": 6, "walk": 12, "attack": 5, "charge": 3, "hit": 4}, "music": "boss", "radius": 22.0},
 	"giantfrog": {"hp": 150, "frame": 40, "anims": {"idle": 5, "jump": 6, "charge": 7, "attack": 3, "hit": 3}, "music": "boss", "radius": 16.0},
@@ -73,7 +90,7 @@ const OUTFITS := {
 	"zephyr_boots": [["a8a129", "f6a6c1"], ["56864c", "5a7fb8"], ["345a52", "33466e"], ["d14b34", "ffd27a"]],
 }
 
-const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow"]
+const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow"]
 
 static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 	match id:
@@ -81,13 +98,15 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 			if seeds == 0:
 				return ["Mallow! The Moonwell has gone dim, and the colour is draining from every petal.",
 					"Four guardians took the Moonseeds when the blight spread: the Briarback in Hollowroot Grove, the Glasswater Toad in the marsh, the Ember Cyclops in the Sunscar Dunes and the Quiet Warden of Moonstone Ruins.",
-					"Bring the seeds back to the Moonwell, north of here. Waystones will remember you if you fall. Go gently."]
+					"Bring the seeds back to the Moonwell, north of here. Waystones will remember you if you fall. Go gently.",
+					"And if you can thin the blight on your way — eight creatures, any eight — the village will pay you back for it."]
 			elif seeds < 4:
 				return ["%d of 4 Moonseeds... I can already see colour returning to the lanterns." % seeds, "Rest at a waystone if the road gets rough."]
 			return ["All four seeds! Carry them to the Moonwell in the north. The whole valley is holding its breath."]
 		"mira":
 			if not flags.get("mira_tea", false):
-				return ["Oh, you're heading out? Take this, freshly brewed.", "@moontea", "Moontea restores two hearts. Any waystone will refill your flask, too."]
+				return ["Oh, you're heading out? Take this, freshly brewed.", "@moontea", "Moontea restores two hearts. Any waystone will refill your flask, too.",
+				"The moonpetals only open at night now. If you gather three for me, I'll pay you well — Rosa is inside the cottage if you want to warm your hands."]
 			return ["The garden misses the moonlight. Petals don't open the same way in the blight.", "Hollowroot spores are thick this season. Watch for the sproutlings; they charge when they see you."]
 		"pip":
 			return ["Welcome to Pip's Provisions! Best prices this side of the Moonwell.", "@shop"]
@@ -100,13 +119,32 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 		"sora":
 			if seeds >= 4:
 				return ["The seeds hum in your satchel. Kneel at the Moonwell and return them."]
-			return ["The Moonwell sleeps. Only four Moonseeds can wake it.", "Until then, the ruins grow colder every night."]
+			return ["The Moonwell sleeps. Only four Moonseeds can wake it.", "Until then, the ruins grow colder every night.",
+				"The graves in the marsh predate the blight. If you clear what sleeps beneath them, the Moonwell will owe you more than words."]
+		"rosa":
+			return ["Mira's out with the garden. Sit by the kettle, it's warm.", "The old graveyard in the marsh hums at night. I don't listen. You shouldn't either."]
+		"jun":
+			return ["Sis says the graveyard marsh hums at night. I'm not allowed past the reeds.", "If you go down there... bring a lantern. And snacks. Mostly snacks."]
+		"fen":
+			return ["Alder keeps the village; I keep its memory. Sit a while.", "Every door in Hearthgrove opens to you now. Ours did not always, you know."]
 		"kit":
-			return ["Did you know you can cut bushes? Sometimes there are coins inside!", "Mum says not to go past the torii gate at night..."]
+			return ["Did you know you can cut bushes? Sometimes there are coins inside!", "Mum says not to go past the torii gate at night...",
+				"If you're going to the lake... Hana found something silver in the reeds. I think it's Mum's locket. Could you ask her?"]
 		"bramble":
 			return ["I saw a chest on the little island in Lake Lumen. You'd have to swim for it!"]
 		"kaede":
-			return ["I keep watch on the east road. The marsh toad has been bellowing every night.", "Its leaps leave a shadow on the ground. Move when you see it grow."]
+			return ["The Watch keeps the valley armed. Blade, plate, wand — I sell them all.",
+				"Best any one guardian and report back to me. The Watch pays bounties, even to wanderers.", "@shop"]
 		"hana":
-			return ["Lake Lumen is the prettiest place in the world when the moon is on it.", "Well. It used to be."]
+			return ["Lake Lumen is the prettiest place in the world when the moon is on it.", "Well. It used to be.",
+				"This? It caught in the reeds... you take it back to Kit's family. It's theirs, not mine."]
+		"lumen":
+			if seeds >= 4:
+				return ["The stars told me you would come. The Moonwell's light runs down beneath the water now.",
+					"A stair of light unfolds under the Moonwell for those who saved it. Old guardian echoes wait down there — every fourth wave.",
+					"Starfall petals drift from the sky here. Gather the moonpetals at night; they brew beautifully."]
+			return ["Welcome to Starfall Rise, wanderer. The petals here fall from the sky, not the trees.",
+				"The Mirror Basin shows the stars even at noon. Mind the wisps after dark.",
+				"Sit with the eye statue a while. It has seen more roads than any of us."]
 	return ["..."]
+

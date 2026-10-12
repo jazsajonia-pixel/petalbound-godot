@@ -1,5 +1,57 @@
 # Development Log
 
+## Petal Arts update — 2026-10-12
+
+**Status:** All requested features implemented (attack target snap + range hint, softer knockback, enterable houses, quests, classes with combining and trees, equipment, Kaede's shop, the Hollow Crypt dungeon). **The headless checks have NOT been run in this environment** — it has no Godot binary — so they must pass before this leaves draft status. **This build has not been tested on a phone.**
+
+### What changed
+
+- **Combat feel:** `scripts/actors/player.gd` — basic melee (blade, hammer, Duskfan) now snaps toward the closest enemy in reach (`_snap_to_target`), and a faint pulsing ring (`RangeHint`) shows basic-attack range whenever a target hovers near. Knockback was re-tuned to feel weighty instead of launchy: blade 55/110, hammer 160, plunge 140, parry shockwave 130, mothlight 130, enemy-hits-Mallow 140 (down from 120–300).
+- **Petal Arts (classes):** new `scripts/data/classdb.gd` — seven Albion-inspired lines (Warden/warrior, Pugilist/fighter, Nightbloom/assassin, Lumimancer/mage, Gravetender/necromancer, Windrunner/ranger, Petalweaver/cleric), each with two active arts and a four-node destiny-style tree. Kills grant XP (`add_xp`, cap 20); levels grant a point and focus (mana, regen 6/s). Bind a primary anytime, combine one secondary at level 5+ (max two lines, +1 attack synergy). Arts cast on keys 1-4 with focus costs and cooldowns; 14 archetypes implemented in `cast_skill` (strikes, flurries, volleys, piercing bolts, point bursts, blinks, buffs, heals, aoe rings, vampiric reaps). Critical hits double damage and roll from gear + tree + buffs.
+- **Journeys (quests):** new `scripts/systems/quests.gd` — six quests with givers (Alder, Mira, Kit, Kaede, Lumen, Sora), objectives (kills, moonpetals, talk, boss, waystone, flag) and rewards (coins/XP/items). Talk to a giver to start, complete objectives through normal play, talk again to claim. HUD journey tracker line; H opens the Journeys log.
+- **Enterable houses:** `scripts/core/main.gd` — four Hearthgrove homes open through door prompts; interiors are built at runtime on the quiet far-south sea (floor, walls, colliders, lights, furniture, doormats), with three interior villagers (Rosa, Jun, Old Fen) and a tea chest in the Elder's Hall. `scripts/world/world.gd` gained `interior_footprints` + `_clear_interiors()` so the ground shader, minimap and `is_water()` treat the rooms as land.
+- **Hollow Crypt dungeon:** the graveyard door in Glasswater Marsh opens into a dungeon room with six keepers and **the Hollow Revenant** (a dungeon boss that bars the door until defeated). It drops the Moonveil Ring, 80 coins and the `crypt_cleared` flag — no Moonseed, no world-state change, no respawn. A map marker points at the crypt until cleared.
+- **Equipment & shops:** new items in `scripts/data/db.gd` — Duskfan (weapon), Sunplate Vest (+2 defense), Moonveil Ring (+6% crit), Star Locket (+1 heart, +10 focus); defense reduces incoming damage. Kaede of the Watch now runs a shop (moontea, duskfan, sunplate, heart bloom); the nomad sells the Star Locket.
+- **HUD:** `scripts/ui/hud.gd` — ARTS overlay (K) for binding lines and spending tree points, Journeys overlay (H), a 1-4 skill bar with icons and cooldown counts, XP and focus gauges, a journey tracker line, satchel lines for level/XP/focus/arts/journeys, and an ARTS top button. Controls: K arts, H journeys, 1-4 arts; K removed from attack, J removed from journeys to avoid collisions.
+- **Save/load:** the save gains `xp`, `level`, `points`, `focus`, `classes`, `nodes`, `bar` and `quests` (all optional; older saves default cleanly).
+- **Tests:** new `tests/growth_smoke.gd` covers levels, binding/combining, tree nodes, art casting, journeys lifecycle, Kaede's shop, houses, the crypt (including no-Moonseed and door-bar logic), overlays, target snap and knockback, and the save/load round-trip.
+- **Docs:** README updated (classes, quests, houses, crypt, equipment, new controls, seven smoke tests).
+
+### Validation (must run before merging)
+
+```sh
+godot --headless --editor --path . --quit
+for t in tests/*.gd; do godot --headless --path . -s "$t"; done
+```
+
+Run both on a machine with Godot 4.7.2. The headless editor scan and all seven smoke tests (including the two prior batches: Starfall content and this growth update) must pass before merging. Real-device checks remain outstanding as before.
+
+## Starfall content update — 2026-10-12
+
+**Status:** All suggested features implemented (fishing, night content, post-game Depths, moth companion, perfect parry, feats, photo mode, villager night schedules) plus the Starfall Rise map expansion. **The headless checks have NOT been run in this environment** — it has no Godot binary — so they must pass before this is merged to `main`. **This build has not been tested on a phone.** Additionally, the work filesystem was wiped mid-task by the sandbox; the code was rebuilt from the committed originals plus the recorded edit specs, so `scripts/world/world.gd`'s new expansion helpers deserve an extra read during review.
+
+### What changed
+
+- **Starfall Rise (seventh biome):** `scripts/world/world.gd` now grows the biome and field maps east by 48 tiles at runtime (deterministic, seed 20261012) after loading `world.json`, so the generated data stays regeneration-compatible. The expansion adds the pilgrim road from the dunes, the Mirror Basin lake with a chest island, a southern pond, the Starfall Watch pillar ring and eye statue, white groves, 16 monster camps, 3 chests, a frog, the Starfall Waystone (the map now has six) and Lumen the Stargazer. The ground shader arrays (`assets/shaders/ground.gdshader`) and the environment region table gained seventh entries.
+- **Fishing:** new `scripts/systems/fishing.gd`. Pip sells the Willow Fishing Rod (60 coins, one-time). Face water and press E to cast, ATTACK inside the bite window to hook. Four species in `scripts/data/db.gd` (`FISH`), including the night-only Moonkoi and the Starfall-only Starfin; catches convert instantly to Petalcoins and are logged per species in the satchel.
+- **Night content:** moonpetals (animated, gatherable at night, refill Moontea + coins, respawn next night), night wisps that rise at dusk and fade at dawn, and villager night anchors (`scripts/actors/npc.gd` walks toward `d["night"]` after dark).
+- **Perfect parry:** `scripts/actors/player.gd` — a hit during the first half of a dodge-roll triggers `game.on_perfect_parry()`: no damage, stamina back, a shockwave, a PARRY! flourish (2 s cooldown).
+- **Blighted Depths:** new `scripts/systems/depths.gd`. After victory, interact with the Moonwell twice to descend into a wave arena; every fourth wave summons a boosted guardian echo (`echo_*` bosses never drop Moonseeds). Waves pay coins; heart blooms at depth 5 and 10; best depth is saved.
+- **Moth companion:** new `scripts/actors/companion.gd`. Unlocks at the first Moonseed, orbits Mallow, glows at night, and drifts toward the nearest unopened chest when idle.
+- **Feats:** new `scripts/systems/achievements.gd` (18 definitions). `main.gd` tracks unlocked feats and stats (fish log, moonpetals, parries, best depth), saved into the v2 save under new optional keys. The HUD gained a toast banner and a FEATS page in the satchel.
+- **Photo mode:** `scripts/ui/hud.gd` — F9 or the pause menu PHOTO MODE button. Pauses the tree, hides the HUD, drag-to-pan, zoom buttons, capture saves PNGs to `user://photos/` (capture is skipped in the headless test).
+- **Tests:** new `tests/content_smoke.gd` covers all of the above headlessly; `tests/adventure_slice_smoke.gd` now expects six waystones and checks the Starfall biome, region name, Lumen and Mirror Basin.
+- **Docs:** README updated (seventh biome, new controls, new systems, six smoke tests).
+
+### Validation (must run before merging)
+
+```sh
+godot --headless --editor --path . --quit
+for t in tests/*.gd; do godot --headless --path . -s "$t"; done
+```
+
+Run both on a machine with Godot 4.7.2. The headless editor scan and all six smoke tests must pass before this leaves draft PR status. Focus extra attention on the new `world.gd` expansion helpers (`_expand_starfall`, `_star_place_actors`) and the two new/updated tests. Real-device checks remain outstanding as before.
+
 ## Open-world update — 2026-10-11
 
 **Status:** A large upgrade to an open-world action adventure, as requested. The headless checks pass. **This build has not been tested on a phone**, so the Phase 1 real-device exit check is still outstanding.

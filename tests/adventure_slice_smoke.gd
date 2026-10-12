@@ -57,12 +57,20 @@ func _run_test() -> void:
 	check(game.enemies.size() > 60, "World should spawn dozens of monsters.")
 	check(game.bosses.size() == 4, "Four guardians expected.")
 	check(game.npcs.size() >= 8, "Hearthgrove and the roads should have villagers.")
-	check(game.waystones.size() == 5, "Five waystones expected.")
+	check(game.waystones.size() == 6, "Six waystones expected.")
+	var lumen_found := false
+	for n in game.npcs:
+		if n.npc_id == "lumen":
+			lumen_found = true
+	check(lumen_found, "Lumen the Stargazer should live in Starfall Rise.")
 	var biomes := {}
-	for p in [Vector2(1248, 1888), Vector2(640, 640), Vector2(3424, 1850), Vector2(3100, 700), Vector2(2700, 2300)]:
+	for p in [Vector2(1248, 1888), Vector2(640, 640), Vector2(3424, 1850), Vector2(3100, 700), Vector2(2700, 2300), Vector2(4600, 1460)]:
 		biomes[game.world.biome_at(p)] = true
 	check(biomes.size() >= 4, "Expected several distinct biomes across the map.")
 	check(game.world.is_water(Vector2(1888, 1536)) or game.world.is_water(Vector2(1860, 1560)), "Lake Lumen should be water.")
+	check(game.world.biome_at(Vector2(4600, 1460)) == 6, "Starfall Rise should be the seventh biome.")
+	check(game.world.region_name(Vector2(4600, 1460)) == "Starfall Rise", "The eastern rise should be named Starfall Rise.")
+	check(game.world.is_water(Vector2(276 * 16 + 8, 58 * 16 + 8)), "Mirror Basin should be water.")
 
 	# ---- movement kit
 	isolate()
@@ -255,3 +263,4 @@ func _run_test() -> void:
 		return
 	print("Open-world adventure smoke test passed: world, movement kit, combat, loot, gear, dialogue, guardians, Moonwell ending, save/load and respawn all work.")
 	quit(0)
+

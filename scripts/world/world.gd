@@ -15,6 +15,14 @@ const RUINS := 3
 const MARSH := 4
 const BEACH := 5
 
+## Starfall Rise: a scripted seventh biome appended east of the dunes at runtime.
+const STARFALL := 6
+const EXPAND_EAST := 48
+const STARFALL_SEED := 20261012
+const STARFALL_ROAD := [[228.0, 122.0], [244.0, 116.0], [258.0, 106.0], [272.0, 100.0], [283.0, 94.0], [287.0, 92.0]]
+const STARFALL_LAKE := [276.0, 58.0]
+const STARFALL_POND := [294.0, 138.0]
+
 const DECOR_CELLS := {
 	"fd_leaves": Vector2i(0, 0), "fd_pebbles": Vector2i(4, 0), "fd_sticks": Vector2i(5, 0), "fd_sand_rock": Vector2i(9, 0),
 	"fd_bone": Vector2i(14, 0), "fd_shell": Vector2i(15, 0), "fd_pebbles_gray": Vector2i(0, 1), "fd_flower_yellow": Vector2i(2, 0),
@@ -45,6 +53,7 @@ var lights: Array[PointLight2D] = []
 var breakables: Array[Dictionary] = []
 var prop_count := 0
 var solid_grid := PackedByteArray()
+var interior_footprints: Array = []
 var _sheets: Dictionary = {}
 var _shadow_tex: Texture2D
 
@@ -64,6 +73,10 @@ func build(entities_parent: Node2D) -> void:
 		biome_image.decompress()
 	if field_image.is_compressed():
 		field_image.decompress()
+	_expand_starfall()
+	_clear_interiors()
+	biome_tex = ImageTexture.create_from_image(biome_image)
+	field_tex = ImageTexture.create_from_image(field_image)
 	solid_grid.resize(tiles.x * tiles.y)
 	_make_ground(biome_tex, field_tex)
 	_make_materials()
@@ -91,15 +104,15 @@ func _make_ground(biome_tex: Texture2D, field_tex: Texture2D) -> void:
 	ground_material.set_shader_parameter("atlas_px", Vector2(atlas.get_width(), atlas.get_height()))
 	# plain fill tile (xy), first decorated tile x (z), decorated count (w)
 	ground_material.set_shader_parameter("ground_tiles", PackedVector4Array([
-		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0)]))
+		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4)]))
 	ground_material.set_shader_parameter("path_tiles", PackedVector4Array([
-		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2)]))
+		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0)]))
 	ground_material.set_shader_parameter("water_shallow", PackedColorArray([
-		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6")]))
+		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8")]))
 	ground_material.set_shader_parameter("water_deep", PackedColorArray([
-		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0")]))
+		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0")]))
 	ground_material.set_shader_parameter("biome_grade", PackedColorArray([
-		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0)]))
+		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42)]))
 	var mw: Array = data["landmarks"]["moonwell"]
 	ground_material.set_shader_parameter("moonwell_px", Vector2(mw[0], mw[1]))
 	ground.material = ground_material
@@ -294,6 +307,246 @@ func _make_bounds() -> void:
 	_add_rect(bounds, Vector2(world_size.x / 2.0, world_size.y - 8.0 + t / 2.0), Vector2(world_size.x + t * 2.0, t))
 	_add_rect(bounds, Vector2(8.0 - t / 2.0, world_size.y / 2.0), Vector2(t, world_size.y + t * 2.0))
 	_add_rect(bounds, Vector2(world_size.x - 8.0 + t / 2.0, world_size.y / 2.0), Vector2(t, world_size.y + t * 2.0))
+
+
+# ------------------------------------------------------------------ Starfall Rise
+func _expand_starfall() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = STARFALL_SEED
+	# grow the biome map east: beach rows stay beach, everything else becomes starfall
+	var old_w := biome_image.get_width()
+	var new_w := old_w + EXPAND_EAST
+	var h := biome_image.get_height()
+	var grow := Image.create(new_w, h, false, biome_image.get_format())
+	grow.blit_rect(biome_image, Rect2i(0, 0, old_w, h), Vector2i.ZERO)
+	for y in range(h):
+		var edge := biome_image.get_pixel(old_w - 1, y)
+		var b := int(round(edge.r * 255.0))
+		if b != BEACH:
+			b = STARFALL
+		for x in range(old_w, new_w):
+			grow.set_pixel(x, y, Color(b / 255.0, b / 255.0, b / 255.0))
+	biome_image = grow
+	# grow the field map east, continuing the southern sea
+	var fw_old := field_image.get_width()
+	var fh := field_image.get_height()
+	var fw_new := new_w * field_res
+	var fgrow := Image.create(fw_new, fh, false, field_image.get_format())
+	fgrow.blit_rect(field_image, Rect2i(0, 0, fw_old, fh), Vector2i.ZERO)
+	for fy in range(fh):
+		var fedge := field_image.get_pixel(fw_old - 1, fy)
+		if fedge.g > 0.5:
+			for fx in range(fw_old, fw_new):
+				fgrow.set_pixel(fx, fy, Color(0.0, fedge.g, fedge.b))
+	field_image = fgrow
+	# the pilgrim road: dunes to the Starfall Watch plaza, then a branch north to Mirror Basin
+	for i in range(STARFALL_ROAD.size() - 1):
+		_star_stamp_road(STARFALL_ROAD[i], STARFALL_ROAD[i + 1])
+	_star_stamp_road_plaza(287.0, 92.0, 3.5)
+	var branch := [[287.0, 92.0], [283.0, 80.0], [278.0, 70.0], [276.0, 64.0]]
+	for i in range(branch.size() - 1):
+		_star_stamp_road(branch[i], branch[i + 1])
+	# Mirror Basin with a small island, and the southern pond
+	_star_stamp_water(STARFALL_LAKE[0], STARFALL_LAKE[1], 8.0, 5.0, rng)
+	_star_clear_water(277.0, 56.0, 1.9, 1.3)
+	_star_stamp_water(STARFALL_POND[0], STARFALL_POND[1], 4.0, 3.0, rng)
+	# widen the world bookkeeping
+	tiles = Vector2i(new_w, tiles.y)
+	world_size = Vector2(tiles) * 16.0
+	data["tiles"] = [new_w, tiles.y]
+	if not (data["biome_names"] as Array).has("Starfall Rise"):
+		(data["biome_names"] as Array).append("Starfall Rise")
+	data["landmarks"]["starfall_shrine"] = [287 * 16, 91 * 16]
+	data["landmarks"]["mirror_lake"] = [int(STARFALL_LAKE[0]) * 16, int(STARFALL_LAKE[1]) * 16]
+	_star_place_actors(rng)
+
+
+func _star_field(tx: float, ty: float) -> Color:
+	var fx := clampi(int(tx * field_res), 0, field_image.get_width() - 1)
+	var fy := clampi(int(ty * field_res), 0, field_image.get_height() - 1)
+	return field_image.get_pixel(fx, fy)
+
+
+func _star_stamp_road(a: Array, b: Array) -> void:
+	var pa := Vector2(a[0], a[1])
+	var pb := Vector2(b[0], b[1])
+	var steps := int(pa.distance_to(pb) * 2.0) + 1
+	for i in range(steps + 1):
+		_star_stamp_road_disc(pa.lerp(pb, float(i) / float(steps)), 1.1)
+
+
+func _star_stamp_road_plaza(cx: float, cy: float, r: float) -> void:
+	_star_stamp_road_disc(Vector2(cx, cy), r)
+
+
+func _star_stamp_road_disc(center: Vector2, radius: float) -> void:
+	var max_tx := field_image.get_width() / field_res - 1
+	var max_ty := field_image.get_height() / field_res - 1
+	var x0 := maxi(0, int(floor(center.x - radius)))
+	var x1 := mini(max_tx, int(ceil(center.x + radius)))
+	var y0 := maxi(0, int(floor(center.y - radius)))
+	var y1 := mini(max_ty, int(ceil(center.y + radius)))
+	for ty in range(y0, y1 + 1):
+		for tx in range(x0, x1 + 1):
+			if Vector2(float(tx) + 0.5, float(ty) + 0.5).distance_to(center) > radius + 0.35:
+				continue
+			for fy in range(field_res):
+				for fx in range(field_res):
+					var px := tx * field_res + fx
+					var py := ty * field_res + fy
+					var c := field_image.get_pixel(px, py)
+					if c.g <= 0.5:
+						field_image.set_pixel(px, py, Color(1.0, 0.0, 0.0))
+
+
+func _star_stamp_water(cx: float, cy: float, rx: float, ry: float, rng: RandomNumberGenerator) -> void:
+	for ty in range(int(cy - ry - 1.0), int(cy + ry + 2.0)):
+		for tx in range(int(cx - rx - 1.0), int(cx + rx + 2.0)):
+			var nx := (float(tx) + 0.5 - cx) / rx
+			var ny := (float(ty) + 0.5 - cy) / ry
+			var e := nx * nx + ny * ny
+			if e > 1.0 + rng.randf_range(-0.07, 0.09):
+				continue
+			var deep := 0.0 if e < 0.55 else 0.65
+			for fy in range(field_res):
+				for fx in range(field_res):
+					var px := tx * field_res + fx
+					var py := ty * field_res + fy
+					if px < 0 or py < 0 or px >= field_image.get_width() or py >= field_image.get_height():
+						continue
+					field_image.set_pixel(px, py, Color(0.0, 1.0, deep))
+
+
+func _star_clear_water(cx: float, cy: float, rx: float, ry: float) -> void:
+	for ty in range(int(cy - ry - 1.0), int(cy + ry + 2.0)):
+		for tx in range(int(cx - rx - 1.0), int(cx + rx + 2.0)):
+			var nx := (float(tx) + 0.5 - cx) / rx
+			var ny := (float(ty) + 0.5 - cy) / ry
+			if nx * nx + ny * ny > 1.0:
+				continue
+			for fy in range(field_res):
+				for fx in range(field_res):
+					var px := tx * field_res + fx
+					var py := ty * field_res + fy
+					if px < 0 or py < 0 or px >= field_image.get_width() or py >= field_image.get_height():
+						continue
+					field_image.set_pixel(px, py, Color(0.0, 0.0, 0.0))
+
+
+## Punch quiet land into the far-south sea for every enterable interior, so
+## the ground shader, minimap and is_water() treat the rooms as solid ground.
+func _clear_interiors() -> void:
+	for f in interior_footprints:
+		var cx := float(f[0])
+		var cy := float(f[1])
+		var w := float(f[2])
+		var h := float(f[3])
+		var x0 := int((cx - w * 0.5 - 12.0) / 16.0 * field_res)
+		var x1 := int((cx + w * 0.5 + 12.0) / 16.0 * field_res)
+		var y0 := int((cy - h * 0.5 - 12.0) / 16.0 * field_res)
+		var y1 := int((cy + h * 0.5 + 12.0) / 16.0 * field_res)
+		for py in range(y0, y1):
+			for px in range(x0, x1):
+				if px < 0 or py < 0 or px >= field_image.get_width() or py >= field_image.get_height():
+					continue
+				field_image.set_pixel(px, py, Color(0.0, 0.0, 0.0))
+
+
+func _star_free(tx: float, ty: float, occupied: Dictionary, rad: float) -> bool:
+	var f := _star_field(tx, ty)
+	if f.g > 0.35 or f.r > 0.25:
+		return false
+	var cx := int(tx * 2.0)
+	var cy := int(ty * 2.0)
+	var r := int(ceil(rad * 2.0))
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			if occupied.has(Vector2i(cx + dx, cy + dy)):
+				return false
+	return true
+
+
+func _star_collision(kind: String) -> Dictionary:
+	if kind in ["pillar", "statue_eye", "statue_monk", "stone_lantern", "sign", "grave", "cross", "bench"]:
+		return {"w": 10.0, "h": 7.0, "oy": -4.0}
+	if kind in ["tree_white", "big_white", "grove_white", "cliff_rock_gray"]:
+		return {"w": 13.0, "h": 9.0, "oy": -5.0}
+	if kind in ["boulder_gray", "tall_rock_gray", "rocks_gray"]:
+		return {"w": 11.0, "h": 8.0, "oy": -4.0}
+	if kind in ["pebble_gray", "bush_round2"]:
+		return {"w": 9.0, "h": 6.0, "oy": -3.0, "low": true}
+	return {}
+
+
+func _star_add_prop(kind: String, tx: float, ty: float, occupied: Dictionary, force := false, rad := 0.8) -> bool:
+	if not force and not _star_free(tx, ty, occupied, rad):
+		return false
+	var cx := int(tx * 2.0)
+	var cy := int(ty * 2.0)
+	var r := int(ceil(rad * 2.0))
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			occupied[Vector2i(cx + dx, cy + dy)] = true
+	var entry := {"k": kind, "x": round(tx * 16.0), "y": round(ty * 16.0)}
+	var col := _star_collision(kind)
+	if not col.is_empty():
+		entry["c"] = col
+	data["props"].append(entry)
+	return true
+
+
+func _star_place_actors(rng: RandomNumberGenerator) -> void:
+	var new_w := biome_image.get_width()
+	var old_w := new_w - EXPAND_EAST
+	var h := tiles.y
+	var occupied: Dictionary = {}
+	# white grove walls along the new east edge
+	for ty in range(4, h - 4):
+		if ty % 2 == 0:
+			_star_add_prop("tree_white", float(new_w) - 2.5, float(ty) + 0.5, occupied, true, 0.9)
+		elif ty % 4 == 1:
+			_star_add_prop("tree_white", float(new_w) - 4.5, float(ty) + 0.5, occupied, true, 0.9)
+	# Starfall Watch: a ring of pillars and the eye statue above the plaza
+	for i in range(6):
+		var ang := TAU * i / 6.0 + PI / 6.0
+		_star_add_prop("pillar", 287.0 + cos(ang) * 5.0, 91.0 + sin(ang) * 3.6, occupied, true, 0.8)
+	_star_add_prop("statue_eye", 287.0, 86.5, occupied, true, 0.8)
+	for l in [[250.0, 113.0], [266.0, 101.0], [280.0, 95.0]]:
+		_star_add_prop("stone_lantern", l[0], l[1], occupied, true, 0.8)
+	# scatter props and ground decor across the new tiles
+	var scatter := [
+		["tree_white", 0.030, 0.9], ["big_white", 0.004, 1.1], ["boulder_gray", 0.007, 0.9],
+		["tall_rock_gray", 0.004, 0.8], ["pebble_gray", 0.020, 0.4], ["bush_round2", 0.012, 0.5],
+		["rocks_gray", 0.002, 1.2], ["grave", 0.0015, 0.4], ["cliff_rock_gray", 0.002, 1.3]]
+	var decor_kinds := ["fd_white_flower", "fd_white_tuft", "fd_white_tuft2", "fd_pebbles_gray", "fd_clover"]
+	for ty in range(h):
+		for tx in range(old_w, new_w):
+			for s in scatter:
+				if rng.randf() < float(s[1]):
+					_star_add_prop(s[0], float(tx) + 0.5, float(ty) + 0.5, occupied, false, float(s[2]))
+			if rng.randf() < 0.26:
+				var f := _star_field(float(tx) + 0.5, float(ty) + 0.5)
+				if f.g <= 0.4 and f.r <= 0.3:
+					data["decor"].append([decor_kinds[rng.randi() % decor_kinds.size()], round((float(tx) + 0.5) * 16.0), round((float(ty) + 0.5) * 16.0)])
+	# fixed monster camps along the road and around the basin
+	for s in [["spirit", 270.0, 100.0], ["bluebat", 275.0, 105.0], ["eye", 282.0, 88.0], ["skull", 290.0, 97.0],
+			["slime3", 295.0, 120.0], ["slime3", 278.0, 132.0], ["spirit2", 268.0, 120.0], ["lizard", 260.0, 112.0],
+			["lizard", 250.0, 110.0], ["mole", 288.0, 108.0], ["spirit", 293.0, 80.0], ["bluebat", 283.0, 74.0],
+			["spirit", 265.0, 95.0], ["bluebat", 272.0, 88.0], ["spirit", 296.0, 128.0], ["eye", 258.0, 96.0]]:
+		data["enemies"].append({"s": s[0], "x": round(s[1] * 16.0), "y": round(s[2] * 16.0)})
+	# treasure
+	data["chests"].append({"id": "c_star_heart", "x": 289 * 16, "y": 86 * 16, "item": "heart_piece"})
+	data["chests"].append({"id": "c_star_coins", "x": 277 * 16, "y": 56 * 16, "item": "coins_50", "big": true})
+	data["chests"].append({"id": "c_star_tea", "x": 296 * 16, "y": 131 * 16, "item": "moontea"})
+	# the sixth waystone and its keeper
+	data["shrines"].append({"id": "starfall", "name": "Starfall Waystone", "x": 287 * 16, "y": 91 * 16})
+	data["npcs"].append({"id": "lumen", "sprite": "monk", "name": "Lumen the Stargazer", "x": 284 * 16, "y": 95 * 16, "wander": 18})
+	data["animals"].append({"sprite": "frog", "x": 280 * 16, "y": 64 * 16, "wander": 30})
+	# villagers drift to their night anchors after dark
+	var night_off := {"alder": [40, 24], "mira": [64, -16], "kit": [-48, 64], "bramble": [48, -48], "tallow": [96, 32], "hana": [48, 48]}
+	for d in data["npcs"]:
+		if night_off.has(d["id"]):
+			d["night"] = [d["x"] + night_off[d["id"]][0], d["y"] + night_off[d["id"]][1]]
 
 
 # ------------------------------------------------------------------ queries

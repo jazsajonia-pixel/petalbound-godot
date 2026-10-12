@@ -14,6 +14,7 @@ const REGION := [
 	[Color(0.90, 0.90, 1.02), 0.30, 0.3, "snow"],
 	[Color(0.92, 0.98, 0.94), 0.38, 0.2, "rain"],
 	[Color(1.0, 1.0, 0.98), 0.0, 0.45, ""],
+	[Color(0.90, 0.88, 1.05), 0.16, 0.38, "petals"],
 ]
 const SKY := [
 	[0.00, Color(0.30, 0.34, 0.60)],
@@ -228,3 +229,4 @@ func clock_text() -> String:
 func set_quality(high: bool) -> void:
 	quality_high = high
 	current_weather = "__"
+
