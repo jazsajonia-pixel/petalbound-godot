@@ -32,6 +32,8 @@ const ITEMS := {
 		"desc": "A seed of the Moonwell's light. Return four to the Moonwell."},
 	"coins_25": {"name": "25 Petalcoins", "type": "coins", "icon": NA + "items/goldcoin.png", "amount": 25, "desc": "A pouch of Petalcoins."},
 	"coins_50": {"name": "50 Petalcoins", "type": "coins", "icon": NA + "items/moneybag.png", "amount": 50, "desc": "A heavy pouch of Petalcoins."},
+	"fishing_rod": {"name": "Willow Fishing Rod", "type": "tool", "icon": NA + "items/weapons/lance.png",
+		"desc": "A light willow rod. Face any water and press E to cast. Fish bite fast!"},
 }
 
 const EQUIP_SLOTS := ["cloak", "armor", "charm", "boots", "ring"]
@@ -59,6 +61,13 @@ const ENEMIES := {
 	"bluebat": {"name": "Gloam Bat", "hp": 5, "speed": 56.0, "ai": "flyer", "dmg": 2, "sight": 160.0, "coins": 3, "fps": 12.0},
 }
 
+const FISH := {
+	"dewfin": {"name": "Dewfin", "coins": 6, "weight": 50, "night": false, "biome": -1, "tint": "9adcf0"},
+	"redbreast": {"name": "Redbreast", "coins": 12, "weight": 28, "night": false, "biome": -1, "tint": "f0956b"},
+	"moonkoi": {"name": "Moonkoi", "coins": 25, "weight": 14, "night": true, "biome": -1, "tint": "cfc4ff"},
+	"starfin": {"name": "Starfin", "coins": 40, "weight": 8, "night": false, "biome": 6, "tint": "ffe9a8"},
+}
+
 const BOSSES := {
 	"giantbamboo": {"hp": 140, "frame": 62, "anims": {"idle": 6, "walk": 12, "attack": 5, "charge": 3, "hit": 4}, "music": "boss", "radius": 22.0},
 	"giantfrog": {"hp": 150, "frame": 40, "anims": {"idle": 5, "jump": 6, "charge": 7, "attack": 3, "hit": 3}, "music": "boss", "radius": 16.0},
@@ -73,7 +82,7 @@ const OUTFITS := {
 	"zephyr_boots": [["a8a129", "f6a6c1"], ["56864c", "5a7fb8"], ["345a52", "33466e"], ["d14b34", "ffd27a"]],
 }
 
-const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow"]
+const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow"]
 
 static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 	match id:
@@ -109,4 +118,13 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 			return ["I keep watch on the east road. The marsh toad has been bellowing every night.", "Its leaps leave a shadow on the ground. Move when you see it grow."]
 		"hana":
 			return ["Lake Lumen is the prettiest place in the world when the moon is on it.", "Well. It used to be."]
+		"lumen":
+			if seeds >= 4:
+				return ["The stars told me you would come. The Moonwell's light runs down beneath the water now.",
+					"A stair of light unfolds under the Moonwell for those who saved it. Old guardian echoes wait down there — every fourth wave.",
+					"Starfall petals drift from the sky here. Gather the moonpetals at night; they brew beautifully."]
+			return ["Welcome to Starfall Rise, wanderer. The petals here fall from the sky, not the trees.",
+				"The Mirror Basin shows the stars even at noon. Mind the wisps after dark.",
+				"Sit with the eye statue a while. It has seen more roads than any of us."]
 	return ["..."]
+

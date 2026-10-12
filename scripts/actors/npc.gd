@@ -11,6 +11,7 @@ var is_animal := false
 var is_shop := false
 var wander_radius := 0.0
 var home := Vector2.ZERO
+var night_pos := Vector2.ZERO
 var target := Vector2.ZERO
 var wait_t := 0.0
 var dir_name := "down"
@@ -28,6 +29,8 @@ func setup(p_game: Node, d: Dictionary, animal := false) -> void:
 	is_shop = d.get("shop", false)
 	wander_radius = float(d.get("wander", 40 if animal else 0))
 	home = Vector2(d["x"], d["y"])
+	if d.has("night"):
+		night_pos = Vector2(d["night"][0], d["night"][1])
 	global_position = home
 	target = home
 	wait_t = randf_range(0.5, 2.5)
@@ -79,12 +82,18 @@ func _physics_process(delta: float) -> void:
 		prompt.visible = dist < 28.0 and not talking
 		prompt.position.y = -24.0 + sin(Time.get_ticks_msec() / 220.0) * 1.5
 	var desired := Vector2.ZERO
+	var anchor := home
+	if not is_animal and night_pos != Vector2.ZERO and game.environment.is_night():
+		anchor = night_pos
+		if global_position.distance_to(anchor) > 60.0:
+			target = anchor
+			wait_t = 2.5
 	if talking or (not is_animal and dist < 36.0):
 		dir_name = AnimLib.dir_name(p.global_position - global_position)
 	elif wander_radius > 0.0:
 		wait_t -= delta
 		if wait_t <= 0.0:
-			target = home + Vector2(randf_range(-wander_radius, wander_radius), randf_range(-wander_radius, wander_radius) * 0.6)
+			target = anchor + Vector2(randf_range(-wander_radius, wander_radius), randf_range(-wander_radius, wander_radius) * 0.6)
 			wait_t = randf_range(2.5, 5.5)
 		var d := target - global_position
 		if d.length() > 3.0:
@@ -99,3 +108,4 @@ func _physics_process(delta: float) -> void:
 	var anim := ("walk_" if velocity.length() > 2.0 else "idle_") + dir_name
 	if sprite.animation != anim:
 		sprite.play(anim)
+

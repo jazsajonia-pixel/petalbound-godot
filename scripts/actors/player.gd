@@ -79,6 +79,8 @@ var _ghost_t := 0.0
 var _ripple_t := 0.0
 var _hammer_pending := -1.0
 var _was_swimming := false
+var fishing := false
+var parry_cooldown := 0.0
 
 var cloak_equipped: bool:
 	get:
@@ -171,6 +173,7 @@ func _register_inputs() -> void:
 	_add_keys("interact", [KEY_E])
 	_add_keys("map", [KEY_M])
 	_add_keys("pause", [KEY_ESCAPE, KEY_P])
+	_add_keys("photo", [KEY_F9])
 	_add_joy("attack", JOY_BUTTON_X)
 	_add_joy("dash", JOY_BUTTON_B)
 	_add_joy("jump", JOY_BUTTON_A)
@@ -433,6 +436,7 @@ func _physics_process(delta: float) -> void:
 func _tick_timers(delta: float) -> void:
 	_lock_t = maxf(0.0, _lock_t - delta)
 	invulnerable_left = maxf(0.0, invulnerable_left - delta)
+	parry_cooldown = maxf(0.0, parry_cooldown - delta)
 	attack_left = maxf(0.0, attack_left - delta)
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
 	combo_timer = maxf(0.0, combo_timer - delta)
@@ -494,7 +498,7 @@ func _state_move(delta: float, input: Vector2) -> void:
 
 
 func start_roll(input := Vector2.ZERO) -> bool:
-	if state != State.MOVE or swimming or stamina < 18.0:
+	if state != State.MOVE or swimming or fishing or stamina < 18.0:
 		return false
 	stamina -= 22.0
 	stamina_delay = 0.6
@@ -596,7 +600,7 @@ func _land() -> void:
 
 
 func try_attack() -> bool:
-	if attack_cooldown > 0.0 or roll_t > 0.0 or swimming or state == State.ROLL:
+	if fishing or attack_cooldown > 0.0 or roll_t > 0.0 or swimming or state == State.ROLL:
 		return false
 	if state != State.MOVE and state != State.ATTACK:
 		return false
@@ -779,7 +783,14 @@ func take_damage(amount: int = 2, from := Vector2.INF) -> bool:
 			game.audio.play("bubble", 0.05, -2.0)
 			game.fx.spawn("shield", global_position + Vector2(0, -9), 0.0, 1.6, Color(1, 0.85, 1.0), null, true)
 		return false
-	if invulnerable_left > 0.0 or roll_t > 0.0:
+	if roll_t > 0.0:
+		# perfect parry: if the hit lands in the first half of the roll
+		if parry_cooldown <= 0.0 and roll_t >= ROLL_TIME * 0.55:
+			parry_cooldown = 2.0
+			if game:
+				game.on_perfect_parry(self)
+		return false
+	if invulnerable_left > 0.0:
 		return false
 	health = maxi(0, health - amount)
 	invulnerable_left = 1.0
@@ -939,3 +950,4 @@ func _update_visuals(delta: float) -> void:
 		if _ripple_t <= 0.0:
 			_ripple_t = 0.9
 			game.fx.spawn("ripple", global_position, 0.0, 1.1, Color(1, 1, 1, 0.6))
+

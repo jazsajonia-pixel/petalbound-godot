@@ -4,6 +4,7 @@ extends Control
 
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const DB := preload("res://scripts/data/db.gd")
+const Ach := preload("res://scripts/systems/achievements.gd")
 const NA := "res://assets/packs/ninja_adventure/"
 
 signal start_requested(new_game: bool)
@@ -95,6 +96,20 @@ var item_banner: PanelContainer
 var item_banner_icon: TextureRect
 var item_banner_title: Label
 var item_banner_desc: Label
+var feat_banner: PanelContainer
+var feat_banner_title: Label
+var feat_banner_desc: Label
+var feats_overlay: ColorRect
+var feats_panel: PanelContainer
+var feats_list: VBoxContainer
+var feats_head_label: Label
+var photo_overlay: ColorRect
+var photo_row: HBoxContainer
+var photo_status: Label
+var photo_active := false
+var photo_status_t := 0.0
+var photo_dragging := false
+var photo_saved_visible := {}
 var deadzone_slider: HSlider
 var sensitivity_slider: HSlider
 var music_slider: HSlider
@@ -136,10 +151,13 @@ func setup(p_game: Node) -> void:
 	_make_top_buttons()
 	_make_dialogue()
 	_make_item_banner()
+	_make_feat_banner()
 	_make_shop()
 	_make_inventory_overlay()
+	_make_feats_overlay()
 	_make_map_overlay()
 	_make_pause_overlay()
+	_make_photo_overlay()
 	_make_end_overlay()
 	_make_title_overlay()
 	_layout_controls()
@@ -328,13 +346,13 @@ func build_minimap_texture(biome: Image, field: Image) -> void:
 	var w := biome.get_width()
 	var h := biome.get_height()
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4")]
+	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4"), Color("cbb8f0")]
 	var fw := field.get_width() / w
 	for y in range(h):
 		for x in range(w):
 			var b := int(round(biome.get_pixel(x, y).r * 255.0))
 			var f := field.get_pixel(x * fw, y * fw)
-			var c: Color = cols[clampi(b, 0, 5)]
+			var c: Color = cols[clampi(b, 0, 6)]
 			if f.g > 0.5:
 				c = Color("4fb6d8").lerp(Color("2b6aa8"), f.b)
 			elif f.r > 0.5:
@@ -447,6 +465,38 @@ func _make_item_banner() -> void:
 	item_banner_desc.custom_minimum_size = Vector2(210, 10)
 
 
+func _make_feat_banner() -> void:
+	feat_banner = PanelContainer.new()
+	feat_banner.visible = false
+	feat_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	feat_banner.add_theme_stylebox_override("panel", _box(Color(0.20, 0.12, 0.22, 0.94), C_ROSE, 1, 4))
+	add_child(feat_banner)
+	var row := _hbox(feat_banner, 8)
+	_icon("ui/skill/scroll.png", Vector2(20, 20), row)
+	var col := _vbox(row, 2)
+	feat_banner_title = _label("", 8, C_ROSE, col)
+	feat_banner_desc = _label("", 8, C_TEXT, col)
+	feat_banner_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	feat_banner_desc.custom_minimum_size = Vector2(210, 10)
+
+
+func show_achievement(id: String) -> void:
+	var def := Ach.def_of(id)
+	if def.is_empty():
+		return
+	feat_banner_title.text = "FEAT UNLOCKED!"
+	feat_banner_desc.text = "%s — %s" % [def["name"], def["desc"]]
+	feat_banner.visible = true
+	feat_banner.modulate = Color(1, 1, 1, 0)
+	feat_banner.scale = Vector2(0.85, 0.85)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(feat_banner, "modulate:a", 1.0, 0.25)
+	tw.tween_property(feat_banner, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_interval(3.0)
+	tw.chain().tween_property(feat_banner, "modulate:a", 0.0, 0.4)
+	tw.chain().tween_callback(func() -> void: feat_banner.visible = false)
+
+
 func _make_shop() -> void:
 	shop_overlay = _overlay()
 	var p := _centered_panel(shop_overlay, Vector2(300, 0))
@@ -501,6 +551,7 @@ func _make_inventory_overlay() -> void:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
+	_button("FEATS", head, toggle_feats)
 	_button("CLOSE", head, toggle_inventory)
 	var body := _hbox(v, 10)
 	var left := _vbox(body, 4)
@@ -548,6 +599,11 @@ func _refresh_inventory() -> void:
 	lines.append("Moontea  %d / %d" % [p.moontea_charges, p.moontea_max])
 	lines.append("Petalcoins  %d" % p.petalcoins)
 	lines.append("Moonseeds  %d / 4" % game.moonseeds.size())
+	var fish_count := 0
+	for k in game.stats.get("fish", {}):
+		fish_count += int(game.stats["fish"][k])
+	lines.append("Fish caught  %d" % fish_count)
+	lines.append("Feats  %d / %d" % [game.achievements.size(), Ach.DEFS.size()])
 	lines.append("Speed  %d%%" % roundi(p.get_move_speed() / p.WALK_SPEED * 100.0))
 	lines.append("")
 	for slot in DB.EQUIP_SLOTS:
@@ -571,11 +627,50 @@ func _on_inventory_item(id: String) -> void:
 func toggle_inventory() -> void:
 	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
+	if feats_overlay.visible:
+		toggle_feats()
 	inventory_overlay.visible = not inventory_overlay.visible
 	if inventory_overlay.visible:
 		_clear_touch_inputs()
 		_refresh_inventory()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible)
+	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible)
+
+
+# ------------------------------------------------------------------ feats
+func _make_feats_overlay() -> void:
+	feats_overlay = _overlay()
+	feats_panel = _centered_panel(feats_overlay, Vector2(430, 0))
+	var v := _vbox(feats_panel, 5)
+	var head := _hbox(v, 6)
+	feats_head_label = _label("FEATS", 16, C_GOLD, head)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	_button("CLOSE", head, toggle_feats)
+	feats_list = _vbox(v, 2)
+
+
+func toggle_feats() -> void:
+	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+		return
+	feats_overlay.visible = not feats_overlay.visible
+	if feats_overlay.visible:
+		_clear_touch_inputs()
+		_refresh_feats()
+	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible)
+
+
+func _refresh_feats() -> void:
+	for c in feats_list.get_children():
+		c.queue_free()
+	feats_head_label.text = "FEATS  %d / %d" % [game.achievements.size(), Ach.DEFS.size()]
+	for id in Ach.DEFS:
+		var def: Dictionary = Ach.DEFS[id]
+		if game.achievements.has(id):
+			_label("✿  %s — %s" % [def["name"], def["desc"]], 8, C_GOLD, feats_list)
+		else:
+			var l := _label("·  %s — %s" % [def["name"], def["desc"]], 8, C_DIM, feats_list)
+			l.modulate.a = 0.55
 
 
 # ------------------------------------------------------------------ map
@@ -593,11 +688,13 @@ func _make_map_overlay() -> void:
 func toggle_map() -> void:
 	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
+	if feats_overlay.visible:
+		toggle_feats()
 	map_overlay.visible = not map_overlay.visible
 	if map_overlay.visible:
 		_clear_touch_inputs()
 		map_view.queue_redraw()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible)
+	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible)
 
 
 # ------------------------------------------------------------------ pause / settings
@@ -634,6 +731,9 @@ func _make_pause_overlay() -> void:
 	quality_button = _button("FX: HIGH", row, _toggle_quality)
 	touch_toggle = _button("TOUCH: ON", row, _toggle_touch)
 	var row2 := _hbox(v, 4)
+	_button("PHOTO MODE", row2, func() -> void:
+		set_game_paused(false)
+		toggle_photo_mode())
 	_button("SAVE", row2, func() -> void:
 		game.save_game()
 		show_message("Journey saved."))
@@ -668,11 +768,17 @@ func _toggle_touch() -> void:
 func toggle_pause() -> void:
 	if title_overlay.visible or end_overlay.visible:
 		return
+	if photo_active:
+		_exit_photo_mode()
+		return
 	if inventory_overlay.visible:
 		toggle_inventory()
 		return
 	if map_overlay.visible:
 		toggle_map()
+		return
+	if feats_overlay.visible:
+		toggle_feats()
 		return
 	if shop_overlay.visible:
 		close_shop()
@@ -686,6 +792,82 @@ func set_game_paused(paused: bool) -> void:
 	pause_overlay.visible = paused
 	touch_toggle.text = "TOUCH: ON" if show_touch else "TOUCH: OFF"
 	get_tree().paused = paused
+
+
+# ------------------------------------------------------------------ photo mode
+func _make_photo_overlay() -> void:
+	photo_overlay = _overlay(Color(0, 0, 0, 0))
+	photo_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	photo_row = _hbox(photo_overlay, 4)
+	photo_row.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	photo_row.mouse_filter = Control.MOUSE_FILTER_STOP
+	photo_row.visible = false
+	_button("ZOOM −", photo_row, func() -> void: _photo_zoom(0.82))
+	_button("ZOOM +", photo_row, func() -> void: _photo_zoom(1.22))
+	_button("CAPTURE", photo_row, _capture_photo)
+	_button("EXIT", photo_row, func() -> void: toggle_photo_mode())
+	photo_status = _label("drag to pan", 8, C_TEXT, photo_overlay)
+
+
+func toggle_photo_mode() -> void:
+	if photo_active:
+		_exit_photo_mode()
+		return
+	if title_overlay.visible or end_overlay.visible or not game.game_started:
+		return
+	_enter_photo_mode()
+
+
+func _enter_photo_mode() -> void:
+	if photo_active or not game.game_started:
+		return
+	photo_active = true
+	photo_dragging = false
+	photo_saved_visible.clear()
+	for n in get_children():
+		photo_saved_visible[n] = n.visible
+		if n != photo_overlay:
+			n.visible = false
+	photo_overlay.visible = true
+	photo_row.visible = true
+	photo_status.text = "drag to pan"
+	_clear_touch_inputs()
+	game.set_menu_pause(true)
+
+
+func _exit_photo_mode() -> void:
+	if not photo_active:
+		return
+	photo_active = false
+	photo_dragging = false
+	for n in photo_saved_visible.keys():
+		if is_instance_valid(n):
+			n.visible = photo_saved_visible[n]
+	photo_saved_visible.clear()
+	photo_row.visible = false
+	photo_overlay.visible = false
+	game.camera.zoom = Vector2(game.CAMERA_ZOOM, game.CAMERA_ZOOM)
+	game.camera.reset_smoothing()
+	game.set_menu_pause(false)
+
+
+func _photo_zoom(k: float) -> void:
+	if not photo_active:
+		return
+	var z := clampf(game.camera.zoom.x * k, 0.55, 4.0)
+	game.camera.zoom = Vector2(z, z)
+
+
+func _capture_photo() -> void:
+	if not photo_active:
+		return
+	var img := get_viewport().get_texture().get_image()
+	DirAccess.make_dir_recursive_absolute("user://photos")
+	var fname := "petalbound_%d.png" % Time.get_unix_time_from_system()
+	img.save_png("user://photos/" + fname)
+	photo_status.text = "saved: " + fname
+	photo_status_t = 2.5
+	game.audio.play("menu5", 0.02, -6.0)
 
 
 # ------------------------------------------------------------------ title / end
@@ -857,7 +1039,7 @@ func _on_dialogue_gui(event: InputEvent) -> void:
 
 
 func any_menu_open() -> bool:
-	return title_overlay.visible or pause_overlay.visible or inventory_overlay.visible or map_overlay.visible or end_overlay.visible or shop_overlay.visible or dialogue_open
+	return title_overlay.visible or pause_overlay.visible or inventory_overlay.visible or map_overlay.visible or end_overlay.visible or shop_overlay.visible or dialogue_open or feats_overlay.visible or photo_active
 
 
 # ------------------------------------------------------------------ layout
@@ -892,6 +1074,9 @@ func _layout_controls() -> void:
 	dialogue_panel.position = Vector2(safe_rect.get_center().x - 190, safe_rect.end.y - 70)
 	dialogue_panel.size = Vector2(380, 64)
 	item_banner.position = Vector2(safe_rect.get_center().x - 130, safe_rect.position.y + 74)
+	feat_banner.position = Vector2(safe_rect.get_center().x - 130, safe_rect.position.y + 104)
+	photo_row.position = Vector2(safe_rect.get_center().x - 110, safe_rect.position.y + 6)
+	photo_status.position = Vector2(safe_rect.get_center().x - 60, safe_rect.position.y + 30)
 	# touch cluster (bottom right)
 	var br := safe_rect.end
 	attack_button.center_at(br + Vector2(-34, -34))
@@ -933,6 +1118,10 @@ func _get_safe_rect() -> Rect2:
 func _process(delta: float) -> void:
 	if game == null or game.player == null:
 		return
+	if photo_active and photo_status_t > 0.0:
+		photo_status_t -= delta
+		if photo_status_t <= 0.0:
+			photo_status.text = "drag to pan"
 	var p: Node = game.player
 	_update_hearts(p.health, p.max_health)
 	coin_label.text = str(p.petalcoins)
@@ -968,7 +1157,10 @@ func _process(delta: float) -> void:
 	var playing: bool = game.game_started and not any_menu_open()
 	touch_root.visible = show_touch and playing
 	for n in [hearts_box, stamina_bar, quest_label, minimap, get_node("CounterRow"), get_node("SeedRow"), get_node("WeaponBox"), pause_button, bag_button, map_button]:
-		n.visible = game.game_started and not title_overlay.visible
+		if photo_active:
+			n.visible = false
+		else:
+			n.visible = game.game_started and not title_overlay.visible
 	minimap.queue_redraw()
 	queue_redraw()
 	if dialogue_open and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("attack")):
@@ -1005,6 +1197,24 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if game == null or not game.game_started:
+		return
+	if photo_active:
+		if event.is_action_pressed("photo") or event.is_action_pressed("pause"):
+			_exit_photo_mode()
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed and not photo_row.get_global_rect().has_point(event.position):
+				photo_dragging = true
+			elif not event.pressed:
+				photo_dragging = false
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseMotion and photo_dragging:
+			game.camera.global_position -= event.relative / game.camera.zoom.x
+			get_viewport().set_input_as_handled()
+		return
+	if not get_tree().paused and event.is_action_pressed("photo") and not any_menu_open():
+		toggle_photo_mode()
+		get_viewport().set_input_as_handled()
 		return
 	if title_overlay.visible or end_overlay.visible or get_tree().paused and not inventory_overlay.visible and not map_overlay.visible:
 		return
@@ -1294,3 +1504,4 @@ class WorldMapView:
 		var pp: Vector2 = origin + g.player.global_position / 16.0 * k
 		draw_circle(pp, 3.5, Color.WHITE)
 		draw_circle(pp, 2.4, Color(0.95, 0.4, 0.62))
+
