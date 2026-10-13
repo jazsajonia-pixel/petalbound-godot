@@ -30,7 +30,18 @@ const WEAPONS := {
 	"duskfan": {"pattern": "combo", "shape": "arc", "reach": 30.0, "finisher_reach": 34.0, "half_angle": 1.05,
 		"lock": 0.2, "cooldown": 0.22, "combo": 3, "element": "", "passive": "biting_dusk", "color": "d8c0ff"},
 	"nightfang": {"pattern": "daggers", "shape": "arc", "reach": 24.0, "finisher_reach": 24.0, "half_angle": 0.75,
-		"lock": 0.13, "cooldown": 0.15, "combo": 2, "element": "", "passive": "ambush", "color": "c8b0ff"},
+		"lock": 0.13, "cooldown": 0.15, "combo": 2, "element": "", "passive": "flurry", "color": "c8b0ff"},
+	# Unarmed: short, quick jabs. Weak on purpose - the first quests point to a real weapon.
+	"fists": {"pattern": "combo", "shape": "arc", "reach": 18.0, "finisher_reach": 20.0, "half_angle": 0.7,
+		"lock": 0.18, "cooldown": 0.22, "combo": 3, "element": "", "passive": "", "color": "ffe8d0"},
+	"bramble_spear": {"pattern": "combo", "shape": "arc", "reach": 40.0, "finisher_reach": 46.0, "half_angle": 0.35,
+		"lock": 0.24, "cooldown": 0.28, "combo": 2, "element": "", "passive": "", "color": "e8d8b0"},
+	"cinder_axe": {"pattern": "combo", "shape": "arc", "reach": 28.0, "finisher_reach": 32.0, "half_angle": 1.1,
+		"lock": 0.28, "cooldown": 0.32, "combo": 2, "element": "", "passive": "ember_edge", "color": "ffb080"},
+	"petalbreaker": {"pattern": "combo", "shape": "arc", "reach": 36.0, "finisher_reach": 40.0, "half_angle": 1.35,
+		"lock": 0.36, "cooldown": 0.48, "combo": 2, "element": "", "passive": "sunder", "color": "ffd0e8"},
+	"moonwell_blade": {"pattern": "combo", "shape": "arc", "reach": 32.0, "finisher_reach": 36.0, "half_angle": 1.0,
+		"lock": 0.22, "cooldown": 0.24, "combo": 3, "element": "arcane", "passive": "moon_wave", "color": "c8dcff"},
 	"grave_scythe": {"pattern": "sweep", "shape": "arc", "reach": 36.0, "finisher_reach": 36.0, "half_angle": 1.9,
 		"lock": 0.32, "cooldown": 0.46, "combo": 1, "element": "necrotic", "passive": "reap", "color": "a8ffcf"},
 	"ironroot_hammer": {"pattern": "slam", "shape": "circle", "reach": 24.0, "offset": 18.0,
@@ -49,7 +60,10 @@ const WEAPONS := {
 const PASSIVES := {
 	"briar_venom": {"name": "Briar Venom", "desc": "The third cut of the combo poisons (1 stack)."},
 	"biting_dusk": {"name": "Biting Dusk", "desc": "Combo finishers gain +25% critical chance."},
-	"ambush": {"name": "Ambush", "desc": "+12% crit chance. Hits on foes above 90% health always crit."},
+	"flurry": {"name": "Flurry", "desc": "Each consecutive hit on the same foe gives +4% crit (max 3 stacks, fades after 2s or on a new target)."},
+	"ember_edge": {"name": "Ember Edge", "desc": "The second chop of the combo sets foes burning (1 stack)."},
+	"sunder": {"name": "Sunder", "desc": "Finishers leave foes Exposed (+20% damage taken, 4s). Slow and heavy."},
+	"moon_wave": {"name": "Moon Wave", "desc": "Finishers release a ripple that strikes one more nearby foe."},
 	"reap": {"name": "Reap", "desc": "Sweeps curse foes (+25% damage taken, 4s). Slaying a cursed foe heals a quarter-heart."},
 	"quake": {"name": "Quake", "desc": "The shockwave chills everything it hits (slow; three chills freeze)."},
 	"moon_resonance": {"name": "Moon Resonance", "desc": "Arcane bolts deal +1 damage to foes already suffering a status effect."},
@@ -102,6 +116,10 @@ const RELICS := {
 		"desc": "For 8s, your hits arc lightning to one nearby foe."},
 	"soulfeast": {"name": "Soul Feast", "time": 8.0, "cd": 32.0, "color": "90ffc0",
 		"desc": "For 8s, +25% lifesteal and every hit curses."},
+	"swiftwind": {"name": "Swiftwind", "time": 6.0, "cd": 26.0, "color": "c8f8ff",
+		"desc": "For 6s, +35% attack speed and +15% move speed."},
+	"barkskin": {"name": "Barkskin", "time": 5.0, "cd": 30.0, "color": "b8e090",
+		"desc": "For 5s, +2 defense and regenerate a quarter-heart per second."},
 }
 
 ## Human-readable stat names for gear/compare panels.
@@ -114,7 +132,7 @@ const PERCENT_STATS := ["atk_speed", "crit", "speed", "cdr", "elem", "lifesteal"
 
 
 static func weapon(id: String) -> Dictionary:
-	return WEAPONS.get(id, WEAPONS["thornblade"])
+	return WEAPONS.get(id, WEAPONS["fists"])
 
 
 static func element_color(element: String) -> Color:

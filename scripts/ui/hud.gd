@@ -14,6 +14,10 @@ const Screens := preload("res://scripts/ui/build_screens.gd")
 const Settings := preload("res://scripts/systems/settings.gd")
 const Build := preload("res://scripts/combat/build.gd")
 const CD := preload("res://scripts/data/combat_data.gd")
+const TradeScreens := preload("res://scripts/ui/trade_screens.gd")
+const RUI := preload("res://scripts/ui/rarity_ui.gd")
+const CharCreate := preload("res://scripts/ui/char_create.gd")
+const Fonts := preload("res://scripts/ui/fonts.gd")
 
 signal start_requested(new_game: bool)
 signal retry_requested
@@ -27,7 +31,7 @@ const C_GOLD := Color(1.0, 0.84, 0.48)
 const C_ROSE := Color(0.96, 0.55, 0.72)
 
 var game: Node
-var font: FontFile
+var font: Font
 var ui_theme: Theme
 var heart_tex: Texture2D
 var hearts_box: HBoxContainer
@@ -56,7 +60,6 @@ var touch_root: Control
 var touch_buttons: Array = []
 var touch_held: Dictionary = {}
 var attack_button: TouchButton
-var dash_button: TouchButton
 var jump_button: TouchButton
 var mothlight_button: TouchButton
 var guard_button: TouchButton
@@ -106,6 +109,18 @@ var dialogue_index := 0
 var dialogue_open := false
 var dialogue_chars := 0.0
 var shop_overlay: ColorRect
+var trade_overlay: ColorRect
+var trade_title: Label
+var trade_service: Label
+var trade_coins: Label
+var trade_bag: Label
+var trade_tabs: HBoxContainer
+var trade_list: VBoxContainer
+var trade_detail: VBoxContainer
+var trade_state: Dictionary = {"shop": "", "tab": "buy", "sel": -1}
+var loot_feed: VBoxContainer
+var create_overlay: ColorRect
+var create_state: Dictionary = {}
 var shop_list: VBoxContainer
 var shop_coins: Label
 var item_banner: PanelContainer
@@ -167,10 +182,7 @@ func setup(p_game: Node) -> void:
 	game = p_game
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	font = load("res://assets/packs/kenney_fonts/kenney_mini.ttf")
-	font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-	font.hinting = TextServer.HINTING_NONE
-	font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+	font = Fonts.ui()
 	heart_tex = AnimLib.tex("ui/heart.png")
 	_make_theme()
 	show_touch = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
@@ -203,6 +215,7 @@ func setup(p_game: Node) -> void:
 	_make_photo_overlay()
 	_make_end_overlay()
 	_make_title_overlay()
+	CharCreate.make(self)
 	apply_settings()
 	_layout_controls()
 	resized.connect(_layout_controls)
@@ -445,12 +458,11 @@ func _make_touch_controls() -> void:
 	touch_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(touch_root)
 	attack_button = _touch("attack", "items/weapons/katana.png", 27.0, Color(0.95, 0.45, 0.6))
-	dash_button = _touch("dash", "ui/skill/boot.png", 16.0, Color(0.55, 0.75, 0.95))
 	jump_button = _touch("jump", "ui/skill/arrow.png", 13.0, Color(0.6, 0.9, 0.75))
 	heal_button = _touch("heal", "items/lifepot.png", 13.0, Color(0.6, 1.0, 0.7))
 	weapon_button = _touch("switch_weapon", "items/weapons/magicwand.png", 12.0, Color(0.8, 0.8, 0.9))
 	interact_button = _touch("interact", "ui/skill/talk.png", 15.0, Color(1.0, 0.9, 0.6))
-	sprint_button = _touch("sprint", "ui/skill/punch.png", 12.0, Color(0.95, 0.75, 0.55))
+	sprint_button = _touch("sprint", "ui/skill/boot.png", 12.0, Color(0.95, 0.75, 0.55))
 	interact_button.visible = false
 
 
@@ -522,6 +534,12 @@ func _make_item_banner() -> void:
 	item_banner_desc = _label("", 8, C_TEXT, col)
 	item_banner_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	item_banner_desc.custom_minimum_size = Vector2(210, 10)
+	loot_feed = VBoxContainer.new()
+	loot_feed.name = "LootFeed"
+	loot_feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loot_feed.add_theme_constant_override("separation", 2)
+	loot_feed.position = Vector2(8, 118)
+	add_child(loot_feed)
 
 
 func _make_feat_banner() -> void:
@@ -557,50 +575,67 @@ func show_achievement(id: String) -> void:
 
 
 func _make_shop() -> void:
-	shop_overlay = _overlay()
-	var p := _centered_panel(shop_overlay, Vector2(300, 0))
-	var v := _vbox(p, 5)
-	var head := _hbox(v, 6)
-	_label("PROVISIONS", 16, C_GOLD, head)
-	var sp := Control.new()
-	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(sp)
-	_icon("items/goldcoin.png", Vector2(8, 8), head)
-	shop_coins = _label("0", 8, C_GOLD, head)
-	shop_list = _vbox(v, 3)
-	_button("LEAVE", v, close_shop)
+	TradeScreens.make(self)
+	shop_overlay = trade_overlay
 
 
-func open_shop(stock: Array) -> void:
-	for c in shop_list.get_children():
-		c.queue_free()
-	for entry in stock:
-		var id: String = entry["id"]
-		var item: Dictionary = DB.ITEMS[id]
-		var row := _hbox(shop_list, 6)
-		_icon(item["icon"], Vector2(14, 14), row)
-		var nm: String = item["name"]
-		if not Build.item_classes(id).is_empty():
-			nm += "  (" + Build.requirement_text(id) + ")"
-		var l := _label(nm, 8, DB.RARITY_COLORS.get(item.get("rarity", "common"), C_TEXT), row)
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		l.custom_minimum_size = Vector2(150, 0)
-		var b := _button("%d" % entry["price"], row, func() -> void: game.buy_item(entry))
-		b.icon = AnimLib.tex("items/goldcoin.png")
-		b.custom_minimum_size = Vector2(54, 16)
-		b.disabled = not game.can_buy(entry)
-	shop_coins.text = str(game.player.petalcoins)
-	shop_overlay.visible = true
+## Shop / sell / exchange / crafting overlay. shop "" = fieldcraft only (U).
+func open_trade(shop: String, tab := "buy") -> void:
+	trade_state = {"shop": shop, "tab": tab, "sel": -1}
+	TradeScreens.render(self)
+	trade_overlay.visible = true
 	_clear_touch_inputs()
 
 
+func refresh_trade() -> void:
+	if trade_overlay.visible:
+		TradeScreens.render(self)
+
+
+func close_trade() -> void:
+	trade_overlay.visible = false
+	if game:
+		game.shop_id = ""
+
+
+func open_shop(_stock: Array = []) -> void:
+	open_trade(game.shop_id, "buy")
+
+
 func close_shop() -> void:
-	shop_overlay.visible = false
+	close_trade()
 
 
-func refresh_shop(stock: Array) -> void:
-	if shop_overlay.visible:
-		open_shop(stock)
+func refresh_shop(_stock: Array = []) -> void:
+	refresh_trade()
+
+
+## Confirms the character-creation screen with its current choices (used by
+## the BEGIN JOURNEY button path and by automated tests).
+func confirm_character() -> void:
+	if create_overlay == null or not create_overlay.visible:
+		return
+	var look: Dictionary = CharCreate.HeroLook.sanitize(create_state.get("look", {}))
+	CharCreate.close(self)
+	game.begin_new_game(look)
+
+
+## Loot feed: small framed rows ("+2 Slime Gel") that fade after a moment.
+func show_loot(id: String, qty: int) -> void:
+	if loot_feed == null or not DB.ITEMS.has(id):
+		return
+	var row := _hbox(loot_feed, 4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	RUI.icon(id, 14.0, row)
+	var l := _label("+%d %s" % [qty, DB.ITEMS[id]["name"]], 8, RUI.color(id), row)
+	l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.08))
+	l.add_theme_constant_override("outline_size", 3)
+	while loot_feed.get_child_count() > 5:
+		loot_feed.get_child(0).free()
+	var tw := row.create_tween()
+	tw.tween_interval(2.4)
+	tw.tween_property(row, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(row.queue_free)
 
 
 # ------------------------------------------------------------------ inventory
@@ -649,7 +684,7 @@ func _on_inventory_item(id: String) -> void:
 
 
 func toggle_inventory() -> void:
-	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
 	if feats_overlay.visible:
 		toggle_feats()
@@ -679,7 +714,7 @@ func _make_feats_overlay() -> void:
 
 
 func toggle_feats() -> void:
-	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
 	feats_overlay.visible = not feats_overlay.visible
 	if feats_overlay.visible:
@@ -695,7 +730,7 @@ func _refresh_feats() -> void:
 	for id in Ach.DEFS:
 		var def: Dictionary = Ach.DEFS[id]
 		if game.achievements.has(id):
-			_label("✿  %s — %s" % [def["name"], def["desc"]], 8, C_GOLD, feats_list)
+			_label("+  %s — %s" % [def["name"], def["desc"]], 8, C_GOLD, feats_list)
 		else:
 			var l := _label("·  %s — %s" % [def["name"], def["desc"]], 8, C_DIM, feats_list)
 			l.modulate.a = 0.55
@@ -721,7 +756,7 @@ func _make_arts_overlay() -> void:
 
 
 func toggle_arts() -> void:
-	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
 	if inventory_overlay.visible:
 		toggle_inventory()
@@ -771,7 +806,7 @@ func _make_journeys_overlay() -> void:
 
 
 func toggle_journeys() -> void:
-	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
 	if inventory_overlay.visible:
 		toggle_inventory()
@@ -801,13 +836,13 @@ func _refresh_journeys() -> void:
 				line = "·  %s — %s" % [q["name"], q["desc"]]
 				col = Color(0.62, 0.60, 0.68)
 			QuestSys.STATE_ACTIVE:
-				line = "▶  %s — %s (%d/%d)" % [q["name"], q["desc"], e["n"], q["goal"]]
+				line = ">  %s — %s (%d/%d)" % [q["name"], q["desc"], e["n"], q["goal"]]
 				col = C_GOLD
 			QuestSys.STATE_DONE:
-				line = "✿  %s — done! Report back to %s." % [q["name"], q["giver"].capitalize()]
+				line = "+  %s — done! Report back to %s." % [q["name"], q["giver"].capitalize()]
 				col = Color(0.78, 1.0, 0.85)
 			_:
-				line = "✓  %s — %s" % [q["name"], q["desc"]]
+				line = "+  %s — %s" % [q["name"], q["desc"]]
 				col = Color(0.58, 0.78, 0.62)
 				done += 1
 		var l := _label(line, 8, col, journeys_list)
@@ -879,7 +914,7 @@ func _make_map_overlay() -> void:
 
 
 func toggle_map() -> void:
-	if title_overlay.visible or end_overlay.visible or pause_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or pause_overlay.visible:
 		return
 	if feats_overlay.visible:
 		toggle_feats()
@@ -1085,7 +1120,7 @@ func _slider(minimum: float, maximum: float, initial: float, step: float, parent
 
 
 func toggle_pause() -> void:
-	if title_overlay.visible or end_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible:
 		return
 	if photo_active:
 		_exit_photo_mode()
@@ -1139,7 +1174,7 @@ func toggle_photo_mode() -> void:
 	if photo_active:
 		_exit_photo_mode()
 		return
-	if title_overlay.visible or end_overlay.visible or not game.game_started:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or not game.game_started:
 		return
 	_enter_photo_mode()
 
@@ -1209,6 +1244,7 @@ func _make_title_overlay() -> void:
 	title_panel.add_theme_constant_override("separation", 6)
 	cc.add_child(title_panel)
 	title_heading = _label("PETALBOUND", 32, Color(1.0, 0.86, 0.92), title_panel)
+	title_heading.add_theme_font_override("font", Fonts.title())
 	title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_heading.add_theme_color_override("font_shadow_color", Color(0.45, 0.16, 0.36))
 	title_heading.add_theme_constant_override("shadow_offset_x", 2)
@@ -1219,11 +1255,11 @@ func _make_title_overlay() -> void:
 	spacer.custom_minimum_size = Vector2(1, 8)
 	title_panel.add_child(spacer)
 	continue_button = _button("CONTINUE JOURNEY", title_panel, func() -> void: start_requested.emit(false))
-	title_button = _button("NEW JOURNEY", title_panel, func() -> void: start_requested.emit(true))
+	title_button = _button("NEW JOURNEY", title_panel, func() -> void: CharCreate.open(self))
 	for b in [continue_button, title_button]:
 		b.custom_minimum_size = Vector2(150, 20)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var keys := _label("WASD move  SHIFT sprint  SPACE roll  C jump  J attack\nF mothlight  G guard  R moontea  Q swap  E talk  I bag  M map\nK petal arts  1-4 arts  H journeys  F9 photo", 8, C_DIM, title_panel)
+	var keys := _label("WASD move  SHIFT sprint  C jump  J attack (hold)  1-4 arts\nV gear active  R potion  G guard  Q swap  E talk  T target\nI satchel  U craft  M map  K arts  H journeys  F9 photo", 8, C_DIM, title_panel)
 	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
@@ -1283,8 +1319,12 @@ func show_region(name: String, sub := "") -> void:
 func show_item_get(id: String) -> void:
 	var item: Dictionary = DB.ITEMS[id]
 	item_banner_icon.texture = AnimLib.tex(item["icon"])
+	item_banner_icon.modulate = Color(String(item.get("tint", "ffffff")))
 	item_banner_title.text = String(item["name"]).to_upper()
-	item_banner_desc.text = item["desc"]
+	var rc: Color = RUI.color(id) if DB.ITEMS.has(id) and item.has("rarity") else C_GOLD
+	item_banner_title.add_theme_color_override("font_color", rc)
+	item_banner_desc.text = ("%s %s · " % [RUI.name_of(id), RUI.category_of(id)] if item.has("rarity") else "") + String(item["desc"])
+	item_banner.add_theme_stylebox_override("panel", _box(Color(0.18, 0.12, 0.24, 0.94), rc, 2 if String(item.get("rarity", "")) in ["epic", "legendary"] else 1, 4))
 	item_banner.visible = true
 	item_banner.modulate.a = 0.0
 	var tw := create_tween()
@@ -1556,7 +1596,7 @@ func _input(event: InputEvent) -> void:
 		toggle_photo_mode()
 		get_viewport().set_input_as_handled()
 		return
-	if title_overlay.visible or end_overlay.visible or get_tree().paused and not inventory_overlay.visible and not map_overlay.visible and not arts_overlay.visible and not journeys_overlay.visible:
+	if title_overlay.visible or create_overlay.visible or end_overlay.visible or get_tree().paused and not inventory_overlay.visible and not map_overlay.visible and not arts_overlay.visible and not journeys_overlay.visible:
 		return
 	if event.is_action_pressed("inventory"):
 		toggle_inventory()
@@ -1733,7 +1773,7 @@ func _clear_touch_inputs() -> void:
 	_end_joystick()
 	for idx in touch_held.keys():
 		_release_touch(idx)
-	for action in ["dash", "attack", "skill", "guard", "heal", "interact", "jump", "sprint", "switch_weapon", "relic"]:
+	for action in ["attack", "skill", "guard", "heal", "interact", "jump", "sprint", "switch_weapon", "relic"]:
 		if InputMap.has_action(action):
 			Input.action_release(action)
 
@@ -1832,7 +1872,7 @@ class Minimap:
 			return
 		var g: Node = hud.game
 		var ws: Vector2 = g.world.world_size
-		var ppos: Vector2 = g.player.global_position
+		var ppos: Vector2 = g.map_position()
 		var view := Vector2(72, 50)
 		var tex_size: Vector2 = hud.minimap_tex.get_size()
 		var tiles: Vector2 = ppos / 16.0
@@ -1874,6 +1914,6 @@ class WorldMapView:
 			draw_rect(Rect2(mp - Vector2(2, 2), Vector2(4, 4)), m["color"])
 			if m.has("label"):
 				draw_string(f, mp + Vector2(5, 3), m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 0.96, 0.9))
-		var pp: Vector2 = origin + g.player.global_position / 16.0 * k
+		var pp: Vector2 = origin + g.map_position() / 16.0 * k
 		draw_circle(pp, 3.5, Color.WHITE)
 		draw_circle(pp, 2.4, Color(0.95, 0.4, 0.62))

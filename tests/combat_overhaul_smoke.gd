@@ -49,7 +49,7 @@ func seconds(t: float) -> void:
 
 
 func release_all() -> void:
-	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "dash", "jump", "attack", "interact", "relic"]:
+	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "jump", "attack", "interact", "relic"]:
 		Input.action_release(a)
 
 
@@ -100,6 +100,7 @@ func _run_test() -> void:
 	await process_frame
 	await physics_frame
 	game.hud.title_button.pressed.emit()
+	game.hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 	player = game.player
@@ -496,17 +497,22 @@ func _test_hybrid_and_equipment() -> void:
 # ---------------------------------------------------------------- weapons
 func _test_weapons() -> void:
 	reset_player()
-	# daggers: Ambush always crits on healthy foes
+	# daggers: Flurry builds a small, capped crit bonus on one target
 	player._set_weapon_index(player.weapons_owned.find("nightfang"))
 	check(player.range_hint.reach == float(CD.WEAPONS["nightfang"]["reach"]), "Indicator should update to the dagger reach.")
 	var foe := dummy(Vector2(18, 4))
 	player.current_target = foe
-	var crit := {"c": false}
-	var cb := func(_t: Node, _a: int, c: bool, _e: String) -> void: crit["c"] = c
-	player.damage_dealt.connect(cb)
-	player.try_attack()
-	check(crit["c"], "Nightfang's Ambush should crit a foe above 90% health.")
-	player.damage_dealt.disconnect(cb)
+	check(is_zero_approx(player._weapon_crit_bonus(foe, "basic")), "Flurry should start with no bonus.")
+	for i in range(5):
+		player._weapon_on_hit(foe, "basic", {})
+	check(player._flurry_stacks == 3 and is_equal_approx(player._weapon_crit_bonus(foe, "basic"), 0.12), "Flurry should cap at 3 stacks (+12%% crit), got %d." % player._flurry_stacks)
+	var other := dummy(Vector2(18, -20))
+	check(is_zero_approx(player._weapon_crit_bonus(other, "basic")), "Flurry must not carry over to a different foe.")
+	player._weapon_on_hit(other, "basic", {})
+	check(player._flurry_stacks == 1, "Hitting a new foe should restart Flurry.")
+	player._flurry_t = 0.01
+	await frames(3)
+	check(player._flurry_stacks == 0, "Flurry should fade after its window.")
 	await seconds(0.25)
 	reset_player()
 	# scythe: wide sweep curses; curse raises damage taken
@@ -669,6 +675,9 @@ func _test_relic() -> void:
 	check(player.skill_bar == bar_before, "The relic must not use an art slot.")
 	check(player.buffs.has("relic_kindle") and player.relic_cd > 0.0, "Kindle should be active with a cooldown.")
 	check(not player.activate_relic(), "The relic should respect its cooldown.")
+	if not player.weapons_owned.has("thornblade"):
+		player.give_item("thornblade")
+	player._set_weapon_index(player.weapons_owned.find("thornblade"))
 	var foe := dummy(Vector2(22, 4))
 	player.current_target = foe
 	player.try_attack()
@@ -742,15 +751,9 @@ func _test_hud_controls() -> void:
 	_touch(hud, 9, b2.center(), true)
 	check(float(player.skill_cd.get("mothlight", 0.0)) > 0.0, "Tap arts should cast immediately on press.")
 	_touch(hud, 9, b2.center(), false)
-	# dodge + flask buttons
+	# the separate dodge control was removed (and not recreated under another name)
 	reset_player()
-	player.stamina = 100.0
-	player.dodge_cd = 0.0
-	_touch(hud, 10, hud.dash_button.center(), true)
-	await physics_frame
-	await physics_frame
-	_touch(hud, 10, hud.dash_button.center(), false)
-	check(player.dodge_cd > 0.0, "The dodge button should dodge.")
+	check(not ("dash_button" in hud) and not InputMap.has_action("dash") and not InputMap.has_action("dodge"), "There should be no dodge/dash control.")
 	player.health = 4
 	player.flask_cd = 0.0
 	player.moontea_charges = 2
@@ -849,7 +852,7 @@ func _test_settings_and_editor() -> void:
 	check(ab.center().distance_to(target) < 2.0, "The editor should move the dragged control.")
 	check(hud.settings["layout"].has("attack"), "The new position should be stored.")
 	# overlap refusal
-	var db: Control = hud.dash_button
+	var db: Control = hud.heal_button
 	var d0: Vector2 = db.center()
 	_touch(hud, 31, d0, true)
 	_drag(hud, 31, ab.center() + Vector2(3, 0))

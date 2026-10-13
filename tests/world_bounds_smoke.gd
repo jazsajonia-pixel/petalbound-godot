@@ -13,6 +13,7 @@ func _run_test() -> void:
 	await process_frame
 	await physics_frame
 	(game.hud.title_button as Button).pressed.emit()
+	game.hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 	var player: CharacterBody2D = game.player

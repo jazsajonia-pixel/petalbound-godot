@@ -13,6 +13,9 @@ const StatusFx := preload("res://scripts/combat/status.gd")
 const Ind := preload("res://scripts/combat/indicators.gd")
 const ZoneScript := preload("res://scripts/combat/zone.gd")
 const ThrallScript := preload("res://scripts/combat/thrall.gd")
+const KB := preload("res://scripts/combat/knockback.gd")
+const HeroLook := preload("res://scripts/actors/hero_look.gd")
+const HERO_SHADER := preload("res://assets/shaders/hero_layers.gdshader")
 const SPRITE_SHADER := preload("res://assets/shaders/sprite_fx.gdshader")
 const HERO := "res://assets/packs/ninja_adventure/hero/"
 
@@ -21,6 +24,7 @@ signal died
 signal health_changed
 ## Build/loadout/cooldown-affecting changes (HUD refreshes on this).
 signal stats_changed
+signal inventory_changed
 signal skill_cast(id: String)
 signal damage_dealt(target: Node, amount: int, crit: bool, element: String)
 
@@ -61,7 +65,7 @@ var stamina := STAMINA_MAX
 var stamina_delay := 0.0
 var invulnerable_left := 0.0
 var weapon_index := 0
-var weapons_owned: Array[String] = ["thornblade", "bloomstaff"]
+var weapons_owned: Array[String] = ["fists"]
 var equipped: Dictionary = {"cloak": "plum_cloak"}
 var inventory: Array[String] = ["plum_cloak"]
 var moontea_charges := 3
@@ -135,6 +139,13 @@ var relic_cd := 0.0
 var prism_index := 0
 var _target_t := 0.0
 var _attack_is_finisher := false
+## Nightfang "Flurry": consecutive hits on one foe build a small, capped crit bonus.
+const FLURRY_CRIT := 0.04
+const FLURRY_MAX := 3
+const FLURRY_TIME := 2.0
+var _flurry_target := 0
+var _flurry_stacks := 0
+var _flurry_t := 0.0
 var _attack_charged := false
 var _last_crit := false
 var _ls_acc := 0.0
@@ -143,6 +154,19 @@ var _charge: Dictionary = {}
 var _dash_speed := 0.0
 var _dash_time := 0.0
 var _thrall: Node2D
+## Attack direction rule (see attack_direction): deliberate stick input wins,
+## then a locked target, then the auto-target, then the current facing.
+const ATTACK_BUFFER := 0.22
+const INTENT_DEADZONE := 0.35
+const ASSIST_CONE := 0.64   # cos(50 deg): stick within this cone of a target snaps to it
+var _attack_buffer := 0.0
+var _attack_dir_source := "facing"
+var move_intent_override := Vector2.INF   # tests can inject stick input
+var off_weapon_sprite: Sprite2D
+var appearance: Dictionary = {}
+## Stackable bag (materials, consumables, quest items): id -> count.
+var bag: Dictionary = {}
+const Inv := preload("res://scripts/systems/inventory.gd")
 
 var cloak_equipped: bool:
 	get:
@@ -186,9 +210,10 @@ func _ready() -> void:
 	sprite.sprite_frames = _build_frames()
 	sprite.offset = Vector2(0, -8)
 	fx_material = ShaderMaterial.new()
-	fx_material.shader = SPRITE_SHADER
+	fx_material.shader = HERO_SHADER
 	fx_material.set_shader_parameter("noise_tex", load("res://assets/data/noise.png"))
 	sprite.material = fx_material
+	sprite.animation_changed.connect(_on_sprite_anim_changed)
 	add_child(sprite)
 	weapon_sprite = Sprite2D.new()
 	weapon_sprite.centered = false
@@ -237,7 +262,6 @@ func _register_inputs() -> void:
 	_add_keys("move_down", [KEY_S, KEY_DOWN])
 	_add_keys("move_left", [KEY_A, KEY_LEFT])
 	_add_keys("move_right", [KEY_D, KEY_RIGHT])
-	_add_keys("dash", [KEY_SPACE])
 	_add_keys("sprint", [KEY_SHIFT])
 	_add_keys("jump", [KEY_C, KEY_L])
 	_add_keys("attack", [KEY_J, KEY_ENTER])
@@ -260,7 +284,6 @@ func _register_inputs() -> void:
 	_add_keys("relic", [KEY_5, KEY_V])
 	_add_keys("target_next", [KEY_T])
 	_add_joy("attack", JOY_BUTTON_X)
-	_add_joy("dash", JOY_BUTTON_B)
 	_add_joy("jump", JOY_BUTTON_A)
 	_add_joy("interact", JOY_BUTTON_Y)
 	_add_joy("skill", JOY_BUTTON_LEFT_SHOULDER)
@@ -389,9 +412,12 @@ func attack_bonus() -> int:
 
 func defense_total() -> int:
 	var d := int(stat("defense"))
+	var bonus := 0
 	if buffs.has("bulwark"):
-		d += 2
-	return mini(d, int(CD.BALANCE["defense_cap"]) + (2 if buffs.has("bulwark") else 0))
+		bonus += 2
+	if buffs.has("relic_barkskin"):
+		bonus += 2
+	return mini(d, int(CD.BALANCE["defense_cap"])) + bonus
 
 
 func crit_chance() -> float:
@@ -411,7 +437,10 @@ func skill_cd_scale() -> float:
 
 
 func attack_speed_mult() -> float:
-	return 1.0 + clampf(stat("atk_speed"), 0.0, float(CD.BALANCE["atk_speed_cap"]))
+	var a := clampf(stat("atk_speed"), 0.0, float(CD.BALANCE["atk_speed_cap"]))
+	if buffs.has("relic_swiftwind"):
+		a += 0.35
+	return 1.0 + a
 
 
 func elem_mult() -> float:
@@ -442,6 +471,8 @@ func get_move_speed() -> float:
 	var mult := 1.0 + stat("speed")
 	if buffs.has("relic_nightveil"):
 		mult += 0.10
+	if buffs.has("relic_swiftwind"):
+		mult += 0.15
 	return WALK_SPEED * mult
 
 
@@ -453,35 +484,120 @@ func ranged_bonus() -> int:
 	return int(stat("ranged_bonus"))
 
 
+## Repaint Mallow from the chosen appearance and the worn visible gear.
+## Called on every equip/unequip, so changes show immediately.
+var visible_gear: Dictionary = {}
+
 func apply_outfit() -> void:
-	var key := "default"
-	if equipped.get("armor", "") == "briar_mail":
-		key = "briar_mail"
-	elif equipped.get("boots", "") == "zephyr_boots":
-		key = "zephyr_boots"
-	var pal: Array = DB.OUTFITS[key]
-	var src := PackedColorArray()
-	var dst := PackedColorArray()
-	for pair in pal:
-		src.append(Color(pair[0]))
-		dst.append(Color(pair[1]))
-	while src.size() < 8:
-		src.append(Color(0, 0, 0, 0))
-		dst.append(Color(0, 0, 0, 0))
-	fx_material.set_shader_parameter("src_colors", src)
-	fx_material.set_shader_parameter("dst_colors", dst)
-	fx_material.set_shader_parameter("swap_count", pal.size())
+	if fx_material == null:
+		return
+	appearance = HeroLook.sanitize(appearance)
+	var rc := HeroLook.apply(fx_material, appearance, equipped, DB.ITEMS)
+	visible_gear = rc["worn"]
+	_on_sprite_anim_changed()
+	refresh_held_weapon()
 
 
-func give_item(id: String) -> void:
+func set_appearance(a: Dictionary) -> void:
+	appearance = HeroLook.sanitize(a)
+	apply_outfit()
+
+
+func _on_sprite_anim_changed() -> void:
+	if sprite == null or fx_material == null:
+		return
+	fx_material.set_shader_parameter("mask_tex", HeroLook.mask_for(HeroLook.sheet_of(String(sprite.animation))))
+
+
+# ------------------------------------------------------------------ held weapon visuals
+const HAND_REST := {
+	# main hand (right paw), off hand (left paw): position, rotation, behind body?
+	"down": [Vector2(6, -3), 0.35, false, Vector2(-4, -3), -0.2, false],
+	"up": [Vector2(-6, -4), -0.3, true, Vector2(6, -4), 0.3, true],
+	"left": [Vector2(-3, -3), -0.55, false, Vector2(3, -4), -0.25, true],
+	"right": [Vector2(3, -3), 0.55, false, Vector2(-3, -4), 0.25, true],
+}
+var _swinging := false
+
+
+func is_dual_wield() -> bool:
+	return bool(DB.ITEMS.get(get_weapon_id(), {}).get("dual", false))
+
+
+## Show the held weapon in Mallow's paw(s); hidden when bare-handed.
+func refresh_held_weapon() -> void:
+	if weapon_sprite == null:
+		return
+	if off_weapon_sprite == null:
+		off_weapon_sprite = Sprite2D.new()
+		off_weapon_sprite.name = "OffHandWeapon"
+		off_weapon_sprite.visible = false
+		add_child(off_weapon_sprite)
+	var item: Dictionary = DB.ITEMS.get(get_weapon_id(), {})
+	if is_unarmed() or not item.has("hand"):
+		weapon_sprite.visible = false
+		off_weapon_sprite.visible = false
+		return
+	var t: Texture2D = AnimLib.tex(item["hand"])
+	for sp in [weapon_sprite, off_weapon_sprite]:
+		sp.texture = t
+		sp.offset = Vector2(-t.get_width() / 2.0, -t.get_height() + 2.0)
+		sp.modulate = Color(String(item.get("tint", "ffffff")))
+	off_weapon_sprite.flip_h = true
+	_update_held_weapon()
+
+
+func _update_held_weapon() -> void:
+	if weapon_sprite == null or off_weapon_sprite == null:
+		return
+	var armed := not is_unarmed() and state != State.DEAD and not swimming and not fishing
+	var dual := armed and is_dual_wield()
+	if _swinging:
+		off_weapon_sprite.visible = dual and off_weapon_sprite.visible
+		return
+	var rest: Array = HAND_REST.get(dir_name, HAND_REST["down"])
+	var bob := sprite.position.y + (-1.0 if String(sprite.animation).begins_with("walk") and sprite.frame % 2 == 1 else 0.0)
+	weapon_sprite.visible = armed
+	weapon_sprite.position = rest[0] + Vector2(0, bob)
+	weapon_sprite.rotation = rest[1]
+	_layer_behind_body(weapon_sprite, rest[2])
+	off_weapon_sprite.visible = dual
+	off_weapon_sprite.position = rest[3] + Vector2(0, bob)
+	off_weapon_sprite.rotation = rest[4]
+	_layer_behind_body(off_weapon_sprite, rest[5])
+
+
+## Held weapons sort with Mallow (z 0) so trees and buildings still cover
+## them; only the child order decides whether a blade is behind the body.
+func _layer_behind_body(n: Node2D, behind: bool) -> void:
+	n.z_index = 0
+	var si := sprite.get_index()
+	var ni := n.get_index()
+	if behind and ni > si:
+		move_child(n, si)
+	elif not behind and ni < si:
+		move_child(n, si)
+
+
+## Adds an item to the right store. Returns false if nothing was added
+## (already owned unique gear, or the bag is full).
+func give_item(id: String, qty := 1) -> bool:
 	var item: Dictionary = DB.ITEMS.get(id, {})
+	if item.is_empty():
+		return false
+	if Inv.is_stackable(id):
+		var added := Inv.add(self, id, qty)
+		health_changed.emit()
+		return added > 0
 	match item.get("type", ""):
 		"weapon":
-			if not weapons_owned.has(id):
-				weapons_owned.append(id)
+			if weapons_owned.has(id):
+				return false
+			weapons_owned.append(id)
+			inventory_changed.emit()
 		"coins":
 			add_petalcoins(int(item.get("amount", 0)))
-		"consumable":
+		"flask_up":
 			moontea_max = mini(6, moontea_max + (1 if moontea_charges >= moontea_max else 0))
 			moontea_charges = mini(moontea_max, moontea_charges + 1)
 		"upgrade":
@@ -491,12 +607,20 @@ func give_item(id: String) -> void:
 		"key":
 			pass
 		_:
-			if not inventory.has(id):
-				inventory.append(id)
+			if inventory.has(id):
+				return false
+			inventory.append(id)
 			var slot: String = item.get("type", "")
 			if slot in DB.EQUIP_SLOTS and not equipped.has(slot) and Build.can_equip(self, id):
 				equip(id)
+			inventory_changed.emit()
 	health_changed.emit()
+	return true
+
+
+## True if the player already holds this unique item (gear or weapon).
+func owns(id: String) -> bool:
+	return weapons_owned.has(id) or inventory.has(id)
 
 
 ## Equip (or, if already worn, unequip) an item. Refuses gear the current
@@ -1156,14 +1280,47 @@ func _set_weapon_index(idx: int) -> void:
 	combo_timer = 0.0
 	bow_charge = -1.0
 	_hammer_pending = -1.0
+	_attack_buffer = 0.0
+	if state == State.ATTACK:
+		state = State.MOVE
 	_refresh_attack_indicator()
+	refresh_held_weapon()
 	stats_changed.emit()
 
 
 func get_weapon_id() -> String:
 	if weapons_owned.is_empty():
-		return "thornblade"
+		return "fists"
 	return weapons_owned[clampi(weapon_index, 0, weapons_owned.size() - 1)]
+
+
+func is_unarmed() -> bool:
+	return bool(DB.ITEMS.get(get_weapon_id(), {}).get("unarmed", false))
+
+
+## Bare hands are always available at index 0 (never sold, never shown as loot).
+func ensure_fists() -> void:
+	var held := get_weapon_id()
+	weapons_owned.erase("fists")
+	weapons_owned.insert(0, "fists")
+	weapon_index = maxi(0, weapons_owned.find(held))
+
+
+## Real weapons owned (bare hands excluded).
+func real_weapons() -> Array:
+	var out: Array = []
+	for w in weapons_owned:
+		if w != "fists":
+			out.append(w)
+	return out
+
+
+## Put the held weapon away: back to bare-handed punches.
+func unequip_weapon() -> bool:
+	if is_unarmed():
+		return false
+	_set_weapon_index(0)
+	return true
 
 
 func get_weapon_name() -> String:
@@ -1340,12 +1497,8 @@ func _weapon_crit_bonus(t: Node, source: String) -> float:
 	if source != "basic":
 		return 0.0
 	match String(weapon_def().get("passive", "")):
-		"ambush":
-			var hp = t.get("hp")
-			var mx = t.get("max_hp")
-			if hp != null and mx != null and float(mx) > 0.0 and float(hp) / float(mx) > 0.9:
-				return 1.0
-			return 0.12
+		"flurry":
+			return FLURRY_CRIT * _flurry_stacks if _flurry_target == t.get_instance_id() and _flurry_t > 0.0 else 0.0
 		"biting_dusk":
 			return 0.25 if _attack_is_finisher else 0.0
 		"steady_aim":
@@ -1361,6 +1514,22 @@ func _weapon_on_hit(t: Node, source: String, info: Dictionary) -> void:
 		"briar_venom":
 			if _attack_is_finisher:
 				StatusFx.apply(game, t, "poison", 1)
+		"ember_edge":
+			if _attack_is_finisher:
+				StatusFx.apply(game, t, "burn", 1)
+		"sunder":
+			if _attack_is_finisher:
+				StatusFx.apply(game, t, "expose", 1)
+		"moon_wave":
+			if _attack_is_finisher:
+				_chain_from(t, 1, maxi(1, int(DB.ITEMS[get_weapon_id()].get("damage", 2)) / 2), "arcane", 56.0, {t.get_instance_id(): true})
+		"flurry":
+			var tid := t.get_instance_id()
+			if tid != _flurry_target or _flurry_t <= 0.0:
+				_flurry_target = tid
+				_flurry_stacks = 0
+			_flurry_stacks = mini(FLURRY_MAX, _flurry_stacks + 1)
+			_flurry_t = FLURRY_TIME
 		"reap":
 			StatusFx.apply(game, t, "curse", 1)
 		"quake":
@@ -1407,6 +1576,10 @@ func heal(amount: int, color := Color("9cf5a5"), quiet := false) -> int:
 # ------------------------------------------------------------------ loop
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
+	if _flurry_t > 0.0:
+		_flurry_t -= delta
+		if _flurry_t <= 0.0:
+			_flurry_stacks = 0
 	var input := Vector2.ZERO
 	if input_enabled and state != State.DEAD and state != State.POSE:
 		input = Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -1434,10 +1607,9 @@ func _physics_process(delta: float) -> void:
 				state = State.MOVE
 		State.DEAD, State.POSE:
 			velocity = velocity.move_toward(Vector2.ZERO, 900.0 * delta)
-	velocity += knockback
-	knockback = knockback.move_toward(Vector2.ZERO, 900.0 * delta)
 	var before := global_position
-	move_and_slide()
+	knockback = KB.move(self, velocity, knockback)
+	knockback = KB.decay(knockback, delta)
 	pushing = state == State.MOVE and input.length() > 0.5 and global_position.distance_to(before) < 0.25 and get_slide_collision_count() > 0
 	_update_anim(input)
 	_update_visuals(delta)
@@ -1445,8 +1617,14 @@ func _physics_process(delta: float) -> void:
 
 func _tick_timers(delta: float) -> void:
 	_lock_t = maxf(0.0, _lock_t - delta)
+	_attack_buffer = maxf(0.0, _attack_buffer - delta)
 	invulnerable_left = maxf(0.0, invulnerable_left - delta)
 	parry_cooldown = maxf(0.0, parry_cooldown - delta)
+	if buffs.has("relic_barkskin"):
+		var before_t := float(buffs["relic_barkskin"])
+		if floori(before_t) != floori(before_t - delta) and health < max_health and state != State.DEAD:
+			health = mini(max_health, health + 1)
+			health_changed.emit()
 	for b in buffs.keys():
 		buffs[b] = float(buffs[b]) - delta
 		if float(buffs[b]) <= 0.0:
@@ -1508,15 +1686,15 @@ func _state_move(delta: float, input: Vector2) -> void:
 	velocity = velocity.move_toward(input * speed, ACCEL * delta)
 	if not input_enabled:
 		return
-	if Input.is_action_just_pressed("dash"):
-		start_roll(input)
-	elif Input.is_action_just_pressed("jump"):
+	if Input.is_action_just_pressed("jump"):
 		start_jump()
 	if bow_charge >= 0.0:
 		bow_charge += delta
 		if not Input.is_action_pressed("attack"):
 			_release_bow()
-	elif Input.is_action_just_pressed("attack"):
+		return
+	var held := Input.is_action_pressed("attack") and String(weapon_def()["pattern"]) != "bow"
+	if Input.is_action_just_pressed("attack") or (_attack_buffer > 0.0 and attack_cooldown <= 0.0) or (held and attack_cooldown <= 0.0):
 		try_attack()
 
 
@@ -1666,13 +1844,53 @@ func _land() -> void:
 			game.audio.play("impact", 0.1, -2.0)
 
 
+func move_intent() -> Vector2:
+	if move_intent_override != Vector2.INF:
+		return move_intent_override
+	if not input_enabled:
+		return Vector2.ZERO
+	return Input.get_vector("move_left", "move_right", "move_up", "move_down")
+
+
+## Direction of the next basic attack. Priority:
+##  1. deliberate stick/keys (|input| > INTENT_DEADZONE) - a target inside a
+##     50-degree cone of that input is snapped to (aim assist), otherwise the
+##     input direction wins, so auto-targeting never overrides the player;
+##  2. a manually locked target; 3. the auto-target in acquire range; 4. facing.
+func attack_direction() -> Vector2:
+	var tdir := Vector2.ZERO
+	var t: Node2D = manual_target if is_valid_target(manual_target) else (current_target if is_valid_target(current_target) else null)
+	if t != null:
+		var to: Vector2 = (t.global_position + Vector2(0, -5)) - (global_position + Vector2(0, -4))
+		if to.length() > 0.5 and to.length() <= acquire_range() * 1.2:
+			tdir = to.normalized()
+	var inp := move_intent()
+	if inp.length() > INTENT_DEADZONE:
+		var n := inp.normalized()
+		if tdir != Vector2.ZERO and (aim_assist or t == manual_target) and n.dot(tdir) >= ASSIST_CONE:
+			_attack_dir_source = "assist"
+			return tdir
+		_attack_dir_source = "input"
+		return n
+	if tdir != Vector2.ZERO and (auto_target_enabled or t == manual_target):
+		_attack_dir_source = "target"
+		return tdir
+	_attack_dir_source = "facing"
+	return facing
+
+
 func try_attack() -> bool:
-	if fishing or attack_cooldown > 0.0 or roll_t > 0.0 or swimming or state == State.ROLL:
+	if fishing or roll_t > 0.0 or swimming or state == State.ROLL:
 		return false
-	if state != State.MOVE and state != State.ATTACK:
+	if attack_cooldown > 0.0 or (state != State.MOVE and state != State.ATTACK):
+		# input buffer: a press slightly early queues the next swing instead of
+		# being dropped (but never shortens the cooldown)
+		if state == State.MOVE or state == State.ATTACK:
+			_attack_buffer = ATTACK_BUFFER
 		return false
+	_attack_buffer = 0.0
 	_update_target()
-	_face_target()
+	_set_facing(attack_direction())
 	var w := weapon_def()
 	_attack_charged = false
 	match String(w["pattern"]):
@@ -1702,7 +1920,7 @@ func _begin_attack(lock: float, cooldown: float) -> void:
 ## Legacy entry (tests): one basic blade swing.
 func _attack_blade() -> void:
 	_update_target()
-	_face_target()
+	_set_facing(attack_direction())
 	_attack_melee(weapon_def())
 
 
@@ -1743,6 +1961,14 @@ func _attack_melee(w: Dictionary) -> void:
 	var origin := global_position + Vector2(0, -4)
 	var tint := Color(String(w.get("color", "ffd9f2")))
 	var center := origin + facing * reach * 0.5
+	if is_unarmed():
+		game.audio.play("hit1" if not finisher else "impact", 0.12, -6.0)
+	else:
+		_melee_fx(pattern, finisher, center, origin, tint)
+	_melee_hits(w, pattern, finisher, reach, half, origin, center)
+
+
+func _melee_fx(pattern: String, finisher: bool, center: Vector2, origin: Vector2, tint: Color) -> void:
 	match pattern:
 		"daggers":
 			game.fx.spawn("slash", center, facing.angle() + (PI if attack_combo == 1 else 0.0), 0.75, tint, null, true)
@@ -1753,9 +1979,14 @@ func _attack_melee(w: Dictionary) -> void:
 		_:
 			game.fx.spawn("slash_double" if finisher else "slash", center, facing.angle() + (0.0 if attack_combo != 1 else PI), 1.15 if finisher else 0.9, Color(1, 0.95, 0.75) if finisher else tint, null, true)
 			game.audio.play("slash" if attack_combo == 0 else ("slash2" if attack_combo == 1 else "slash3"), 0.08, -3.0)
+
+
+func _melee_hits(w: Dictionary, pattern: String, finisher: bool, reach: float, half: float, origin: Vector2, center: Vector2) -> void:
 	var base := int(DB.ITEMS[get_weapon_id()].get("damage", 2))
 	var dmg := (base * 2 if finisher and pattern == "combo" else base) + attack_bonus()
 	var force := 110.0 if finisher else 55.0
+	if is_unarmed():
+		force = 90.0 if finisher else 40.0
 	if pattern == "sweep":
 		force = 80.0
 	var hits := 0
@@ -1793,6 +2024,8 @@ func _attack_staff() -> void:
 
 ## Direction toward the current target if it lies within `reach`, else facing.
 func _aim_dir(reach: float) -> Vector2:
+	if _attack_dir_source == "input":
+		return facing
 	if is_valid_target(current_target) and global_position.distance_to(current_target.global_position) <= reach + 12.0:
 		return ((current_target.global_position + Vector2(0, -5)) - (global_position + Vector2(0, -8))).normalized()
 	if game and aim_assist:
@@ -1810,6 +2043,7 @@ func _release_bow() -> void:
 	_swing_weapon(0.15, false, true)
 	if game:
 		_update_target()
+		_set_facing(attack_direction())
 		var dir: Vector2 = _aim_dir(float(w["reach"]))
 		var speed := 360.0 if charged else 280.0
 		var dmg := (6 if charged else 3) + ranged_bonus()
@@ -1833,8 +2067,7 @@ func _attack_hammer() -> void:
 func _hammer_impact() -> void:
 	if game == null or String(weapon_def()["pattern"]) != "slam":
 		return
-	_update_target()
-	_face_target()
+	# the impact lands where the swing was aimed (no re-facing mid-swing)
 	var w := weapon_def()
 	var center := global_position + Vector2(0, -4) + facing * float(w.get("offset", 18.0))
 	var rad := float(w["reach"])
@@ -1868,13 +2101,16 @@ func _snap_to_target(reach: float) -> void:
 
 func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 	var item: Dictionary = DB.ITEMS[get_weapon_id()]
+	if is_unarmed() or not item.has("hand"):
+		_punch_fx(heavy)
+		return
 	var t: Texture2D = AnimLib.tex(item["hand"])
 	weapon_sprite.texture = t
 	weapon_sprite.offset = Vector2(-t.get_width() / 2.0, -t.get_height())
 	weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))
 	var hand := {"down": Vector2(3, -6), "up": Vector2(-3, -10), "left": Vector2(-4, -7), "right": Vector2(4, -7)}
 	weapon_sprite.position = hand[dir_name]
-	weapon_sprite.z_index = -1 if dir_name == "up" else 1
+	_layer_behind_body(weapon_sprite, dir_name == "up")
 	weapon_sprite.visible = true
 	var base := facing.angle() + PI / 2.0
 	var tw := create_tween()
@@ -1887,21 +2123,38 @@ func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 		var sgn := -1.0 if attack_combo == 1 else 1.0
 		weapon_sprite.rotation = base - arc * sgn
 		tw.tween_property(weapon_sprite, "rotation", base + arc * sgn, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(func() -> void: weapon_sprite.visible = false)
+		if is_dual_wield() and off_weapon_sprite != null:
+			# twin knives: the off-hand knife cuts back across on alternate strikes
+			var hand2 := {"down": Vector2(-3, -6), "up": Vector2(3, -10), "left": Vector2(2, -7), "right": Vector2(-2, -7)}
+			off_weapon_sprite.texture = t
+			off_weapon_sprite.position = hand2[dir_name]
+			_layer_behind_body(off_weapon_sprite, dir_name != "down")
+			off_weapon_sprite.visible = true
+			off_weapon_sprite.rotation = base + arc * sgn
+			var tw2 := create_tween()
+			tw2.tween_property(off_weapon_sprite, "rotation", base - arc * sgn, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_swinging = true
+	tw.tween_callback(func() -> void:
+		_swinging = false
+		_update_held_weapon())
+
+
+## Bare-handed strikes: a paw jab with a small impact puff in front of Mallow.
+func _punch_fx(heavy: bool) -> void:
+	if game == null:
+		return
+	var w := weapon_def()
+	var p := global_position + Vector2(0, -5) + facing * float(w.get("reach", 18.0)) * 0.7
+	game.fx.burst("spark", p, 8 if heavy else 5, 55.0 if heavy else 40.0, Color(1.0, 0.92, 0.8), -10.0)
 
 
 func _state_attack(delta: float, _input: Vector2) -> void:
 	velocity = velocity.move_toward(Vector2.ZERO, 700.0 * delta)
 	var pattern := String(weapon_def()["pattern"])
+	if input_enabled and Input.is_action_just_pressed("attack") and pattern != "bow":
+		_attack_buffer = ATTACK_BUFFER
 	if _lock_t <= 0.0:
 		state = State.MOVE
-	elif input_enabled and Input.is_action_just_pressed("attack") and (pattern == "combo" or pattern == "daggers") and _lock_t < 0.12:
-		state = State.MOVE
-		attack_cooldown = 0.0
-		try_attack()
-	elif input_enabled and Input.is_action_just_pressed("dash"):
-		state = State.MOVE
-		start_roll(Input.get_vector("move_left", "move_right", "move_up", "move_down"))
 
 
 func activate_mothlight() -> bool:
@@ -1912,17 +2165,41 @@ func activate_petalguard() -> bool:
 	return cast_skill("petalguard")
 
 
+## Potion uses left: flask charges plus Moontea Vials carried in the bag.
+func potions_left() -> int:
+	return moontea_charges + Inv.count(self, "moontea_vial")
+
+
+## Why the potion button can't be used right now ("" = usable).
+func potion_block_reason() -> String:
+	if state == State.DEAD:
+		return "busy"
+	if potions_left() <= 0:
+		return "empty"
+	if flask_cd > 0.0:
+		return "cooldown"
+	if health >= max_health:
+		return "full"
+	return ""
+
+
 ## Moontea flask: limited charges, short cooldown, never heals past max.
 func drink_moontea() -> bool:
 	if state == State.DEAD or flask_cd > 0.0:
 		return false
-	if moontea_charges <= 0:
+	var use_vial := moontea_charges <= 0 and Inv.count(self, "moontea_vial") > 0
+	if moontea_charges <= 0 and not use_vial:
+		if game:
+			game.hud.show_message("Flask empty. Rest at a waystone or buy Moontea Vials.", 1.6)
 		return false
 	if health >= max_health:
 		if game:
 			game.hud.show_message("Already at full health.", 1.2)
 		return false
-	moontea_charges -= 1
+	if use_vial:
+		Inv.remove(self, "moontea_vial", 1)
+	else:
+		moontea_charges -= 1
 	flask_cd = float(CD.BALANCE["flask_cooldown"])
 	var amt := int(round(float(CD.BALANCE["flask_heal"]) * heal_mult()))
 	health = mini(max_health, health + amt)
@@ -1975,9 +2252,15 @@ func take_damage(amount: int = 2, from := Vector2.INF) -> bool:
 	if state == State.DEAD:
 		return false
 	if guard_active:
+		# Petalguard opened in the last 0.6s: perfect parry (stun + riposte)
+		var perfect := guard_time_left >= 4.4 and parry_cooldown <= 0.0
 		guard_active = false
 		guard_time_left = 0.0
 		invulnerable_left = 0.45
+		if perfect:
+			parry_cooldown = 2.0
+			if game:
+				game.on_perfect_parry(self)
 		if game:
 			game.audio.play("bubble", 0.05, -2.0)
 			game.fx.spawn("shield", global_position + Vector2(0, -9), 0.0, 1.6, Color(1, 0.85, 1.0), null, true)
@@ -1999,7 +2282,7 @@ func take_damage(amount: int = 2, from := Vector2.INF) -> bool:
 	var poise := 1.0 - clampf(stat("poise"), 0.0, 0.8)
 	if from != Vector2.INF:
 		var away := (global_position - from).normalized()
-		knockback = away * 140.0 * poise
+		knockback = KB.push(knockback, away, KB.PLAYER_BASE, 1.0 - poise)
 	_flash(Color(1, 0.35, 0.4))
 	hit_taken.emit(amount)
 	health_changed.emit()
@@ -2121,6 +2404,7 @@ func _update_anim(input: Vector2) -> void:
 
 
 func _update_visuals(delta: float) -> void:
+	_update_held_weapon()
 	var h := -sprite.position.y
 	var s := 1.0 - clampf(h / 30.0, 0.0, 0.45)
 	shadow.scale = Vector2(0.5, 0.42) * s
@@ -2131,12 +2415,10 @@ func _update_visuals(delta: float) -> void:
 		var playing: bool = game != null and game.game_started and state != State.DEAD and not swimming and not fishing and attack_indicator_opacity > 0.01
 		range_hint.visible = playing
 		if playing:
-			var d := facing
+			var d := facing if state != State.MOVE else attack_direction()
 			var engaged := false
 			if is_valid_target(current_target):
 				var to: Vector2 = current_target.global_position - global_position
-				if state == State.MOVE and to.length() <= acquire_range():
-					d = to
 				engaged = to.length() <= float(weapon_def()["reach"]) + 6.0
 			range_hint.opacity = attack_indicator_opacity
 			range_hint.tick(delta, d, engaged)

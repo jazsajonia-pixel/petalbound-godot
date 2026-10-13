@@ -29,7 +29,7 @@ func frames(n: int) -> void:
 
 
 func release_all() -> void:
-	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "dash", "jump", "attack", "interact"]:
+	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "jump", "attack", "interact"]:
 		Input.action_release(a)
 
 
@@ -54,9 +54,14 @@ func _run_test() -> void:
 	await process_frame
 	await physics_frame
 	game.hud.title_button.pressed.emit()
+	game.hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 	player = game.player
+	# new journeys start bare-pawed: hand over the starter kit the tiers upgrade
+	player.give_item("thornblade")
+	player.give_item("briar_mail")
+	player._set_weapon_index(player.weapons_owned.find("thornblade"))
 	release_all()
 	check(game.game_started, "New Journey should start the game.")
 
@@ -139,19 +144,21 @@ func _run_test() -> void:
 	game.gather_material("herb", 2)
 	check(game.craft_next_upgrade(), "Three wood and ore should craft the Tier II Thornblade.")
 	check(player.weapons_owned.has("thornblade_ii"), "The crafted weapon tier should be added to the armoury.")
-	check(game.materials["wood"] == 0 and game.materials["ore"] == 3, "Crafting should consume the recipe materials.")
+	check(int(game.materials.get("wood", 0)) == 0 and int(game.materials.get("ore", 0)) == 3, "Crafting should consume the recipe materials.")
 	check(game.craft_next_upgrade(), "Remaining ore and herbs should craft reinforced Tier II Briar Mail.")
 	check(player.inventory.has("briar_mail_ii"), "The crafted armor tier should enter the satchel.")
 
 	# ---- enterable houses
 	var mira: Dictionary = game._house("house_mira")
 	check(await door_prompt(mira), "A house door should offer ENTER.")
+	game._door_cd = 0.0
 	game._interact()
 	check(game.current_interior.get("id", "") == "house_mira", "Mallow should step inside Mira's Cottage.")
 	check(player.global_position.distance_to(mira["center"]) < 120.0, "The interior should hold Mallow (dist %.0f)." % player.global_position.distance_to(mira["center"]))
 	await frames(4)
 	game._update_interactables()
 	check(game._interact_target.get("type", "") == "door", "The inside doormat should offer LEAVE.")
+	game._door_cd = 0.0
 	game._interact()
 	check(game.current_interior.is_empty(), "Mallow should be back outside.")
 	check(player.global_position.distance_to(mira["door"]) < 40.0, "Leaving should return Mallow to the door.")
@@ -159,6 +166,7 @@ func _run_test() -> void:
 	# ---- the Hollow Crypt
 	var crypt: Dictionary = game._house("crypt")
 	check(await door_prompt(crypt), "The crypt door should offer ENTER.")
+	game._door_cd = 0.0
 	game._interact()
 	check(game.current_interior.get("id", "") == "crypt", "Mallow should enter the Hollow Crypt.")
 	check(game.crypt_enemies.size() == 6, "The crypt should hold six enemies (got %d)." % game.crypt_enemies.size())
@@ -177,6 +185,7 @@ func _run_test() -> void:
 	await frames(2)
 	game._update_interactables()
 	check(game._interact_target.get("type", "") == "door", "The way out should open after the fight.")
+	game._door_cd = 0.0
 	game._interact()
 	check(game.current_interior.is_empty(), "Mallow should leave the crypt.")
 	check(game.crypt_enemies.is_empty() and game.crypt_boss == null, "Leaving should clear the crypt.")

@@ -8,6 +8,8 @@ extends RefCounted
 const ClassBook := preload("res://scripts/data/classdb.gd")
 const DB := preload("res://scripts/data/db.gd")
 const CD := preload("res://scripts/data/combat_data.gd")
+const RUI := preload("res://scripts/ui/rarity_ui.gd")
+const Inv := preload("res://scripts/systems/inventory.gd")
 const Build := preload("res://scripts/combat/build.gd")
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 
@@ -185,13 +187,13 @@ static func _line_panel(hud: Control, p: Node, cid: String, list: Control, refre
 	for sid in def["skills"]:
 		var sd: Dictionary = ClassBook.skill_of(sid)
 		var ok: bool = bound and Build.rank(p, cid) >= int(sd.get("unlock", 1))
-		unlocks.append("%s%s (rank %d)" % ["✿ " if ok else "· ", sd["name"], int(sd.get("unlock", 1))])
+		unlocks.append("%s%s (rank %d)" % ["+ " if ok else "· ", sd["name"], int(sd.get("unlock", 1))])
 	hud._label("Arts: " + ", ".join(unlocks), 8, hud.C_TEXT, col)
 	var gear := PackedStringArray()
 	var rw: Dictionary = def.get("rewards", {})
 	for need in rw:
 		for gid in rw[need]:
-			gear.append("%s%s (rank %d)" % ["✿ " if p.rewards_claimed.has(gid) else "· ", DB.ITEMS[gid]["name"], int(need)])
+			gear.append("%s%s (rank %d)" % ["+ " if p.rewards_claimed.has(gid) else "· ", DB.ITEMS[gid]["name"], int(need)])
 	if gear.size() > 0:
 		_wrap(hud, "Signature gear: " + ", ".join(gear), hud.C_DIM, col, 420)
 	if not bound:
@@ -204,7 +206,7 @@ static func _line_panel(hud: Control, p: Node, cid: String, list: Control, refre
 		for need in node.get("needs", []):
 			if not (p.class_nodes.get(cid, {}) as Dictionary).has(need):
 				needs_met = false
-		var l: Label = hud._label(("✿ " if owned else "· ") + node["name"], 8, def["color"] if owned else hud.C_TEXT, nrow)
+		var l: Label = hud._label(("+ " if owned else "· ") + node["name"], 8, def["color"] if owned else hud.C_TEXT, nrow)
 		l.custom_minimum_size = Vector2(96, 10)
 		var need_txt := ""
 		if not owned and not needs_met:
@@ -212,7 +214,7 @@ static func _line_panel(hud: Control, p: Node, cid: String, list: Control, refre
 			for need in node.get("needs", []):
 				nn.append(String(def["tree"][need]["name"]))
 			need_txt = "  (needs " + ", ".join(nn) + ")"
-		var d: Label = hud._label(node["desc"] + need_txt + ("  → rank up" if not owned else ""), 8, hud.C_DIM if owned or needs_met else Color(0.55, 0.5, 0.6), nrow)
+		var d: Label = hud._label(node["desc"] + need_txt + ("  -> rank up" if not owned else ""), 8, hud.C_DIM if owned or needs_met else Color(0.55, 0.5, 0.6), nrow)
 		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if owned:
 			hud._label("LEARNED", 8, hud.C_GOLD, nrow)
@@ -224,48 +226,105 @@ static func _line_panel(hud: Control, p: Node, cid: String, list: Control, refre
 
 
 # ------------------------------------------------------------------ satchel
+const FILTERS := [["all", "ALL"], ["weapon", "WEAPONS"], ["armor", "ARMOR"], ["acc", "TRINKETS"], ["bag", "MATERIALS"]]
+
+
+static func _filter_of(id: String) -> String:
+	var t: String = DB.ITEMS.get(id, {}).get("type", "")
+	if t == "weapon":
+		return "weapon"
+	if t in ["head", "chest", "legs", "feet", "offhand"]:
+		return "armor"
+	if t in DB.EQUIP_SLOTS:
+		return "acc"
+	return "bag"
+
+
+static func _filter_bar(hud: Control, grid: GridContainer) -> void:
+	var parent: Control = grid.get_parent()
+	var bar: HBoxContainer = parent.get_node_or_null("SatchelFilters")
+	if bar == null:
+		bar = HBoxContainer.new()
+		bar.name = "SatchelFilters"
+		bar.add_theme_constant_override("separation", 2)
+		parent.add_child(bar)
+		parent.move_child(bar, 0)
+	for c in bar.get_children():
+		c.queue_free()
+	var cur: String = hud.get_meta("satchel_filter", "all")
+	for f in FILTERS:
+		var fid: String = f[0]
+		var b: Button = _row_button(hud, f[1], bar, func() -> void:
+			hud.set_meta("satchel_filter", fid)
+			refresh_inventory(hud))
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.add_theme_font_size_override("font_size", 7)
+		if fid == cur:
+			b.add_theme_stylebox_override("normal", hud._box(Color(0.42, 0.24, 0.40), hud.C_GOLD, 1, 2))
+
+
 static func refresh_inventory(hud: Control) -> void:
 	var grid: GridContainer = hud.inventory_grid
 	for c in grid.get_children():
 		c.queue_free()
+	_filter_bar(hud, grid)
+	var cur: String = hud.get_meta("satchel_filter", "all")
 	var p: Node = hud.game.player
 	var ids: Array = []
+	var counts := {}
 	for w in p.weapons_owned:
-		ids.append(w)
+		if not DB.ITEMS.get(w, {}).get("unarmed", false):
+			ids.append(w)
 	for i in p.inventory:
 		var t: String = DB.ITEMS.get(i, {}).get("type", "")
 		if t in DB.EQUIP_SLOTS:
 			ids.append(i)
 	for i in p.inventory:
-		if not ids.has(i):
+		if not ids.has(i) and DB.ITEMS.has(i):
 			ids.append(i)
-	if hud.satchel_selected == "" or not ids.has(hud.satchel_selected):
-		hud.satchel_selected = p.get_weapon_id()
+	for e in Inv.listing(p):
+		if not ids.has(e[0]):
+			ids.append(e[0])
+		counts[e[0]] = e[1]
+	var shown: Array = []
 	for id in ids:
+		if cur == "all" or _filter_of(id) == cur:
+			shown.append(id)
+	if hud.satchel_selected == "" or not shown.has(hud.satchel_selected):
+		hud.satchel_selected = "" if shown.is_empty() else (p.get_weapon_id() if shown.has(p.get_weapon_id()) else shown[0])
+	for id in shown:
 		var item: Dictionary = DB.ITEMS[id]
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(26, 26)
-		b.icon = AnimLib.tex(item["icon"])
-		b.expand_icon = true
-		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		var rc: Color = DB.RARITY_COLORS.get(item.get("rarity", "common"), Color.WHITE)
+		b.flat = true
 		var equipped: bool = (item["type"] == "weapon" and p.get_weapon_id() == id) or p.equipped.values().has(id)
 		var usable: bool = not item["type"] in ["weapon"] + DB.EQUIP_SLOTS or Build.can_equip(p, id)
-		var bg := Color(0.5, 0.26, 0.42) if equipped else Color(0.14, 0.10, 0.19)
-		var border := rc if usable else C_BAD
+		var fr: Control = RUI.icon(id, 26.0, b, hud.satchel_selected == id, not usable, int(counts.get(id, 0)))
+		fr.set_anchors_preset(Control.PRESET_FULL_RECT)
 		if hud.satchel_selected == id:
-			border = hud.C_GOLD
-		b.add_theme_stylebox_override("normal", hud._box(bg, border, 2 if hud.satchel_selected == id else 1, 3))
-		if not usable:
-			b.modulate = Color(0.75, 0.6, 0.65)
-		if item.has("tint"):
-			b.add_theme_color_override("icon_normal_color", Color(String(item["tint"])))
+			var sb: StyleBoxFlat = RUI.box(id, true)
+			sb.border_color = hud.C_GOLD
+			fr.add_theme_stylebox_override("panel", sb)
+		if equipped:
+			var tag: Label = hud._label("E", 7, hud.C_GOLD, fr)
+			tag.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.08))
+			tag.add_theme_constant_override("outline_size", 3)
+			tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.pressed.connect(func() -> void:
 			hud.satchel_selected = id
 			refresh_inventory(hud))
 		grid.add_child(b)
+	if shown.is_empty():
+		hud._label("-", 8, hud.C_DIM, grid)
+	var used: int = Inv.stacks_used(p)
+	var cap_l: Label = grid.get_parent().get_node_or_null("BagCap")
+	if cap_l == null:
+		cap_l = hud._label("", 7, hud.C_DIM, grid.get_parent())
+		cap_l.name = "BagCap"
+		grid.get_parent().move_child(cap_l, 2)
+	cap_l.text = "Bag %d/%d stacks%s" % [used, DB.BAG_SLOTS, "  (FULL: sell or craft to make room)" if used >= DB.BAG_SLOTS else ""]
+	cap_l.add_theme_color_override("font_color", C_BAD if used >= DB.BAG_SLOTS else hud.C_DIM)
 	_detail(hud, p, hud.satchel_selected)
 	_doll(hud, p)
 
@@ -278,10 +337,13 @@ static func _detail(hud: Control, p: Node, id: String) -> void:
 		return
 	var item: Dictionary = DB.ITEMS[id]
 	var t: String = item["type"]
-	var rc: Color = DB.RARITY_COLORS.get(item.get("rarity", "common"), Color.WHITE)
-	hud._label(String(item["name"]), 10, rc, box)
-	var slot_name: String = DB.SLOT_NAMES.get(t, t.capitalize())
-	hud._label("%s · %s · %s" % [slot_name, String(item.get("rarity", "common")).capitalize(), Build.requirement_text(id)], 8, hud.C_DIM, box)
+	var head: HBoxContainer = hud._hbox(box, 5)
+	RUI.icon(id, 22.0, head)
+	var hc: VBoxContainer = hud._vbox(head, 0)
+	hud._label(String(item["name"]), 10, RUI.color(id), hc)
+	hud._label("%s · %s%s" % [RUI.category_of(id), RUI.name_of(id), ("" if Build.item_classes(id).is_empty() else " · " + Build.requirement_text(id))], 8, hud.C_DIM, hc)
+	if Inv.is_stackable(id):
+		hud._label("x%d in bag" % Inv.count(p, id), 8, hud.C_DIM, box)
 	_wrap(hud, String(item["desc"]), hud.C_TEXT, box, 200)
 	if t == "weapon":
 		var w: Dictionary = CD.weapon(id)
@@ -307,6 +369,13 @@ static func _detail(hud: Control, p: Node, id: String) -> void:
 				p.unequip(t)
 				hud.game.audio.play("menu5", 0.02, -4.0)
 				refresh_inventory(hud))
+		elif worn and t == "weapon" and not p.is_unarmed():
+			var ub: Button = hud._button("UNEQUIP", row, func() -> void:
+				p.unequip_weapon()
+				hud.game.audio.play("menu5", 0.02, -4.0)
+				refresh_inventory(hud))
+			ub.name = "UnequipWeapon"
+			hud._label("HELD", 8, hud.C_GOLD, row)
 		elif not worn:
 			var eb: Button = hud._button("EQUIP", row, func() -> void:
 				if p.equip(id):

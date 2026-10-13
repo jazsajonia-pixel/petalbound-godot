@@ -20,6 +20,7 @@ func _run_test() -> void:
 	root.add_child(game)
 	await process_frame
 	(game.hud.title_button as Button).pressed.emit()
+	game.hud.call("confirm_character")
 	await process_frame
 	await process_frame
 	var hud: Control = game.hud
@@ -37,13 +38,16 @@ func _run_test() -> void:
 	ok = ok and Input.is_action_pressed("attack") and Input.is_action_pressed("move_right")
 	_touch(hud, 1, attack_center, false)
 	ok = ok and not Input.is_action_pressed("attack") and Input.is_action_pressed("move_right")
-	var dash_center: Vector2 = hud.dash_button.position + Vector2(hud.dash_button.radius, hud.dash_button.radius)
-	_touch(hud, 2, dash_center, true)
-	ok = ok and Input.is_action_pressed("dash")
+	# the separate dodge/dash control is gone: jump is the second held button
+	ok = ok and not ("dash_button" in hud) and not InputMap.has_action("dash")
+	var jump_center: Vector2 = hud.jump_button.position + Vector2(hud.jump_button.radius, hud.jump_button.radius)
+	_touch(hud, 2, jump_center, true)
+	ok = ok and Input.is_action_pressed("jump")
 	_touch(hud, 0, stick_start, false)
-	ok = ok and not Input.is_action_pressed("move_right") and Input.is_action_pressed("dash")
-	_touch(hud, 2, dash_center, false)
-	ok = ok and not Input.is_action_pressed("dash")
+	ok = ok and not Input.is_action_pressed("move_right") and Input.is_action_pressed("jump")
+	_touch(hud, 2, jump_center, false)
+	ok = ok and not Input.is_action_pressed("jump")
+	game.player.give_item("thornblade")
 	var w_before: int = game.player.weapon_index
 	var swap_center: Vector2 = hud.weapon_button.position + Vector2(hud.weapon_button.radius, hud.weapon_button.radius)
 	_touch(hud, 3, swap_center, true)

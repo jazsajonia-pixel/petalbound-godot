@@ -19,6 +19,7 @@ func _run_test() -> void:
 		quit(1)
 		return
 	start_button.pressed.emit()
+	menu_hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 

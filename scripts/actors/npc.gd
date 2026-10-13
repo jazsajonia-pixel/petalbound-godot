@@ -18,6 +18,8 @@ var dir_name := "down"
 var sprite: AnimatedSprite2D
 var prompt: Sprite2D
 var talking := false
+var quest_mark := ""
+var _mark_node: QuestMark
 
 
 func setup(p_game: Node, d: Dictionary, animal := false) -> void:
@@ -71,6 +73,10 @@ func _ready() -> void:
 		prompt.position = Vector2(0, -24)
 		prompt.visible = false
 		add_child(prompt)
+		_mark_node = QuestMark.new()
+		_mark_node.position = Vector2(0, -27)
+		_mark_node.z_index = 5
+		add_child(_mark_node)
 
 
 func _physics_process(delta: float) -> void:
@@ -109,3 +115,42 @@ func _physics_process(delta: float) -> void:
 	if sprite.animation != anim:
 		sprite.play(anim)
 
+
+
+## "!" new journey (gold), "?" ready to claim (green), "..." in progress (grey).
+func set_quest_marker(m: String) -> void:
+	quest_mark = m
+	if _mark_node:
+		_mark_node.mark = m
+		_mark_node.visible = m != "" and not (prompt and prompt.visible)
+		_mark_node.queue_redraw()
+
+
+class QuestMark extends Node2D:
+	var mark := ""
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		position.y = -27.0 + sin(_t * 3.0) * 1.2
+
+	func _draw() -> void:
+		if mark == "":
+			return
+		var bg := Color(0.12, 0.08, 0.16, 0.9)
+		match mark:
+			"!":
+				draw_circle(Vector2.ZERO, 5.5, bg)
+				draw_arc(Vector2.ZERO, 5.5, 0, TAU, 16, Color(1.0, 0.82, 0.35), 1.0)
+				draw_rect(Rect2(-1, -3.5, 2, 4.5), Color(1.0, 0.86, 0.4))
+				draw_rect(Rect2(-1, 2, 2, 1.5), Color(1.0, 0.86, 0.4))
+			"?":
+				draw_circle(Vector2.ZERO, 5.5, bg)
+				draw_arc(Vector2.ZERO, 5.5, 0, TAU, 16, Color(0.55, 1.0, 0.6), 1.0)
+				draw_arc(Vector2(0, -1.2), 2.0, PI, TAU + PI * 0.5, 8, Color(0.6, 1.0, 0.65), 1.4)
+				draw_rect(Rect2(-0.7, 0.6, 1.4, 1.2), Color(0.6, 1.0, 0.65))
+				draw_rect(Rect2(-0.7, 2.4, 1.4, 1.2), Color(0.6, 1.0, 0.65))
+			_:
+				draw_rect(Rect2(-6, -2.5, 12, 5), bg)
+				for i in range(3):
+					draw_circle(Vector2(-3.5 + i * 3.5, 0), 0.9, Color(0.78, 0.74, 0.86))

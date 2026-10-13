@@ -22,59 +22,59 @@ const ITEMS := {
 		"desc": "Mallow's travelling cloak. +8% move speed.", "speed": 0.08},
 	"moonheart_charm": {"rarity": "uncommon", "name": "Moonheart Charm", "type": "charm", "icon": NA + "ui/skill/amulet.png",
 		"desc": "A warm charm from Lake Lumen's island. +1 heart.", "hearts": 1},
-	"briar_mail": {"rarity": "common", "name": "Briar Mail", "type": "armor", "icon": NA + "ui/skill/armor.png",
+	"briar_mail": {"look": ["c9a07a", "8a5a3c", "523221"], "rarity": "common", "name": "Briar Mail", "type": "armor", "icon": NA + "ui/skill/armor.png",
 		"desc": "Woven thornwood armour. +1 heart and less knockback.", "hearts": 1, "poise": 0.5},
-	"briar_mail_ii": {"rarity": "uncommon", "name": "Briar Mail · Reinforced", "type": "armor", "icon": NA + "ui/skill/armor.png",
+	"briar_mail_ii": {"look": ["d8b48a", "9a6a44", "5a3826"], "rarity": "uncommon", "name": "Briar Mail · Reinforced", "type": "armor", "icon": NA + "ui/skill/armor.png",
 		"desc": "Tier II: reinforced plates grant +2 defense and +1 heart.", "defense": 2, "hearts": 1, "tier": 2},
-	"zephyr_boots": {"rarity": "rare", "name": "Zephyr Boots", "type": "boots", "icon": NA + "ui/skill/boot.png",
+	"zephyr_boots": {"look": ["b8d8ff", "5a7fb8", "33466e"], "rarity": "rare", "name": "Zephyr Boots", "type": "boots", "icon": NA + "ui/skill/boot.png",
 		"desc": "+12% speed and much faster stamina recovery.", "speed": 0.12, "stamina_regen": 0.6},
 	"ember_ring": {"rarity": "uncommon", "name": "Ember Ring", "type": "ring", "icon": NA + "ui/skill/ring.png",
 		"desc": "Staff bolts and arrows deal +1 damage.", "ranged_bonus": 1},
 	"moonveil_ring": {"rarity": "rare", "name": "Moonveil Ring", "type": "ring", "icon": NA + "ui/skill/ring.png",
 		"desc": "Woven from crypt-moonlight. +6% critical chance.", "crit": 0.06},
-	"sunplate": {"rarity": "rare", "name": "Sunplate Vest", "type": "armor", "icon": NA + "ui/skill/armor.png",
+	"sunplate": {"look": ["ffe69a", "d8a640", "8a6020"], "rarity": "rare", "name": "Sunplate Vest", "type": "armor", "icon": NA + "ui/skill/armor.png",
 		"desc": "Radiant plate from the Watch forge. +2 defense.", "defense": 2},
 	"starlocket": {"rarity": "rare", "name": "Star Locket", "type": "charm", "icon": NA + "ui/skill/amulet.png",
 		"desc": "Hums with starlight. +1 heart and +10 focus.", "hearts": 1, "focus": 10},
 	# ---- combat overhaul gear. "classes": any-of line requirement ([] = every wanderer);
 	# "requires_all": true means every listed line must be bound (hybrid gear).
-	"nightfang": {"rarity": "rare", "name": "Nightfang", "type": "weapon", "classes": ["nightbloom"], "icon": NA + "items/weapons/sai.png", "hand": NA + "items/weapons/sai_hand.png",
+	"nightfang": {"rarity": "rare", "name": "Nightfang Knives", "dual": true, "type": "weapon", "classes": ["nightbloom"], "icon": NA + "items/weapons/sai.png", "hand": NA + "items/weapons/sai_hand.png",
 		"desc": "Twin nightsteel sai. Lightning-quick two-cut combos with a high critical rate.", "damage": 2},
 	"moonglass_staff": {"rarity": "rare", "name": "Moonglass Staff", "type": "weapon", "classes": ["lumimancer"], "icon": NA + "items/weapons/magicwand.png", "hand": NA + "items/weapons/magicwand_hand.png", "tint": "a8d8ff",
 		"desc": "A prism-staff whose bolts cycle fire, frost and storm.", "damage": 3},
 	"grave_scythe": {"rarity": "rare", "name": "Grave Scythe", "type": "weapon", "classes": ["gravetender"], "icon": NA + "items/weapons/axe.png", "hand": NA + "items/weapons/axe_hand.png", "tint": "b8ffd0",
 		"desc": "A wide, reaping sweep that curses what it touches.", "damage": 3},
-	"mossleaf_cap": {"rarity": "common", "name": "Mossleaf Cap", "type": "head", "icon": NA + "ui/skill/helmet.png", "tint": "b8f0a0",
+	"mossleaf_cap": {"look": ["b8e08a", "6aa04a", "3a6430"], "rarity": "common", "name": "Mossleaf Cap", "type": "head", "icon": NA + "ui/skill/helmet.png", "tint": "b8f0a0",
 		"desc": "A soft cap of woven moss. +4 focus.", "focus": 4},
-	"rootgrip_gloves": {"rarity": "common", "name": "Rootgrip Gloves", "type": "arms", "icon": NA + "ui/skill/punch.png", "tint": "d8c09a",
+	"rootgrip_gloves": {"look": ["d0a878", "8a6440", "523a24"], "rarity": "common", "name": "Rootgrip Gloves", "type": "arms", "icon": NA + "ui/skill/punch.png", "tint": "d8c09a",
 		"desc": "Bark-palmed gloves. +6% attack speed.", "atk_speed": 0.06},
-	"trail_leggings": {"rarity": "common", "name": "Trail Leggings", "type": "legs", "icon": NA + "ui/skill/boot.png", "tint": "c0d0a0",
+	"trail_leggings": {"look": ["c8b48c", "8a7454", "544630"], "rarity": "common", "name": "Trail Leggings", "type": "legs", "icon": NA + "ui/skill/boot.png", "tint": "c0d0a0",
 		"desc": "Well-worn travelling leggings. +4% speed, faster stamina.", "speed": 0.04, "stamina_regen": 0.2},
 	"ember_heart": {"rarity": "rare", "name": "Ember Heart", "type": "relic", "icon": NA + "items/gemred.png",
 		"desc": "A coal that never cools. Relic: Kindle.", "relic": "kindle"},
-	"oakguard_helm": {"rarity": "rare", "name": "Oakguard Helm", "type": "head", "classes": ["warden"], "icon": NA + "ui/skill/helmet.png", "tint": "a8c4ff",
+	"oakguard_helm": {"look": ["d8c49a", "9a8458", "5a4a30"], "rarity": "rare", "name": "Oakguard Helm", "type": "head", "classes": ["warden"], "icon": NA + "ui/skill/helmet.png", "tint": "a8c4ff",
 		"desc": "Warden's heartwood helm. +1 defense, +1 heart.", "defense": 1, "hearts": 1},
-	"ironknuckle_wraps": {"rarity": "rare", "name": "Ironknuckle Wraps", "type": "arms", "classes": ["pugilist"], "icon": NA + "ui/skill/punch.png", "tint": "ffc9a0",
+	"ironknuckle_wraps": {"look": ["e0e4ec", "9aa2b4", "5a6274"], "rarity": "rare", "name": "Ironknuckle Wraps", "type": "arms", "classes": ["pugilist"], "icon": NA + "ui/skill/punch.png", "tint": "ffc9a0",
 		"desc": "Iron-studded wraps. +1 attack, +5% attack speed.", "atk": 1, "atk_speed": 0.05},
-	"duskweave_hood": {"rarity": "uncommon", "name": "Duskweave Hood", "type": "head", "classes": ["nightbloom"], "icon": NA + "ui/skill/helmet.png", "tint": "c0a8ff",
+	"duskweave_hood": {"look": ["8a7ab8", "4e3f7a", "2a2048"], "rarity": "uncommon", "name": "Duskweave Hood", "type": "head", "classes": ["nightbloom"], "icon": NA + "ui/skill/helmet.png", "tint": "c0a8ff",
 		"desc": "A hood that drinks the light. +5% crit, +3% speed.", "crit": 0.05, "speed": 0.03},
-	"shadow_wraps": {"rarity": "rare", "name": "Shadow Wraps", "type": "arms", "classes": ["nightbloom"], "icon": NA + "ui/skill/punch.png", "tint": "a890e0",
+	"shadow_wraps": {"look": ["a890e0", "5a4890", "30245a"], "rarity": "rare", "name": "Shadow Wraps", "type": "arms", "classes": ["nightbloom"], "icon": NA + "ui/skill/punch.png", "tint": "a890e0",
 		"desc": "Silent arm-wraps. +10% attack speed, +3% crit.", "atk_speed": 0.10, "crit": 0.03},
 	"gloam_lantern": {"rarity": "epic", "name": "Gloam Lantern", "type": "relic", "classes": ["nightbloom"], "icon": NA + "items/gempurple.png",
 		"desc": "A lantern lit with darkness. Relic: Nightveil.", "relic": "nightveil"},
-	"starweave_circlet": {"rarity": "uncommon", "name": "Starweave Circlet", "type": "head", "classes": ["lumimancer"], "icon": NA + "ui/skill/helmet.png", "tint": "bfe0ff",
+	"starweave_circlet": {"look": ["eef6ff", "a8c8f0", "5a78a8"], "rarity": "uncommon", "name": "Starweave Circlet", "type": "head", "classes": ["lumimancer"], "icon": NA + "ui/skill/helmet.png", "tint": "bfe0ff",
 		"desc": "A circlet strung with starlight. +8 focus, +8% elemental damage.", "focus": 8, "elem": 0.08},
-	"frostlace_robe": {"rarity": "rare", "name": "Frostlace Robe", "type": "armor", "classes": ["lumimancer"], "icon": NA + "ui/skill/armor.png", "tint": "c8ecff",
+	"frostlace_robe": {"look": ["e0f4ff", "98c8e8", "4a7898"], "rarity": "rare", "name": "Frostlace Robe", "type": "armor", "classes": ["lumimancer"], "icon": NA + "ui/skill/armor.png", "tint": "c8ecff",
 		"desc": "A cold, light robe. +1 defense, +6 focus, arts cool 8% faster.", "defense": 1, "focus": 6, "cdr": 0.08},
 	"stormseed": {"rarity": "epic", "name": "Stormseed", "type": "relic", "classes": ["lumimancer"], "icon": NA + "items/gemyellow.png",
 		"desc": "A seed full of thunder. Relic: Overcharge.", "relic": "overcharge"},
-	"bonewrap_gloves": {"rarity": "uncommon", "name": "Bonewrap Gloves", "type": "arms", "classes": ["gravetender"], "icon": NA + "ui/skill/punch.png", "tint": "d8ffe0",
+	"bonewrap_gloves": {"look": ["eef8ee", "b8ccb8", "6a806a"], "rarity": "uncommon", "name": "Bonewrap Gloves", "type": "arms", "classes": ["gravetender"], "icon": NA + "ui/skill/punch.png", "tint": "d8ffe0",
 		"desc": "Gloves stitched with knucklebones. +5% lifesteal, +1 attack.", "lifesteal": 0.05, "atk": 1},
-	"cryptwarden_greaves": {"rarity": "rare", "name": "Cryptwarden Greaves", "type": "legs", "classes": ["gravetender"], "icon": NA + "ui/skill/boot.png", "tint": "a0e0b8",
+	"cryptwarden_greaves": {"look": ["a0e0b8", "4a8a6a", "28503c"], "rarity": "rare", "name": "Cryptwarden Greaves", "type": "legs", "classes": ["gravetender"], "icon": NA + "ui/skill/boot.png", "tint": "a0e0b8",
 		"desc": "Grave-iron greaves. +1 heart, +1 defense.", "hearts": 1, "defense": 1},
 	"soul_lantern": {"rarity": "epic", "name": "Soul Lantern", "type": "relic", "classes": ["gravetender"], "icon": NA + "items/gemgreen.png",
 		"desc": "Houses a hungry little soul. Relic: Soul Feast.", "relic": "soulfeast"},
-	"galestride_leggings": {"rarity": "uncommon", "name": "Galestride Leggings", "type": "legs", "classes": ["windrunner"], "icon": NA + "ui/skill/boot.png", "tint": "b0f0d0",
+	"galestride_leggings": {"look": ["c8f8e0", "70c8a0", "3a7a5a"], "rarity": "uncommon", "name": "Galestride Leggings", "type": "legs", "classes": ["windrunner"], "icon": NA + "ui/skill/boot.png", "tint": "b0f0d0",
 		"desc": "Feather-light leggings. +6% speed, ranged hits +1.", "speed": 0.06, "ranged_bonus": 1},
 	"bloomthread_shawl": {"rarity": "rare", "name": "Bloomthread Shawl", "type": "cloak", "classes": ["petalweaver"], "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png", "tint": "ffd0e8",
 		"desc": "Woven from living petals. Healing +25%, +6 focus.", "heal_power": 0.25, "focus": 6},
@@ -82,7 +82,53 @@ const ITEMS := {
 		"desc": "Hybrid: Nightbloom + Gravetender. +5% crit, +6% lifesteal, +4% speed.", "crit": 0.05, "lifesteal": 0.06, "speed": 0.04},
 	"spellblade_sash": {"rarity": "epic", "name": "Spellblade Sash", "type": "ring", "classes": ["nightbloom", "lumimancer"], "requires_all": true, "icon": NA + "ui/skill/ring.png", "tint": "c8b8ff",
 		"desc": "Hybrid: Nightbloom + Lumimancer. +10% elemental damage, +4% crit.", "elem": 0.10, "crit": 0.04},
-	"moontea": {"name": "Moontea", "type": "consumable", "icon": NA + "items/lifepot.png",
+	# ---- bare hands: always owned, never sold, no sprite in hand
+	"fists": {"rarity": "common", "name": "Bare Paws", "type": "weapon", "unarmed": true, "wclass": "Fists", "icon": NA + "ui/skill/punch.png",
+		"desc": "Mallow's own paws. A quick jab-jab-hook combo with short reach. Any weapon hits harder.", "damage": 1, "value": 0},
+	# ---- more weapon categories
+	"bramble_spear": {"rarity": "uncommon", "name": "Bramble Spear", "type": "weapon", "wclass": "Spear", "icon": NA + "items/weapons/lance.png", "hand": NA + "items/weapons/lance_hand.png", "tint": "e8d8b0",
+		"desc": "A long thorn-tipped spear. Narrow thrusts that reach far; the finisher pierces a line.", "damage": 2, "value": 40},
+	"cinder_axe": {"rarity": "uncommon", "name": "Cinder Axe", "type": "weapon", "wclass": "Axe", "icon": NA + "items/weapons/axe.png", "hand": NA + "items/weapons/axe_hand.png", "tint": "ffc8a0",
+		"desc": "A heavy axe with an ember in the haft. Two chopping blows; the second sets foes burning.", "damage": 3, "value": 55},
+	"petalbreaker": {"rarity": "epic", "name": "Petalbreaker", "type": "weapon", "wclass": "Greatsword", "classes": ["warden", "pugilist"], "icon": NA + "items/weapons/bigsword.png", "hand": NA + "items/weapons/bigsword_hand.png", "tint": "ffe0f0",
+		"desc": "A greatsword for Wardens and Pugilists. Slow, wide cleaves; the finisher exposes foes (+20% damage taken).", "damage": 4, "value": 160},
+	"moonwell_blade": {"rarity": "legendary", "name": "Moonwell Blade", "type": "weapon", "wclass": "Sword", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png", "tint": "d8e8ff",
+		"desc": "Forged from a guardian's moonlight. Three-cut combo; every third cut releases a moon wave.", "damage": 4, "value": 260},
+	# ---- legendary armour (crafted / rift rewards)
+	"starfall_crown": {"rarity": "legendary", "name": "Starfall Crown", "type": "head", "look": ["fff2b8", "e8c060", "9a7430"], "icon": NA + "ui/skill/helmet.png", "tint": "ffe8a0",
+		"desc": "A crown of fallen stars. +1 heart, +6% crit, +6 focus.", "hearts": 1, "crit": 0.06, "focus": 6, "value": 240},
+	"moonwell_aegis": {"rarity": "legendary", "name": "Moonwell Aegis", "type": "armor", "look": ["eef4ff", "a8b8e8", "5a6898"], "icon": NA + "ui/skill/armor.png", "tint": "d8e4ff",
+		"desc": "Silver plate that hums with the Moonwell. +2 defense, +1 heart.", "defense": 2, "hearts": 1, "value": 260},
+	"rift_treads": {"rarity": "epic", "name": "Riftwalker Treads", "type": "boots", "look": ["e0c8ff", "9a70d8", "4a3088"], "icon": NA + "ui/skill/boot.png", "tint": "d0b8ff",
+		"desc": "Boots that remember the rifts. +8% speed, +1 defense.", "speed": 0.08, "defense": 1, "value": 150},
+	"hidebound_vest": {"rarity": "uncommon", "name": "Hidebound Vest", "type": "armor", "look": ["d8b890", "9a7a50", "5a4428"], "icon": NA + "ui/skill/armor.png", "tint": "e0c8a0",
+		"desc": "Stitched from beast hide. +1 defense, +4% lifesteal.", "defense": 1, "lifesteal": 0.04, "value": 60},
+	"slimeglass_boots": {"rarity": "common", "name": "Slimeglass Boots", "type": "boots", "look": ["b8f0d8", "60c0a0", "2e7a64"], "icon": NA + "ui/skill/boot.png", "tint": "b0f0d8",
+		"desc": "Bouncy boots set with dried gel. +4% speed.", "speed": 0.04, "value": 25},
+	"gale_band": {"rarity": "rare", "name": "Gale Band", "type": "relic", "icon": NA + "ui/skill/amulet.png", "tint": "c8f8ff", "relic": "swiftwind",
+		"desc": "Any class. Active: Swiftwind (+35% attack speed and +15% speed for 6s).", "value": 120},
+	"barkskin_charm": {"rarity": "uncommon", "name": "Barkskin Charm", "type": "relic", "icon": NA + "items/gemgreen.png", "tint": "b8e090", "relic": "barkskin",
+		"desc": "Any class. Active: Barkskin (+2 defense and regenerate a quarter-heart per second for 5s).", "value": 90},
+	# ---- materials (stack in the bag, sell, exchange, craft)
+	"wood": {"rarity": "common", "name": "Oak Branch", "type": "material", "icon": NA + "items/branch.png", "value": 2, "desc": "Sturdy branches from Hollowroot trees."},
+	"ore": {"rarity": "common", "name": "Iron Ore", "type": "material", "icon": NA + "items/rock.png", "value": 3, "desc": "Rough ore knocked from boulders."},
+	"herb": {"rarity": "common", "name": "Dew Herb", "type": "material", "icon": NA + "items/tealeaf.png", "value": 2, "desc": "A fragrant herb for brewing Moontea."},
+	"slime_gel": {"rarity": "common", "name": "Slime Gel", "type": "material", "icon": NA + "items/honey.png", "tint": "a8f0c8", "value": 2, "desc": "Wobbly gel left by slimes."},
+	"bat_wing": {"rarity": "common", "name": "Gloam Wing", "type": "material", "icon": NA + "items/feather.png", "tint": "a8a0e0", "value": 3, "desc": "A papery wing from flyers."},
+	"beast_hide": {"rarity": "common", "name": "Beast Hide", "type": "material", "icon": NA + "items/meat.png", "tint": "d8b890", "value": 4, "desc": "Tough hide from lizards, moles and vipers."},
+	"venom_sac": {"rarity": "uncommon", "name": "Venom Sac", "type": "material", "icon": NA + "items/gemgreen.png", "tint": "c0f080", "value": 6, "desc": "A sac of briar venom. Handle gently."},
+	"bone_shard": {"rarity": "uncommon", "name": "Bone Shard", "type": "material", "icon": NA + "items/nut.png", "tint": "f0f0e0", "value": 6, "desc": "A splinter of old bone from the restless dead."},
+	"ember_core": {"rarity": "uncommon", "name": "Ember Core", "type": "material", "icon": NA + "items/gemred.png", "value": 8, "desc": "A warm core from fire creatures."},
+	"spirit_dust": {"rarity": "rare", "name": "Spirit Dust", "type": "material", "icon": NA + "items/gempurple.png", "tint": "d8c8ff", "value": 12, "desc": "Glittering dust from spirits and watchers."},
+	"moon_shard": {"rarity": "epic", "name": "Moon Shard", "type": "material", "icon": NA + "items/seedlargewhite.png", "tint": "d8e8ff", "value": 40, "desc": "A rare sliver of moonlight. Found in rifts and on elites."},
+	# ---- consumables & quest items
+	"moontea_vial": {"rarity": "common", "name": "Moontea Vial", "type": "consumable", "icon": NA + "items/lifepot.png", "value": 12,
+		"desc": "Used by the potion button when the flask is empty. Restores two hearts."},
+	"rift_key": {"rarity": "rare", "name": "Rift Key", "type": "consumable", "icon": NA + "items/goldkey.png", "value": 30,
+		"desc": "Lets you enter a rift that would otherwise need a higher level."},
+	"alder_letter": {"rarity": "common", "name": "Elder's Letter", "type": "quest", "icon": NA + "items/book.png", "value": 0,
+		"desc": "A sealed letter from Elder Alder for Bramble the smith."},
+	"moontea": {"name": "Moontea Flask", "type": "flask_up", "icon": NA + "items/lifepot.png",
 		"desc": "Restores two hearts. Waystones refill your flask."},
 	"heart_piece": {"name": "Heart Bloom", "type": "upgrade", "icon": NA + "items/heart.png",
 		"desc": "A heart-shaped bloom. Permanently +1 heart."},
@@ -98,6 +144,12 @@ const ITEMS := {
 const EQUIP_SLOTS := ["head", "armor", "arms", "legs", "boots", "cloak", "charm", "ring", "relic"]
 const SLOT_NAMES := {"head": "Head", "armor": "Chest", "arms": "Arms", "legs": "Legs", "boots": "Feet",
 	"cloak": "Cloak", "charm": "Charm", "ring": "Ring", "relic": "Relic", "weapon": "Weapon"}
+const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
+const RARITY_NAMES := {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "epic": "Epic", "legendary": "Legendary"}
+## Stackable item types live in the bag (id -> count) instead of the gear list.
+const STACKABLE := ["material", "consumable", "quest"]
+const STACK_MAX := 99
+const BAG_SLOTS := 24
 const RARITY_COLORS := {"common": Color(0.85, 0.85, 0.85), "uncommon": Color(0.55, 0.95, 0.55),
 	"rare": Color(0.5, 0.75, 1.0), "epic": Color(0.85, 0.6, 1.0), "legendary": Color(1.0, 0.75, 0.35)}
 
@@ -169,7 +221,7 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 			return ["The dunes take more than they give, traveller. But I trade fair.", "@shop"]
 		"tallow":
 			return ["The roads branch from Hearthgrove like roots: north to Hollowroot, east to the marsh and the dunes, north-east to the Moonstone Ruins.",
-				"Hold SHIFT or push the stick all the way to sprint. Roll through attacks with SPACE, and jump low hedges with C.",
+				"Hold SHIFT or push the stick all the way to sprint, and jump low hedges with C. Hold attack and steer: your swings follow your stick.",
 				"Open your map with M. Skulls mark the guardians you haven't faced."]
 		"sora":
 			if seeds >= 4:
@@ -186,7 +238,8 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 			return ["Did you know you can cut bushes? Sometimes there are coins inside!", "Mum says not to go past the torii gate at night...",
 				"If you're going to the lake... Hana found something silver in the reeds. I think it's Mum's locket. Could you ask her?"]
 		"bramble":
-			return ["I saw a chest on the little island in Lake Lumen. You'd have to swim for it!"]
+			return ["Bramble's Forge! Bring me monster parts and ore and I'll shape them into something worth swinging.",
+				"I'll also buy spare materials, and trade rare parts for recipe scrolls.", "@forge"]
 		"kaede":
 			return ["The Watch keeps the valley armed. Blade, plate, wand — I sell them all.",
 				"Best any one guardian and report back to me. The Watch pays bounties, even to wanderers.", "@shop"]

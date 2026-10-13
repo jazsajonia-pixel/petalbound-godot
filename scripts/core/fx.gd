@@ -40,7 +40,7 @@ signal shake_requested(strength: float, duration: float)
 
 func _ready() -> void:
 	z_index = 6
-	font = load("res://assets/packs/kenney_fonts/kenney_mini.ttf")
+	font = preload("res://scripts/ui/fonts.gd").title()
 
 
 func spawn(name: String, pos: Vector2, rot := 0.0, scl := 1.0, tint := Color.WHITE, parent: Node = null, additive := false) -> AnimatedSprite2D:
@@ -237,3 +237,22 @@ class Telegraph:
 		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 40, c, 1.5)
 		if filled:
 			draw_circle(Vector2.ZERO, radius * k, Color(c.r, c.g, c.b, c.a * 0.45))
+
+
+static var _glow_tex: Texture2D
+
+## Soft round glow used behind rare loot and rarity frames.
+static func glow_texture() -> Texture2D:
+	if _glow_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		t.width = 32
+		t.height = 32
+		_glow_tex = t
+	return _glow_tex

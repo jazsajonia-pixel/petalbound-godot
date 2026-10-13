@@ -1,10 +1,11 @@
 extends Node
 ## Mobile combat controls layered on the HUD:
-##  - the right-hand cluster layout (attack, four art slots, dodge, flask, relic,
+##  - the right-hand cluster layout (attack, four art slots, potion, gear active,
 ##    jump, swap, interact) scaled by HUD scale / button size, with saved per-
 ##    control offsets from the HUD editor;
-##  - drag-to-aim for aimable arts (release to cast, slide back onto the button
-##    to cancel, quick tap = smart cast at the current target);
+##  - drag-to-aim for aimable arts (release to cast, slide back onto the button,
+##    or off the screen edge to cancel; a touch that never
+##    moves past the dead-zone is a tap = smart cast at the current target);
 ##  - the HUD layout editor (drag controls, scale/size/opacity, reset);
 ##  - per-frame button state (cooldowns, focus, charges) and a compact target
 ##    frame + active-buff readout.
@@ -16,6 +17,7 @@ const DB := preload("res://scripts/data/db.gd")
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const AIM_DEADZONE := 10.0
 const AIM_DRAG_FULL := 56.0
+const AIM_EDGE := 3.0  # px from the screen edge where a release cancels
 
 var hud: Control
 var skill_buttons: Array = []
@@ -28,9 +30,8 @@ const DEFAULTS := {
 	"skill1": [Vector2(-96, -80), 17.0],
 	"skill2": [Vector2(-58, -110), 17.0],
 	"skill3": [Vector2(-18, -114), 15.0],
-	"dash": [Vector2(-154, -22), 16.0],
-	"heal": [Vector2(-146, -66), 13.0],
-	"relic": [Vector2(-104, -130), 13.0],
+	"heal": [Vector2(-152, -24), 15.0],
+	"relic": [Vector2(-146, -68), 14.0],
 	"jump": [Vector2(-20, -160), 13.0],
 	"switch_weapon": [Vector2(-60, -152), 12.0],
 	"interact": [Vector2(-150, -110), 15.0],
@@ -189,27 +190,33 @@ func update_buttons() -> void:
 		b.dimmed = p.focus < float(def.get("cost", 0))
 		var lv := Build.skill_level(p, sid)
 		b.label = "" if lv <= 1 else str(lv)
-	# dodge
-	var db: Control = hud.dash_button
-	db.cooldown = clampf(p.dodge_cd / float(CD.BALANCE["dodge_cooldown"]), 0.0, 1.0)
-	db.dimmed = p.stamina < 18.0
 	# flask
 	var hb: Control = hud.heal_button
-	hb.label = str(p.moontea_charges)
-	hb.cooldown = 1.0 if p.moontea_charges <= 0 else clampf(p.flask_cd / float(CD.BALANCE["flask_cooldown"]), 0.0, 1.0)
-	hb.cd_text = "EMPTY" if p.moontea_charges <= 0 else ""
-	hb.dimmed = p.health >= p.max_health
-	# relic
+	var left: int = p.potions_left()
+	hb.label = str(left)
+	hb.cooldown = 1.0 if left <= 0 else clampf(p.flask_cd / float(CD.BALANCE["flask_cooldown"]), 0.0, 1.0)
+	hb.cd_text = "EMPTY" if left <= 0 else ""
+	hb.dimmed = p.potion_block_reason() != ""
+	# gear active (relic slot): always shown; empty socket when no relic is worn
 	var rid: String = p.relic_id()
-	relic_button.visible = rid != ""
-	if rid != "":
+	relic_button.visible = true
+	if rid == "":
+		relic_button.icon = AnimLib.tex("ui/skill/amulet.png")
+		relic_button.tint = Color(0.55, 0.5, 0.62)
+		relic_button.cooldown = 0.0
+		relic_button.cd_text = ""
+		relic_button.label = ""
+		relic_button.dimmed = true
+	else:
+		relic_button.dimmed = false
 		var item_id: String = p.equipped.get("relic", "")
 		relic_button.icon = AnimLib.tex(DB.ITEMS[item_id]["icon"])
 		relic_button.tint = Color(String(CD.RELICS[rid]["color"]))
 		var full_r := float(CD.RELICS[rid]["cd"])
 		relic_button.cooldown = clampf(p.relic_cd / full_r, 0.0, 1.0)
 		relic_button.cd_text = "%d" % ceili(p.relic_cd) if p.relic_cd > 0.05 else ""
-		relic_button.label = "" if not p.buffs.has("relic_" + rid) else "ON"
+		var bt := float(p.buffs.get("relic_" + rid, 0.0))
+		relic_button.label = "" if bt <= 0.0 else "%ds" % ceili(bt)
 	info.queue_redraw()
 
 
@@ -244,14 +251,26 @@ func drag(index: int, pos: Vector2) -> bool:
 	return true
 
 
+## Where an aim touch would be cancelled instead of cast.
+func aim_cancel_reason(pos: Vector2) -> String:
+	if aim_button == null:
+		return ""
+	var r: Rect2 = hud.get_viewport().get_visible_rect().grow(-AIM_EDGE)
+	if not r.has_point(pos):
+		return "edge"
+	if aim_started and pos.distance_to(aim_button.center()) <= aim_button.radius:
+		return "button"
+	return ""
+
+
 func _show_aim(pos: Vector2) -> void:
 	var p: Node = hud.game.player
 	var sid: String = p.skill_bar[aim_slot]
 	var def: Dictionary = ClassBook.skill_of(sid)
 	var off: Vector2 = pos - aim_button.center()
-	if off.length() > AIM_DEADZONE:
+	if off.length() > AIM_DEADZONE * _scale():
 		aim_started = true
-	aim_cancelling = aim_started and off.length() <= aim_button.radius
+	aim_cancelling = aim_started and aim_cancel_reason(pos) != ""
 	var rng: float = p.skill_range(sid)
 	var world_aim: Vector2
 	if not aim_started:

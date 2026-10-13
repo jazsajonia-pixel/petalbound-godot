@@ -28,7 +28,7 @@ func frames(n: int) -> void:
 
 
 func release_all() -> void:
-	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "dash", "jump", "attack", "interact"]:
+	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "jump", "attack", "interact"]:
 		Input.action_release(a)
 
 
@@ -49,9 +49,15 @@ func _run_test() -> void:
 	check(not game.game_started and game.hud.title_overlay.visible, "Title screen should be shown on boot.")
 	check(not game.hud.continue_button.visible, "Continue should be hidden without a save.")
 	game.hud.title_button.pressed.emit()
+	game.hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 	player = game.player
+	# new journeys start bare-pawed; this slice exercises the classic loadout
+	check(player.is_unarmed() and player.weapons_owned == ["fists"], "A new journey should start unarmed (fists only).")
+	player.give_item("thornblade")
+	player.give_item("bloomstaff")
+	player._set_weapon_index(player.weapons_owned.find("thornblade"))
 	check(game.game_started and not game.hud.title_overlay.visible, "New Journey should start the game.")
 
 	# ---- world

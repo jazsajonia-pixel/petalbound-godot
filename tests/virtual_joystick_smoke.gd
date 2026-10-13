@@ -19,6 +19,7 @@ func _run_test() -> void:
 		quit(1)
 		return
 	start_button.pressed.emit()
+	menu_hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 
@@ -86,9 +87,9 @@ func _run_test() -> void:
 	hud.joystick_touch_index = 9
 	hud.joystick_vector = Vector2.RIGHT
 	hud.call("_apply_joystick_actions")
-	Input.action_press("dash")
+	Input.action_press("jump")
 	hud.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	var focus_loss_clears_inputs: bool = hud.joystick_touch_index == -1 and hud.joystick_vector == Vector2.ZERO and not Input.is_action_pressed("move_left") and not Input.is_action_pressed("move_right") and not Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down") and not Input.is_action_pressed("dash")
+	var focus_loss_clears_inputs: bool = hud.joystick_touch_index == -1 and hud.joystick_vector == Vector2.ZERO and not Input.is_action_pressed("move_left") and not Input.is_action_pressed("move_right") and not Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down") and not Input.is_action_pressed("jump")
 	if not moved_right:
 		push_error("Virtual joystick drag did not move the player right.")
 	if not joystick_released:

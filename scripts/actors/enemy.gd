@@ -5,6 +5,7 @@ extends CharacterBody2D
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const DB := preload("res://scripts/data/db.gd")
 const SPRITE_SHADER := preload("res://assets/shaders/sprite_fx.gdshader")
+const KB := preload("res://scripts/combat/knockback.gd")
 
 var game: Node
 var species := "slime"
@@ -29,6 +30,9 @@ var fly_phase := 0.0
 var hop_h := 0.0
 var respawn_at := -1.0
 var hp_bar_t := 0.0
+var kb_resist := 0.15
+var elite := false
+var loot_dropped := false
 
 var health: int:
 	get:
@@ -42,6 +46,7 @@ func setup(p_game: Node, p_species: String, pos: Vector2) -> void:
 	species = p_species
 	cfg = DB.ENEMIES.get(species, DB.ENEMIES["slime"])
 	ai = cfg["ai"]
+	kb_resist = KB.resist_for(species, cfg)
 	max_hp = int(cfg["hp"])
 	hp = max_hp
 	home = pos
@@ -106,9 +111,8 @@ func _physics_process(delta: float) -> void:
 		speed *= st.speed_mult()
 		if st.is_disabled():
 			# frozen / stunned: no thinking, only drift from knockback
-			velocity = knock
-			knock = knock.move_toward(Vector2.ZERO, 900.0 * delta)
-			move_and_slide()
+			knock = KB.move(self, Vector2.ZERO, knock)
+			knock = KB.decay(knock, delta)
 			return
 	match state:
 		"stagger":
@@ -136,9 +140,9 @@ func _physics_process(delta: float) -> void:
 		sprite.position.y = -9.0 + sin(fly_phase * 1.3) * 2.5
 	elif ai == "hopper":
 		sprite.position.y = -hop_h
-	velocity = velocity.move_toward(desired, 600.0 * delta) + knock
-	knock = knock.move_toward(Vector2.ZERO, 900.0 * delta)
-	move_and_slide()
+	var base := velocity.move_toward(desired, 600.0 * delta)
+	knock = KB.move(self, base, knock)
+	knock = KB.decay(knock, delta)
 	if ai == "flyer":
 		global_position = global_position.clamp(Vector2(24, 24), game.world.world_size - Vector2(24, 24))
 	if ai == "charger" and state == "lunge" and get_slide_collision_count() > 0:
@@ -270,7 +274,7 @@ func hurt(amount: int, from: Vector2, force: float, info: Dictionary = {}) -> bo
 	var away := (global_position - from)
 	if away.length() < 0.1:
 		away = Vector2.RIGHT.rotated(randf() * TAU)
-	knock = away.normalized() * force
+	knock = KB.push(knock, away, force, kb_resist)
 	mat.set_shader_parameter("tint_amount", 0.0)
 	mat.set_shader_parameter("flash", 1.0)
 	var tw := create_tween()
@@ -308,6 +312,8 @@ func die() -> void:
 
 func respawn() -> void:
 	alive = true
+	loot_dropped = false
+	knock = Vector2.ZERO
 	visible = true
 	hp = max_hp
 	aggro = false

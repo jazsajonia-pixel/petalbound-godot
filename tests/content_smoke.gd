@@ -29,7 +29,7 @@ func frames(n: int) -> void:
 
 
 func release_all() -> void:
-	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "dash", "jump", "attack", "interact"]:
+	for a in ["move_left", "move_right", "move_up", "move_down", "sprint", "jump", "attack", "interact"]:
 		Input.action_release(a)
 
 
@@ -41,6 +41,7 @@ func _run_test() -> void:
 	await process_frame
 	await physics_frame
 	game.hud.title_button.pressed.emit()
+	game.hud.call("confirm_character")
 	await process_frame
 	await physics_frame
 	player = game.player

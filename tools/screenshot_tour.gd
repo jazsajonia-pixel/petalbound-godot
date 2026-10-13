@@ -35,11 +35,23 @@ func _run() -> void:
 	await process_frame
 	game.hud.settings["touch_controls"] = "on"
 	game.hud.apply_settings()
+	await create_timer(0.3).timeout
+	await shot("00_title")
 	game.hud.title_button.pressed.emit()
+	await create_timer(0.3).timeout
+	await shot("00b_character_creation")
+	game.hud.create_state["look"] = preload("res://scripts/actors/hero_look.gd").PRESETS[2]
+	preload("res://scripts/ui/char_create.gd").render(game.hud)
+	await create_timer(0.2).timeout
+	await shot("00c_character_preset")
+	game.hud.call("confirm_character")
 	for i in range(10):
 		await process_frame
 	player = game.player
 	game.hud._layout_controls()
+	await create_timer(0.6).timeout
+	await shot("00d_unarmed_village")
+	await _expansion_shots()
 	player.add_xp(3000)
 	player.skill_points = 30
 	player.bind_class("nightbloom")
@@ -69,7 +81,6 @@ func _run() -> void:
 	await shot("01_hud_idle")
 	player.skill_cd["shadowstep"] = 4.0
 	player.skill_cd["fan_knives"] = 1.5
-	player.dodge_cd = 0.3
 	player.activate_relic()
 	player.try_attack()
 	await create_timer(0.05).timeout
@@ -144,3 +155,102 @@ func _run() -> void:
 	game.get("audio").call("stop_all")
 	game.free()
 	quit(0)
+
+
+func _expansion_shots() -> void:
+	var hud: Control = game.hud
+	# quest markers over villagers
+	var alder: Node = null
+	for n in game.npcs:
+		if n.npc_id == "alder":
+			alder = n
+	if alder:
+		player.global_position = alder.global_position + Vector2(-40, 20)
+		for r in range(1, 12):
+			var q: Vector2 = alder.global_position + Vector2(-16.0 * r, 24.0)
+			if game.rifts.is_open_ground(q):
+				player.global_position = q
+				break
+		game.camera.global_position = player.global_position
+		game.camera.reset_smoothing()
+		await create_timer(0.8).timeout
+		await shot("14_quest_marker")
+	# held weapons and armour visuals
+	player.give_item("thornblade")
+	player.equip_weapon("thornblade")
+	for id in ["briar_mail", "mossleaf_cap"]:
+		player.give_item(id)
+		if not player.equipped.values().has(id):
+			player.equip(id)
+	await create_timer(0.3).timeout
+	await shot("15_armed_armoured")
+	player.bind_class("nightbloom")
+	player.give_item("nightfang")
+	player.equip_weapon("nightfang")
+	await create_timer(0.3).timeout
+	await shot("16_dual_knives")
+	# loot feed + rarity banner
+	for id in ["slime_gel", "ore", "moon_shard"]:
+		preload("res://scripts/systems/inventory.gd").add(player, id, 3)
+		hud.show_loot(id, 3)
+	hud.show_item_get("moonwell_blade")
+	await create_timer(0.4).timeout
+	await shot("17_loot_feed")
+	# shop screens
+	player.petalcoins = 120
+	game.shop_id = "pip"
+	hud.open_trade("pip", "buy")
+	await shot("18_shop_buy")
+	hud.open_trade("pip", "sell")
+	await shot("19_shop_sell")
+	game.shop_id = "bramble"
+	hud.open_trade("bramble", "craft")
+	await shot("20_forge_craft")
+	hud.open_trade("bramble", "trade")
+	await shot("21_forge_trade")
+	hud.close_trade()
+	hud.toggle_inventory()
+	hud.set_meta("satchel_filter", "bag")
+	hud._refresh_inventory()
+	await shot("22_satchel_materials")
+	hud.set_meta("satchel_filter", "all")
+	hud.toggle_inventory()
+	hud.toggle_journeys()
+	await shot("23_journeys")
+	hud.toggle_journeys()
+	# interior
+	var h: Dictionary = game._house("house_alder")
+	player.global_position = h["door"] + Vector2(0, 10)
+	game.enter_interior("house_alder")
+	await create_timer(0.8).timeout
+	await shot("24_interior_hall")
+	game.enter_interior("alder_study")
+	await create_timer(0.8).timeout
+	await shot("25_interior_study")
+	game.leave_interior()
+	game.leave_interior()
+	await create_timer(0.6).timeout
+	# rift
+	var R: Node = game.rifts
+	R.build_spawn_points()
+	var hg: Array = game.world.data["landmarks"]["hearthgrove"]
+	player.global_position = Vector2(hg[0], hg[1])
+	R.try_spawn()
+	player.global_position = R.entrance["point"] + Vector2(-30, 10)
+	game.camera.global_position = player.global_position
+	game.camera.reset_smoothing()
+	await create_timer(0.6).timeout
+	await shot("26_rift_entrance")
+	hud.toggle_map()
+	await create_timer(0.2).timeout
+	await shot("27_map_rift")
+	hud.toggle_map()
+	player.level = 20
+	player.global_position = R.entrance["point"]
+	R.enter()
+	await create_timer(1.2).timeout
+	await shot("28_rift_chamber")
+	R.leave(false)
+	await create_timer(0.5).timeout
+	player.unequip_weapon()
+	player.unequip("armor")
