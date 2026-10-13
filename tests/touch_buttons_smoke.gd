@@ -52,4 +52,9 @@ func _run_test() -> void:
 		quit(1)
 		return
 	print("Touch-buttons smoke test passed: joystick + action buttons work together with independent releases.")
+	game.process_mode = Node.PROCESS_MODE_DISABLED
+	game.get("audio").call("stop_all")
+	await create_timer(0.2).timeout
+	game.queue_free()
+	await process_frame
 	quit(0)

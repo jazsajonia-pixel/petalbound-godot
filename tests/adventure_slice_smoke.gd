@@ -262,5 +262,7 @@ func _run_test() -> void:
 		quit(1)
 		return
 	print("Open-world adventure smoke test passed: world, movement kit, combat, loot, gear, dialogue, guardians, Moonwell ending, save/load and respawn all work.")
+	game.get("audio").call("stop_all")
+	game.queue_free()
+	await process_frame
 	quit(0)
-

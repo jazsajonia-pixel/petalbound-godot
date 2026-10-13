@@ -91,7 +91,8 @@ func _run_test() -> void:
 	check(not player.bind_class("lumimancer"), "A third line should be refused.")
 	check(player.spend_node("warden", "oakheart"), "Spending a point on Oakheart should work.")
 	check(player.spend_node("warden", "ironbark"), "Ironbark should unlock after Oakheart.")
-	check(not player.spend_node("warden", "bulwark_master"), "Unknown nodes should be refused.")
+	check(not player.spend_node("warden", "not_a_node"), "Unknown nodes should be refused.")
+	check(player.spend_node("nightbloom", "nightveil"), "Nightveil should unlock the Nightbloom branch.")
 	check(player.spend_node("nightbloom", "deep_cut"), "Deep Cut should be purchasable.")
 	check(player.attack_bonus() >= 2, "Tree nodes and the dual-line synergy should add attack damage (got %d)." % player.attack_bonus())
 	var focus0: float = player.focus
@@ -129,6 +130,16 @@ func _run_test() -> void:
 	if not dusk.is_empty():
 		game.buy_item(dusk)
 		check(player.weapons_owned.has("duskfan"), "Buying the Duskfan should add it to the armoury.")
+
+	# ---- gathering, refining and gear tiers
+	game.gather_material("wood", 3)
+	game.gather_material("ore", 6)
+	game.gather_material("herb", 2)
+	check(game.craft_next_upgrade(), "Three wood and ore should craft the Tier II Thornblade.")
+	check(player.weapons_owned.has("thornblade_ii"), "The crafted weapon tier should be added to the armoury.")
+	check(game.materials["wood"] == 0 and game.materials["ore"] == 3, "Crafting should consume the recipe materials.")
+	check(game.craft_next_upgrade(), "Remaining ore and herbs should craft reinforced Tier II Briar Mail.")
+	check(player.inventory.has("briar_mail_ii"), "The crafted armor tier should enter the satchel.")
 
 	# ---- enterable houses
 	var mira: Dictionary = game._house("house_mira")
@@ -199,5 +210,7 @@ func _run_test() -> void:
 		push_error("%d growth checks failed." % failures.size())
 		quit(1)
 		return
-	print("Petal Arts growth smoke test passed: target snap, soft knockback, levels, classes and trees, arts, journeys, shop, houses and the Hollow Crypt, overlays and skill bar, save/load all work.")
+	print("Petal Arts growth smoke test passed: target snap, soft knockback, levels, classes and trees, arts, journeys, shop, gathering/crafting tiers, houses and the Hollow Crypt, overlays and skill bar, save/load all work.")
+	game.get("audio").call("stop_all")
+	game.free()
 	quit(0)

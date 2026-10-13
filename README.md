@@ -26,6 +26,7 @@ Open `project.godot` in Godot 4.3 or newer (validated on 4.7.2). The game uses t
 | Swap weapon | Q / Tab | R1 | Weapon button |
 | Mothlight · Petalguard · Moontea | F · G · R | L1 · R2 · – | Skill buttons |
 | Talk / open / rest / gather / fish | E | A | Context button |
+| Fieldcraft (craft next available upgrade) | U | – | – |
 | Satchel (equip gear) · World map | I / B · M | Select | BAG · MAP |
 | Photo mode (drag to pan, zoom, capture) | F9 | – | Pause menu → PHOTO MODE |
 | Pause / settings | Esc / P | Start | ❚❚ |
@@ -58,6 +59,7 @@ Open `project.godot` in Godot 4.3 or newer (validated on 4.7.2). The game uses t
 - **Photo mode.** Press F9 (or the pause menu's PHOTO MODE) to freeze the world, hide the HUD, drag-pan the camera, zoom, and save a screenshot to `user://photos/`.
 - **Gear and economy.**
   - Gear: Plum Wayfarer Cloak, Moonheart Charm, Briar Mail, Zephyr Boots and Ember Ring, plus the **Duskfan** weapon, **Sunplate Vest** (+2 defense), **Moonveil Ring** (+crit) and **Star Locket** (+1 heart, +10 focus). Defense reduces incoming damage; gear and tree nodes feed critical chance.
+  - **Fieldcraft tiers:** break bushes for herbs, crates/logs for wood, and rocks for ore. Press **U** to craft the next available Tier II upgrade: 3 wood + 3 ore tempers the Thornblade; 3 ore + 2 herbs reinforce Briar Mail. Materials and crafted gear persist in the save.
   - Heart Blooms raise maximum health. Petalcoins drop from enemies and breakable pots and grass.
   - Pip in Hearthgrove, a desert nomad and **Kaede of the Watch** run shops.
 - **World systems.**
@@ -84,7 +86,7 @@ for t in tests/*.gd; do godot --headless --path . -s "$t"; done
 There are seven smoke tests:
 - `adventure_slice_smoke`: world, movement, combat, loot, gear, dialogue, guardians, ending, save/load and respawn.
 - `content_smoke`: the Starfall expansion, fishing, moonpetals and wisps, perfect parry, the Blighted Depths, the moth, feats, photo mode and the new save keys.
-- `growth_smoke`: Petal Arts (levels, binding and combining lines, trees, art casting), journeys, Kaede's shop, enterable houses, the Hollow Crypt, the arts/journeys overlays and skill bar, and target snap with soft knockback.
+- `growth_smoke`: Petal Arts (levels, binding and combining lines, trees, art casting), journeys, Kaede's shop, harvesting and Tier II crafting, enterable houses, the Hollow Crypt, the arts/journeys overlays and skill bar, and target snap with soft knockback.
 - `player_facing_smoke`
 - `virtual_joystick_smoke`
 - `touch_buttons_smoke`

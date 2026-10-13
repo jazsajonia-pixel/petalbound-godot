@@ -97,8 +97,11 @@ func _run_test() -> void:
 		push_error("Pause/resume did not show the overlay and restore the tree state.")
 	if not focus_loss_clears_inputs:
 		push_error("Application focus loss did not clear held touch controls.")
-	if not moved_right or not joystick_released or not joystick_settings_work or not pause_works or not resume_works or not focus_loss_clears_inputs:
-		quit(1)
-		return
+		if not moved_right or not joystick_released or not joystick_settings_work or not pause_works or not resume_works or not focus_loss_clears_inputs:
+			quit(1)
+			return
 	print("Mobile-controls smoke test passed: joystick drag/release, tuning, pause/resume, and focus-loss input cleanup work.")
+	game.get("audio").call("stop_all")
+	game.queue_free()
+	await process_frame
 	quit(0)

@@ -112,6 +112,20 @@ func apply_volumes() -> void:
 		_ambient.volume_db = _db(sfx_volume) - 16.0
 
 
+func stop_all() -> void:
+	for p in [_music_a, _music_b, _ambient]:
+		if is_instance_valid(p):
+			p.stop()
+			p.stream = null
+	for p in _pool:
+		if is_instance_valid(p):
+			p.stop()
+			p.stream = null
+	_streams.clear()
+	_current_track = ""
+	_ambient_name = ""
+
+
 func _db(v: float) -> float:
 	if muted or v <= 0.001:
 		return -80.0

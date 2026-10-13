@@ -8,6 +8,8 @@ const WEAPONS := ["thornblade", "bloomstaff", "gale_bow", "ironroot_hammer"]
 const ITEMS := {
 	"thornblade": {"name": "Thornblade", "type": "weapon", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
 		"desc": "A quick rose-steel katana. Three-cut combo; the third cut staggers.", "damage": 2},
+	"thornblade_ii": {"name": "Thornblade · Tempered", "type": "weapon", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
+		"desc": "Tier II: ore-tempered steel deals +2 damage.", "damage": 4, "tier": 2},
 	"bloomstaff": {"name": "Bloomstaff", "type": "weapon", "icon": NA + "items/weapons/magicwand.png", "hand": NA + "items/weapons/magicwand_hand.png",
 		"desc": "Fires seeking moonlight bolts that light up the dark.", "damage": 3},
 	"gale_bow": {"name": "Gale Bow", "type": "weapon", "icon": NA + "items/weapons/bow.png", "hand": NA + "items/weapons/bow.png",
@@ -22,6 +24,8 @@ const ITEMS := {
 		"desc": "A warm charm from Lake Lumen's island. +1 heart.", "hearts": 1},
 	"briar_mail": {"name": "Briar Mail", "type": "armor", "icon": NA + "ui/skill/armor.png",
 		"desc": "Woven thornwood armour. +1 heart and less knockback.", "hearts": 1, "poise": 0.5},
+	"briar_mail_ii": {"name": "Briar Mail · Reinforced", "type": "armor", "icon": NA + "ui/skill/armor.png",
+		"desc": "Tier II: reinforced plates grant +2 defense and +1 heart.", "defense": 2, "hearts": 1, "tier": 2},
 	"zephyr_boots": {"name": "Zephyr Boots", "type": "boots", "icon": NA + "ui/skill/boot.png",
 		"desc": "+12% speed and much faster stamina recovery.", "speed": 0.12, "stamina_regen": 0.6},
 	"ember_ring": {"name": "Ember Ring", "type": "ring", "icon": NA + "ui/skill/ring.png",
@@ -147,4 +151,3 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 				"The Mirror Basin shows the stars even at noon. Mind the wisps after dark.",
 				"Sit with the eye statue a while. It has seen more roads than any of us."]
 	return ["..."]
-
