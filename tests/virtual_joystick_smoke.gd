@@ -101,5 +101,7 @@ func _run_test() -> void:
 			quit(1)
 			return
 	print("Mobile-controls smoke test passed: joystick drag/release, tuning, pause/resume, and focus-loss input cleanup work.")
-	game.free()
+	game.get("audio").call("stop_all")
+	game.queue_free()
+	await process_frame
 	quit(0)

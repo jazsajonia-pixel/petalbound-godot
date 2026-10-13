@@ -211,5 +211,6 @@ func _run_test() -> void:
 		quit(1)
 		return
 	print("Petal Arts growth smoke test passed: target snap, soft knockback, levels, classes and trees, arts, journeys, shop, gathering/crafting tiers, houses and the Hollow Crypt, overlays and skill bar, save/load all work.")
+	game.get("audio").call("stop_all")
 	game.free()
 	quit(0)

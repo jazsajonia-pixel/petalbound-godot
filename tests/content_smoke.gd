@@ -189,5 +189,7 @@ func _run_test() -> void:
 		quit(1)
 		return
 	print("Starfall content smoke test passed: seventh biome, fishing, moonpetals and wisps, perfect parry, Blighted Depths, moth companion, feats and photo mode, save/load all work.")
-	game.free()
+	game.get("audio").call("stop_all")
+	game.queue_free()
+	await process_frame
 	quit(0)

@@ -52,5 +52,7 @@ func _run_test() -> void:
 			return
 
 	print("Character-facing smoke test passed: all four cardinal and four diagonal inputs select matching pose states.")
-	game.free()
+	game.get("audio").call("stop_all")
+	game.queue_free()
+	await process_frame
 	quit(0)
