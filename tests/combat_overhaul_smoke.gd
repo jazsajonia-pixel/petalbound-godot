@@ -146,9 +146,9 @@ func _test_data() -> void:
 	var skills_ok := true
 	for cid in ClassBook.CLASSES:
 		var c: Dictionary = ClassBook.CLASSES[cid]
-		if (c["skills"] as Array).size() != 3:
+		if (c["skills"] as Array).size() < 3:
 			skills_ok = false
-			failures.append("%s should have three arts." % cid)
+			failures.append("%s should have at least three arts." % cid)
 		for sid in c["skills"]:
 			var d: Dictionary = ClassBook.skill_of(sid)
 			if d.is_empty() or d["class"] != cid or not ResourceLoader.exists(d["icon"]):

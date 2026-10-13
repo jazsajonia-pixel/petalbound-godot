@@ -2,6 +2,7 @@ extends RefCounted
 ## Static game data: items, equipment, weapons, enemies, bosses and NPC dialogue.
 
 const NA := "res://assets/packs/ninja_adventure/"
+const AW := "res://assets/art/weapons/"
 
 const WEAPONS := ["thornblade", "bloomstaff", "gale_bow", "ironroot_hammer"]
 
@@ -97,6 +98,21 @@ const ITEMS := {
 		"desc": "A greatsword for Wardens and Pugilists. Slow, wide cleaves; the finisher exposes foes (+20% damage taken).", "damage": 4, "value": 160},
 	"moonwell_blade": {"rarity": "legendary", "name": "Moonwell Blade", "type": "weapon", "wclass": "Sword", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png", "tint": "d8e8ff",
 		"desc": "Forged from a guardian's moonlight. Three-cut combo; every third cut releases a moon wave.", "damage": 4, "value": 260},
+	# ---- arsenal pass: signature weapons with hold-to-charge effects (art: assets/art/weapons, original)
+	"oakwood_staff": {"rarity": "common", "name": "Oakwood Staff", "type": "weapon", "wclass": "Staff", "icon": AW + "oakwood_staff.png", "hand": AW + "oakwood_staff_hand.png",
+		"desc": "A plain quarterstaff. Wide sweeping strikes with good reach. No hold effect.", "damage": 2, "value": 30},
+	"cloudstride_staff": {"rarity": "mythical", "name": "Cloudstride Staff", "type": "weapon", "wclass": "Staff", "icon": AW + "cloudstride_staff.png", "hand": AW + "cloudstride_staff_hand.png",
+		"desc": "A lacquered staff that remembers every step. Fast extending strikes. HOLD: blink ahead and leave a fighting afterimage behind.", "damage": 4, "value": 420},
+	"twin_moon_katanas": {"rarity": "epic", "name": "Twin Moon Katanas", "type": "weapon", "wclass": "Katana", "dual": true, "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png", "tint": "d6d0ff",
+		"desc": "Paired moonsteel blades. Four-cut cross-slash combo. HOLD: Moonrend Dash cuts through everything in a line.", "damage": 3, "value": 220},
+	"ironbloom_gauntlet": {"rarity": "rare", "name": "Ironbloom Gauntlet", "type": "weapon", "wclass": "Gauntlet", "icon": AW + "ironbloom_gauntlet.png", "hand": AW + "ironbloom_gauntlet_hand.png",
+		"desc": "A petal-etched iron fist. Slow, heavy punches. HOLD: Energy Burst blasts foes back and knocks them down.", "damage": 4, "value": 140},
+	"thornlash_whip": {"rarity": "rare", "name": "Thornlash Whip", "type": "weapon", "wclass": "Whip", "icon": AW + "thornlash_whip.png", "hand": AW + "thornlash_whip_hand.png",
+		"desc": "A living briar whip. Spins all around you; the thorned tip (outer ring) hits 50% harder. HOLD: Wide Lash, one bigger, stronger spin.", "damage": 2, "value": 150},
+	"starweave_gloves": {"rarity": "epic", "name": "Starweave Gloves", "type": "weapon", "wclass": "Gloves", "icon": AW + "starweave_gloves.png", "hand": AW + "starweave_gloves_hand.png",
+		"desc": "Gloves woven with starlight. Long-range star orbs (no homing). HOLD: Overcharge, a bigger and stronger orb.", "damage": 3, "value": 210},
+	"direwolf_claws": {"rarity": "epic", "name": "Direwolf Claws", "type": "weapon", "wclass": "Claws", "dual": true, "icon": AW + "direwolf_claws.png", "hand": AW + "direwolf_claws_hand.png",
+		"desc": "Paired wolf-fang claws. Quick swipes; heals you for 7% of damage dealt. HOLD: Feral Barrage, a long-reaching claw flurry (lifesteal applies).", "damage": 2, "value": 200},
 	# ---- legendary armour (crafted / rift rewards)
 	"starfall_crown": {"rarity": "legendary", "name": "Starfall Crown", "type": "head", "look": ["fff2b8", "e8c060", "9a7430"], "icon": NA + "ui/skill/helmet.png", "tint": "ffe8a0",
 		"desc": "A crown of fallen stars. +1 heart, +6% crit, +6 focus.", "hearts": 1, "crit": 0.06, "focus": 6, "value": 240},
@@ -147,14 +163,15 @@ const ITEMS := {
 const EQUIP_SLOTS := ["head", "armor", "arms", "legs", "boots", "cloak", "charm", "ring", "relic"]
 const SLOT_NAMES := {"head": "Head", "armor": "Chest", "arms": "Arms", "legs": "Legs", "boots": "Feet",
 	"cloak": "Cloak", "charm": "Charm", "ring": "Ring", "relic": "Relic", "weapon": "Weapon"}
-const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
-const RARITY_NAMES := {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "epic": "Epic", "legendary": "Legendary"}
+const RARITIES := ["common", "uncommon", "rare", "epic", "legendary", "mythical"]
+const RARITY_NAMES := {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "epic": "Epic", "legendary": "Legendary", "mythical": "Mythical"}
 ## Stackable item types live in the bag (id -> count) instead of the gear list.
 const STACKABLE := ["material", "consumable", "quest"]
 const STACK_MAX := 99
 const BAG_SLOTS := 24
 const RARITY_COLORS := {"common": Color(0.85, 0.85, 0.85), "uncommon": Color(0.55, 0.95, 0.55),
-	"rare": Color(0.5, 0.75, 1.0), "epic": Color(0.85, 0.6, 1.0), "legendary": Color(1.0, 0.75, 0.35)}
+	"rare": Color(0.5, 0.75, 1.0), "epic": Color(0.85, 0.6, 1.0), "legendary": Color(1.0, 0.75, 0.35),
+	"mythical": Color(1.0, 0.45, 0.42)}
 
 # behaviours: hopper, chaser, flyer, caster, charger
 const ENEMIES := {

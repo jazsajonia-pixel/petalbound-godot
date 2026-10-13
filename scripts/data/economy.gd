@@ -51,6 +51,9 @@ const RECIPES := [
 	{"id": "petalbreaker", "needs": {"ore": 6, "bone_shard": 4, "spirit_dust": 2}, "coins": 90, "station": "forge", "unlock": {"level": 8}},
 	{"id": "starfall_crown", "needs": {"moon_shard": 3, "spirit_dust": 4, "ember_core": 2}, "coins": 150, "station": "forge", "unlock": {"recipe": "recipe_crown"}},
 	{"id": "moonwell_aegis", "needs": {"moon_shard": 3, "ore": 8, "bone_shard": 4}, "coins": 160, "station": "forge", "unlock": {"recipe": "recipe_aegis"}},
+	{"id": "direwolf_claws", "needs": {"beast_hide": 5, "bone_shard": 3, "venom_sac": 2}, "coins": 70, "station": "forge", "unlock": {"level": 5}},
+	{"id": "twin_moon_katanas", "needs": {"ore": 5, "ember_core": 3, "moon_shard": 1}, "coins": 120, "station": "forge", "unlock": {"boss": "emberbark"}},
+	{"id": "cloudstride_staff", "needs": {"moon_shard": 4, "spirit_dust": 4, "wood": 6}, "coins": 250, "station": "forge", "unlock": {"recipe": "recipe_cloudstride"}},
 	{"id": "moonwell_blade", "needs": {"moon_shard": 4, "ore": 6, "spirit_dust": 3}, "coins": 180, "station": "forge", "unlock": {"boss": "warden"}},
 ]
 
@@ -63,6 +66,7 @@ const SHOPS := {
 		"stock": [
 			{"id": "thornblade", "price": 30, "limit": 1},
 			{"id": "bloomstaff", "price": 35, "limit": 1},
+			{"id": "oakwood_staff", "price": 30, "limit": 1},
 			{"id": "moontea_vial", "price": 14, "limit": -1},
 			{"id": "fishing_rod", "price": 60, "limit": 1},
 			{"id": "mossleaf_cap", "price": 45, "limit": 1},
@@ -80,12 +84,14 @@ const SHOPS := {
 		"stock": [
 			{"id": "ironroot_hammer", "price": 160, "limit": 1, "unlock": {"level": 4}},
 			{"id": "barkskin_charm", "price": 95, "limit": 1, "unlock": {"level": 3}},
+			{"id": "ironbloom_gauntlet", "price": 140, "limit": 1, "unlock": {"level": 3}},
 		],
 		"exchanges": [
 			{"give": {"bone_shard": 6, "spirit_dust": 2}, "get": "recipe_crown", "qty": 1, "unlock": {"flag": "rift_cleared"}},
 			{"give": {"ember_core": 5, "bone_shard": 5}, "get": "recipe_aegis", "qty": 1, "unlock": {"level": 6}},
 			{"give": {"venom_sac": 3}, "get": "coins", "qty": 30},
 			{"give": {"moon_shard": 1}, "get": "rift_key", "qty": 1},
+			{"give": {"moon_shard": 2, "ember_core": 4}, "get": "recipe_cloudstride", "qty": 1, "unlock": {"flag": "emberbark_felled"}},
 		]},
 	"nomad": {"name": "Dune Nomad", "service": "Rare goods", "sell": ["material", "gear"],
 		"stock": [
@@ -93,6 +99,7 @@ const SHOPS := {
 			{"id": "starlocket", "price": 300, "limit": 1},
 			{"id": "heart_piece", "price": 220, "limit": 1},
 			{"id": "gale_band", "price": 260, "limit": 1},
+			{"id": "starweave_gloves", "price": 280, "limit": 1},
 			{"id": "twilight_mantle", "price": 380, "limit": 1},
 			{"id": "spellblade_sash", "price": 380, "limit": 1},
 		],
@@ -101,6 +108,7 @@ const SHOPS := {
 		"stock": [
 			{"id": "moontea_vial", "price": 15, "limit": -1},
 			{"id": "duskfan", "price": 220, "limit": 1},
+			{"id": "thornlash_whip", "price": 190, "limit": 1},
 			{"id": "sunplate", "price": 260, "limit": 1},
 			{"id": "heart_piece", "price": 200, "limit": 1},
 			{"id": "ember_heart", "price": 280, "limit": 1},
@@ -114,4 +122,5 @@ const SHOPS := {
 const RECIPE_SCROLLS := {
 	"recipe_crown": {"name": "Recipe: Starfall Crown", "recipe": "starfall_crown"},
 	"recipe_aegis": {"name": "Recipe: Moonwell Aegis", "recipe": "moonwell_aegis"},
+	"recipe_cloudstride": {"name": "Recipe: Cloudstride Staff", "recipe": "cloudstride_staff"},
 }

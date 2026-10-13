@@ -12,6 +12,7 @@ extends Node
 
 const ClassBook := preload("res://scripts/data/classdb.gd")
 const CD := preload("res://scripts/data/combat_data.gd")
+const AssassinArts := preload("res://scripts/combat/assassin_arts.gd")
 const Build := preload("res://scripts/combat/build.gd")
 const DB := preload("res://scripts/data/db.gd")
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
@@ -33,7 +34,12 @@ const DEFAULTS := {
 	"heal": [Vector2(-152, -24), 15.0],
 	"relic": [Vector2(-146, -68), 14.0],
 	"jump": [Vector2(-20, -160), 13.0],
-	"switch_weapon": [Vector2(-60, -152), 12.0],
+	# weapon bar: vertical column inboard (left) of the action cluster
+	"wslot0": [Vector2(-188, -26), 11.0],
+	"wslot1": [Vector2(-188, -52), 11.0],
+	"wslot2": [Vector2(-188, -78), 11.0],
+	"wslot3": [Vector2(-188, -104), 11.0],
+	"wslot4": [Vector2(-188, -130), 11.0],
 	"interact": [Vector2(-150, -110), 15.0],
 	"sprint": [Vector2(0, 0), 12.0],
 }
@@ -190,6 +196,11 @@ func update_buttons() -> void:
 		b.dimmed = p.focus < float(def.get("cost", 0))
 		var lv := Build.skill_level(p, sid)
 		b.label = "" if lv <= 1 else str(lv)
+		# Petal Rush recast window: show the free dashes left, never dim for Focus
+		var chain_left: int = AssassinArts.rush_left(p, sid)
+		if chain_left > 0:
+			b.dimmed = false
+			b.cd_text = "x%d" % chain_left
 	# flask
 	var hb: Control = hud.heal_button
 	var left: int = p.potions_left()

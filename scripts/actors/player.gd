@@ -16,6 +16,9 @@ const ThrallScript := preload("res://scripts/combat/thrall.gd")
 const KB := preload("res://scripts/combat/knockback.gd")
 const HeroLook := preload("res://scripts/actors/hero_look.gd")
 const CloakLayer := preload("res://scripts/actors/cloak_layer.gd")
+const ChargeCtl := preload("res://scripts/combat/charge_attack.gd")
+const Specials := preload("res://scripts/combat/weapon_specials.gd")
+const Assassin := preload("res://scripts/combat/assassin_arts.gd")
 const HERO_SHADER := preload("res://assets/shaders/hero_layers.gdshader")
 const SPRITE_SHADER := preload("res://assets/shaders/sprite_fx.gdshader")
 const HERO := "res://assets/packs/ninja_adventure/hero/"
@@ -152,6 +155,22 @@ var _last_crit := false
 var _ls_acc := 0.0
 var _overcharge_cd := 0.0
 var _charge: Dictionary = {}
+# ---- arsenal pass
+## Weapons shown in the HUD weapon bar (max CD.BALANCE.weapon_bar_max, fists never listed).
+var weapon_bar: Array[String] = []
+var _switch_lock := 0.0
+var charge := ChargeCtl.new()
+var clone_ref: Node = null
+var last_whip: Dictionary = {}
+var last_burst: Dictionary = {}
+var last_hook: Dictionary = {}
+var last_rush: Dictionary = {}
+var barrage_hits := 0
+var _rush: Dictionary = {}
+var _ls_sec := 0.0      # lifesteal HP healed in the current one-second window
+var _ls_window := 0.0
+var _dash_prev := Vector2.ZERO
+var _dash_frames := 0
 var _dash_speed := 0.0
 var _dash_time := 0.0
 var _thrall: Node2D
@@ -223,6 +242,7 @@ func _ready() -> void:
 	cloak_layer.visible = false
 	add_child(cloak_layer)
 	move_child(cloak_layer, sprite.get_index())
+	charge.setup(self)
 	weapon_sprite = Sprite2D.new()
 	weapon_sprite.centered = false
 	weapon_sprite.visible = false
@@ -277,6 +297,10 @@ func _register_inputs() -> void:
 	_add_keys("guard", [KEY_G])
 	_add_keys("heal", [KEY_R])
 	_add_keys("switch_weapon", [KEY_Q, KEY_TAB])
+	# weapon bar slots 1-5 on 6,7,8,9,0 (1-5 are the arts and relic)
+	var slot_keys := [KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
+	for i in range(5):
+		_add_keys("weapon_slot_%d" % (i + 1), [slot_keys[i]])
 	_add_keys("inventory", [KEY_I, KEY_B])
 	_add_keys("interact", [KEY_E])
 	_add_keys("map", [KEY_M])
@@ -459,6 +483,8 @@ func lifesteal() -> float:
 	var l := stat("lifesteal")
 	if buffs.has("relic_soulfeast"):
 		l += 0.25
+	if String(weapon_def().get("passive", "")) == "wolf_hunger":
+		l += 0.07
 	return clampf(l, 0.0, float(CD.BALANCE["lifesteal_cap"]))
 
 
@@ -616,6 +642,8 @@ func give_item(id: String, qty := 1) -> bool:
 			if weapons_owned.has(id):
 				return false
 			weapons_owned.append(id)
+			if weapon_bar.size() < bar_max():
+				weapon_bar.append(id)
 			inventory_changed.emit()
 		"coins":
 			add_petalcoins(int(item.get("amount", 0)))
@@ -697,8 +725,93 @@ func equip_weapon(id: String) -> bool:
 	var idx := weapons_owned.find(id)
 	if idx < 0:
 		return false
+	if not DB.ITEMS.get(id, {}).get("unarmed", false) and not weapon_bar.has(id):
+		if weapon_bar.size() >= bar_max():
+			# full bar: the new weapon takes the held weapon's slot
+			var slot := weapon_bar.find(get_weapon_id())
+			if slot < 0:
+				last_equip_error = "Weapon bar full (%d/%d). Remove a weapon from the bar first." % [weapon_bar.size(), bar_max()]
+				return false
+			weapon_bar[slot] = id
+		else:
+			weapon_bar.append(id)
 	_set_weapon_index(idx)
 	return true
+
+
+# ------------------------------------------------------------------ weapon bar
+func bar_max() -> int:
+	return int(CD.BALANCE.get("weapon_bar_max", 5))
+
+
+## Add an owned weapon to the bar. Fails (with last_equip_error) when full.
+func bar_add(id: String) -> bool:
+	if not weapons_owned.has(id) or DB.ITEMS.get(id, {}).get("unarmed", false):
+		return false
+	if weapon_bar.has(id):
+		return true
+	if weapon_bar.size() >= bar_max():
+		last_equip_error = "Weapon bar full (%d/%d)." % [weapon_bar.size(), bar_max()]
+		return false
+	weapon_bar.append(id)
+	inventory_changed.emit()
+	stats_changed.emit()
+	return true
+
+
+## Remove a weapon from the bar (it stays owned). Holding it -> bare paws.
+func bar_remove(id: String) -> bool:
+	if not weapon_bar.has(id):
+		return false
+	weapon_bar.erase(id)
+	if get_weapon_id() == id:
+		_set_weapon_index(maxi(0, weapons_owned.find("fists")))
+	inventory_changed.emit()
+	stats_changed.emit()
+	return true
+
+
+## Tap on a weapon bar slot. A short lockout stops switch-cancelling.
+func select_bar_slot(i: int) -> bool:
+	if i < 0 or i >= weapon_bar.size():
+		return false
+	var id := weapon_bar[i]
+	if id == get_weapon_id():
+		return true
+	if _switch_lock > 0.0:
+		return false
+	if not Build.can_equip(self, id):
+		last_equip_error = Build.item_reason(self, id)
+		if game:
+			game.hud.show_message(last_equip_error, 1.5)
+		return false
+	_set_weapon_index(weapons_owned.find(id))
+	_switch_lock = float(CD.BALANCE.get("weapon_switch_lock", 0.3))
+	if game:
+		game.audio.play("menu5", 0.02, -6.0)
+	return true
+
+
+## Keep the bar valid: owned weapons only, no fists/duplicates, max size.
+## Old saves (no bar) get up to five weapons, best rarity first, held one kept.
+func sanitize_bar(migrate := false) -> void:
+	var out: Array[String] = []
+	for w in weapon_bar:
+		if weapons_owned.has(w) and not out.has(w) and not DB.ITEMS.get(w, {}).get("unarmed", false) and out.size() < bar_max():
+			out.append(w)
+	if migrate:
+		var rest := real_weapons()
+		rest.sort_custom(func(a, b) -> bool:
+			return DB.RARITIES.find(String(DB.ITEMS[a].get("rarity", "common"))) > DB.RARITIES.find(String(DB.ITEMS[b].get("rarity", "common"))))
+		var held := get_weapon_id()
+		if held != "fists" and not out.has(held):
+			out.append(held)
+		for w in rest:
+			if out.size() >= bar_max():
+				break
+			if not out.has(w):
+				out.append(w)
+	weapon_bar = out
 
 
 ## After a line change: move now-invalid gear back to the satchel (never
@@ -936,7 +1049,7 @@ func cast_block_reason(id: String) -> String:
 		return "cooldown"
 	if id == "petalguard" and guard_active:
 		return "active"
-	if focus < float(def.get("cost", 0)):
+	if focus < float(def.get("cost", 0)) and not Assassin.rush_recast(self, id):
 		return "focus"
 	return ""
 
@@ -992,7 +1105,7 @@ func cast_skill(id: String, aim := Vector2.INF) -> bool:
 		_set_facing(aim)
 	elif aim_type == "point" and aim.length() > 2.0:
 		_set_facing(aim)
-	var cost := int(def.get("cost", 0))
+	var cost := 0 if Assassin.rush_recast(self, id) else int(def.get("cost", 0))
 	focus -= cost
 	skill_cd[id] = float(Build.skill_stat(self, id, "cd", 1.0)) * skill_cd_scale()
 	_begin_attack(0.24 / attack_speed_mult(), 0.30 / attack_speed_mult())
@@ -1083,6 +1196,10 @@ func cast_skill(id: String, aim := Vector2.INF) -> bool:
 				_afterimage()
 			game.fx.spawn("ripple", global_position + Vector2(0, -4), 0.0, 1.2, tint)
 			game.audio.play("spirit", 0.05, -4.0)
+		"rush":
+			Assassin.rush_cast(self, id, def, aim, dmg, info)
+		"hook":
+			Assassin.hook_cast(self, id, def, aim, dmg, info)
 		"charge":
 			_charge = {"dmg": dmg, "info": info, "hit": {}, "radius": skill_radius(id), "force": float(def.get("knock", 120.0))}
 			state = State.MOVE
@@ -1285,12 +1402,14 @@ func add_petalcoins(amount: int) -> void:
 ## Cycle to the next weapon the current lines allow. Safe mid-combat: resets
 ## combo and bow charge, cancels a pending hammer impact.
 func cycle_weapon() -> void:
-	if weapons_owned.is_empty():
+	# keyboard/gamepad "next weapon": the next weapon-bar slot (no quick-swap wheel)
+	if weapon_bar.is_empty():
 		return
-	for step in range(1, weapons_owned.size() + 1):
-		var idx := (weapon_index + step) % weapons_owned.size()
-		if Build.can_equip(self, weapons_owned[idx]):
-			_set_weapon_index(idx)
+	var cur := weapon_bar.find(get_weapon_id())
+	for step in range(1, weapon_bar.size() + 1):
+		var id := weapon_bar[(cur + step) % weapon_bar.size()]
+		if Build.can_equip(self, id):
+			_set_weapon_index(weapons_owned.find(id))
 			break
 	if game:
 		game.audio.play("menu5", 0.02, -6.0)
@@ -1298,6 +1417,10 @@ func cycle_weapon() -> void:
 
 func _set_weapon_index(idx: int) -> void:
 	weapon_index = clampi(idx, 0, weapons_owned.size() - 1)
+	var wid := get_weapon_id()
+	if wid != "fists" and not weapon_bar.has(wid) and weapon_bar.size() < bar_max():
+		weapon_bar.append(wid)
+	charge.cancel()
 	attack_combo = -1
 	combo_timer = 0.0
 	bow_charge = -1.0
@@ -1502,7 +1625,11 @@ func deal(t: Node, base: int, info: Dictionary = {}) -> int:
 		if _ls_acc >= 1.0:
 			var h := int(_ls_acc)
 			_ls_acc -= float(h)
-			heal(h, Color("90ffc0"), true)
+			# per-second cap so lifesteal never makes Mallow unkillable
+			h = mini(h, int(float(CD.BALANCE.get("lifesteal_per_sec", 3.0)) - _ls_sec))
+			if h > 0:
+				_ls_sec += float(h)
+				heal(h, Color("90ffc0"), true)
 	if was_cursed and not is_valid_target(t) and String(weapon_def().get("passive", "")) == "reap":
 		heal(1, Color("90ffc0"), true)
 	damage_dealt.emit(t, dealt, crit, element)
@@ -1598,6 +1725,8 @@ func heal(amount: int, color := Color("9cf5a5"), quiet := false) -> int:
 # ------------------------------------------------------------------ loop
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
+	charge.tick(delta, Input.is_action_pressed("attack"))
+	Assassin.rush_tick(self, delta)
 	if _flurry_t > 0.0:
 		_flurry_t -= delta
 		if _flurry_t <= 0.0:
@@ -1640,6 +1769,11 @@ func _physics_process(delta: float) -> void:
 func _tick_timers(delta: float) -> void:
 	_lock_t = maxf(0.0, _lock_t - delta)
 	_attack_buffer = maxf(0.0, _attack_buffer - delta)
+	_switch_lock = maxf(0.0, _switch_lock - delta)
+	_ls_window -= delta
+	if _ls_window <= 0.0:
+		_ls_window = 1.0
+		_ls_sec = 0.0
 	invulnerable_left = maxf(0.0, invulnerable_left - delta)
 	parry_cooldown = maxf(0.0, parry_cooldown - delta)
 	if buffs.has("relic_barkskin"):
@@ -1705,6 +1839,8 @@ func _state_move(delta: float, input: Vector2) -> void:
 		speed = SPRINT_SPEED * (get_move_speed() / WALK_SPEED)
 	if bow_charge >= 0.0:
 		speed *= 0.45
+	if charge.charging:
+		speed *= float(CD.BALANCE.get("charge_move", 0.6))
 	velocity = velocity.move_toward(input * speed, ACCEL * delta)
 	if not input_enabled:
 		return
@@ -1714,6 +1850,16 @@ func _state_move(delta: float, input: Vector2) -> void:
 		bow_charge += delta
 		if not Input.is_action_pressed("attack"):
 			_release_bow()
+		return
+	var hold_def: Dictionary = weapon_def().get("hold", {})
+	if not hold_def.is_empty():
+		# signature weapon: tap attacks, holding charges the special (no hold-repeat)
+		if Input.is_action_just_pressed("attack"):
+			try_attack()
+			if not charge.active():
+				charge.press(get_weapon_id(), hold_def)
+		elif _attack_buffer > 0.0 and attack_cooldown <= 0.0 and not charge.charging:
+			try_attack()
 		return
 	var held := Input.is_action_pressed("attack") and String(weapon_def()["pattern"]) != "bow"
 	if Input.is_action_just_pressed("attack") or (_attack_buffer > 0.0 and attack_cooldown <= 0.0) or (held and attack_cooldown <= 0.0):
@@ -1749,6 +1895,8 @@ func start_roll(input := Vector2.ZERO) -> bool:
 
 ## Skill-driven dash (Iron Charge) reusing the roll state with a fixed speed.
 func _start_dash(dir: Vector2, time: float, speed: float) -> void:
+	_dash_frames = 0
+	_dash_prev = global_position
 	roll_dir = dir.normalized()
 	_set_facing(roll_dir)
 	state = State.ROLL
@@ -1756,6 +1904,34 @@ func _start_dash(dir: Vector2, time: float, speed: float) -> void:
 	_dash_time = time
 	_dash_speed = speed
 	bow_charge = -1.0
+
+
+## Dashes stop at walls (no progress), before water ("dry") and at "dest".
+func _dash_should_stop(delta: float) -> bool:
+	if _dash_frames > 1 and global_position.distance_to(_dash_prev) < _dash_speed * delta * 0.25:
+		return true
+	_dash_frames += 1
+	_dash_prev = global_position
+	if _charge.is_empty() or game == null:
+		return false
+	if _charge.has("dest") and ((_charge["dest"] as Vector2) - global_position).dot(roll_dir) <= 2.0:
+		return true
+	if bool(_charge.get("dry", false)):
+		var ahead := global_position + roll_dir * 7.0
+		var ws: Vector2 = game.world.world_size
+		if ahead.x >= 0.0 and ahead.y >= 0.0 and ahead.x < ws.x and ahead.y < ws.y and game.world.is_water(ahead):
+			return true
+	return false
+
+
+func _end_dash() -> void:
+	var cb = _charge.get("on_end")
+	_dash_speed = 0.0
+	_charge = {}
+	state = State.MOVE
+	velocity *= 0.3
+	if cb is Callable and (cb as Callable).is_valid():
+		(cb as Callable).call()
 
 
 func _state_roll(delta: float) -> void:
@@ -1771,14 +1947,18 @@ func _state_roll(delta: float) -> void:
 				hit[t.get_instance_id()] = true
 				var inf: Dictionary = (_charge["info"] as Dictionary).duplicate()
 				inf["force"] = float(_charge["force"])
-				inf["status"] = {"stun": 1}
+				if not bool(_charge.get("no_stun", false)):
+					inf["status"] = {"stun": 1}
 				deal(t, int(_charge["dmg"]), inf)
 				game.fx.spawn("cut", t.global_position + Vector2(0, -6), randf() * TAU, 0.7, Color(0.8, 0.9, 1.0), null, true)
-		if roll_t <= 0.0:
-			_dash_speed = 0.0
-			_charge = {}
-			state = State.MOVE
-			velocity *= 0.3
+				var cb = _charge.get("on_hit")
+				if cb is Callable and (cb as Callable).is_valid():
+					(cb as Callable).call(t)
+				if _charge.is_empty():
+					break
+		if roll_t <= 0.0 or _dash_should_stop(delta):
+			_end_dash()
+			return
 		_ghost_t -= delta
 		if _ghost_t <= 0.0:
 			_ghost_t = 0.04
@@ -1916,8 +2096,10 @@ func try_attack() -> bool:
 	var w := weapon_def()
 	_attack_charged = false
 	match String(w["pattern"]):
-		"combo", "daggers", "sweep":
+		"combo", "daggers", "sweep", "katana":
 			_attack_melee(w)
+		"whip":
+			Specials.whip_attack(self, w)
 		"bolt", "prism":
 			_attack_staff()
 		"bow":
@@ -1957,14 +2139,14 @@ func _attack_melee(w: Dictionary) -> void:
 	_attack_is_finisher = finisher
 	var pattern := String(w["pattern"])
 	var spd := attack_speed_mult()
-	combo_timer = 0.62 if pattern != "daggers" else 0.45
+	combo_timer = 0.62 if not pattern in ["daggers", "katana"] else 0.48
 	var lock := float(w["lock"]) * (1.35 if finisher and pattern == "combo" else 1.0) / spd
 	var cd := float(w["cooldown"]) * (1.4 if finisher and pattern == "combo" else 1.0) / spd
 	_begin_attack(lock, cd)
 	var lunge := 95.0
 	match pattern:
-		"daggers":
-			lunge = 70.0
+		"daggers", "katana":
+			lunge = 75.0
 		"sweep":
 			lunge = 40.0
 	if finisher:
@@ -1992,6 +2174,16 @@ func _attack_melee(w: Dictionary) -> void:
 
 func _melee_fx(pattern: String, finisher: bool, center: Vector2, origin: Vector2, tint: Color) -> void:
 	match pattern:
+		"katana":
+			# cross-slashes: two crossing cuts, the finisher a wide double cut
+			var a := facing.angle()
+			if finisher:
+				game.fx.spawn("slash_double", center, a, 1.2, Color(0.9, 0.88, 1.0), null, true)
+				game.fx.spawn("slash", center, a + PI, 1.0, tint, null, true)
+			else:
+				game.fx.spawn("slash", center, a + 0.55, 0.85, tint, null, true)
+				game.fx.spawn("slash", center, a - 0.55 + PI, 0.85, Color(1, 1, 1, 0.85), null, true)
+			game.audio.play("slash" if attack_combo % 2 == 0 else "slash2", 0.1, -4.0)
 		"daggers":
 			game.fx.spawn("slash", center, facing.angle() + (PI if attack_combo == 1 else 0.0), 0.75, tint, null, true)
 			game.audio.play("slash" if attack_combo == 0 else "slash2", 0.1, -5.0)
@@ -2005,7 +2197,7 @@ func _melee_fx(pattern: String, finisher: bool, center: Vector2, origin: Vector2
 
 func _melee_hits(w: Dictionary, pattern: String, finisher: bool, reach: float, half: float, origin: Vector2, center: Vector2) -> void:
 	var base := int(DB.ITEMS[get_weapon_id()].get("damage", 2))
-	var dmg := (base * 2 if finisher and pattern == "combo" else base) + attack_bonus()
+	var dmg := (base * 2 if finisher and pattern in ["combo", "katana"] else base) + attack_bonus()
 	var force := 110.0 if finisher else 55.0
 	if is_unarmed():
 		force = 90.0 if finisher else 40.0
@@ -2029,7 +2221,7 @@ func _attack_staff() -> void:
 		return
 	var dir: Vector2 = _aim_dir(float(w["reach"]))
 	var elem := String(w.get("element", "arcane"))
-	var kind := "bolt"
+	var kind := String(w.get("kind", "bolt"))
 	if String(w["pattern"]) == "prism":
 		elem = ["fire", "ice", "lightning"][prism_index % 3]
 		kind = ["fireball", "ice_spike", "energy_ball"][prism_index % 3]
@@ -2175,6 +2367,9 @@ func _state_attack(delta: float, _input: Vector2) -> void:
 	var pattern := String(weapon_def()["pattern"])
 	if input_enabled and Input.is_action_just_pressed("attack") and pattern != "bow":
 		_attack_buffer = ATTACK_BUFFER
+		var hold_def: Dictionary = weapon_def().get("hold", {})
+		if not hold_def.is_empty() and not charge.active():
+			charge.press(get_weapon_id(), hold_def)
 	if _lock_t <= 0.0:
 		state = State.MOVE
 

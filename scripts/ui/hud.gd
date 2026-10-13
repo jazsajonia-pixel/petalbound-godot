@@ -13,6 +13,7 @@ const ControlsScript := preload("res://scripts/ui/combat_controls.gd")
 const Screens := preload("res://scripts/ui/build_screens.gd")
 const Settings := preload("res://scripts/systems/settings.gd")
 const Build := preload("res://scripts/combat/build.gd")
+const WeaponBar := preload("res://scripts/ui/weapon_bar.gd")
 const CD := preload("res://scripts/data/combat_data.gd")
 const TradeScreens := preload("res://scripts/ui/trade_screens.gd")
 const RUI := preload("res://scripts/ui/rarity_ui.gd")
@@ -51,10 +52,7 @@ var boss_name: Label
 var boss_bar: ProgressBar
 var minimap: Control
 var minimap_tex: ImageTexture
-var weapon_icon: TextureRect
-var weapon_label: Label
 var skill_bars: Dictionary = {}
-var hint_label: Label
 
 var touch_root: Control
 var touch_buttons: Array = []
@@ -64,7 +62,7 @@ var jump_button: TouchButton
 var mothlight_button: TouchButton
 var guard_button: TouchButton
 var heal_button: TouchButton
-var weapon_button: TouchButton
+var weapon_slots: Array = []   # weapon bar slots (scripts/ui/weapon_bar.gd)
 var interact_button: TouchButton
 var sprint_button: TouchButton
 var pause_button: Button
@@ -381,16 +379,6 @@ func _make_status() -> void:
 	quest_label = _label("", 8, C_DIM)
 	quest_label.size = Vector2(240, 30)
 	quest_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var wbox := PanelContainer.new()
-	wbox.name = "WeaponBox"
-	wbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(wbox)
-	var wrow := _hbox(wbox, 4)
-	weapon_icon = _icon("items/weapons/katana.png", Vector2(14, 14), wrow)
-	var wcol := _vbox(wrow, 0)
-	weapon_label = _label("THORNBLADE", 8, C_TEXT, wcol)
-	hint_label = _label("Q  SWAP", 8, C_DIM, wcol)
-	hint_label.add_theme_font_size_override("font_size", 8)
 	message_label = _label("", 8, C_TEXT)
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message_label.size = Vector2(400, 12)
@@ -460,7 +448,7 @@ func _make_touch_controls() -> void:
 	attack_button = _touch("attack", "items/weapons/katana.png", 27.0, Color(0.95, 0.45, 0.6))
 	jump_button = _touch("jump", "ui/skill/arrow.png", 13.0, Color(0.6, 0.9, 0.75))
 	heal_button = _touch("heal", "items/lifepot.png", 13.0, Color(0.6, 1.0, 0.7))
-	weapon_button = _touch("switch_weapon", "items/weapons/magicwand.png", 12.0, Color(0.8, 0.8, 0.9))
+	weapon_slots = WeaponBar.build(self)
 	interact_button = _touch("interact", "ui/skill/talk.png", 15.0, Color(1.0, 0.9, 0.6))
 	sprint_button = _touch("sprint", "ui/skill/boot.png", 12.0, Color(0.95, 0.75, 0.55))
 	interact_button.visible = false
@@ -1324,7 +1312,7 @@ func show_item_get(id: String) -> void:
 	var rc: Color = RUI.color(id) if DB.ITEMS.has(id) and item.has("rarity") else C_GOLD
 	item_banner_title.add_theme_color_override("font_color", rc)
 	item_banner_desc.text = ("%s %s · " % [RUI.name_of(id), RUI.category_of(id)] if item.has("rarity") else "") + String(item["desc"])
-	item_banner.add_theme_stylebox_override("panel", _box(Color(0.18, 0.12, 0.24, 0.94), rc, 2 if String(item.get("rarity", "")) in ["epic", "legendary"] else 1, 4))
+	item_banner.add_theme_stylebox_override("panel", _box(Color(0.18, 0.12, 0.24, 0.94), rc, 2 if String(item.get("rarity", "")) in ["epic", "legendary", "mythical"] else 1, 4))
 	item_banner.visible = true
 	item_banner.modulate.a = 0.0
 	var tw := create_tween()
@@ -1443,8 +1431,6 @@ func _layout_controls() -> void:
 	map_button.position = minimap.position + Vector2(-36, 21)
 	bag_button.position = minimap.position + Vector2(-36, 42)
 	arts_button.position = minimap.position + Vector2(-36, 63)
-	var wbox := get_node("WeaponBox") as Control
-	wbox.position = Vector2(safe_rect.end.x - 92, safe_rect.position.y + 84)
 	message_label.position = Vector2(safe_rect.get_center().x - 200, safe_rect.end.y - 62)
 	region_label.position = Vector2(safe_rect.get_center().x - 200, safe_rect.position.y + 50)
 	region_sub.position = region_label.position + Vector2(0, 20)
@@ -1499,16 +1485,8 @@ func _process(delta: float) -> void:
 	tea_label.text = "%d/%d" % [p.moontea_charges, p.moontea_max]
 	clock_label.text = game.environment.clock_text()
 	var wid: String = p.get_weapon_id()
-	weapon_icon.texture = AnimLib.tex(DB.ITEMS[wid]["icon"])
-	weapon_label.text = p.get_weapon_name()
-	attack_button.icon = weapon_icon.texture
-	var next_w: String = p.get_weapon_id()
-	for step in range(1, p.weapons_owned.size() + 1):
-		var cand: String = p.weapons_owned[(p.weapon_index + step) % p.weapons_owned.size()]
-		if Build.can_equip(p, cand):
-			next_w = cand
-			break
-	weapon_button.icon = AnimLib.tex(DB.ITEMS[next_w]["icon"])
+	attack_button.icon = AnimLib.tex(DB.ITEMS[wid]["icon"])
+	WeaponBar.update(self)
 	controls.update_buttons()
 	quest_label.text = game.quest_text()
 	journey_label.text = game.journey_text()
@@ -1531,7 +1509,7 @@ func _process(delta: float) -> void:
 			dialogue_text.visible_characters = -1
 	var playing: bool = game.game_started and not any_menu_open()
 	touch_root.visible = show_touch and (playing or controls.edit_active)
-	for n in [hearts_box, stamina_bar, quest_label, journey_label, xp_bar, focus_bar, skill_row, minimap, get_node("CounterRow"), get_node("SeedRow"), get_node("WeaponBox"), pause_button, bag_button, map_button, arts_button]:
+	for n in [hearts_box, stamina_bar, quest_label, journey_label, xp_bar, focus_bar, skill_row, minimap, get_node("CounterRow"), get_node("SeedRow"), pause_button, bag_button, map_button, arts_button]:
 		if photo_active:
 			n.visible = false
 		else:
@@ -1650,6 +1628,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif controls.drag(drag.index, drag.position):
 			get_viewport().set_input_as_handled()
+		elif touch_held.get(drag.index) == attack_button:
+			_attack_drag(drag.position)
 	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
@@ -1663,7 +1643,16 @@ func _input(event: InputEvent) -> void:
 			elif touch_held.has(100):
 				_release_touch(100)
 	elif event is InputEventMouseMotion and touch_held.has(100) and event.device != InputEvent.DEVICE_ID_EMULATION:
-		controls.drag(100, (event as InputEventMouseMotion).position)
+		if not controls.drag(100, (event as InputEventMouseMotion).position) and touch_held.get(100) == attack_button:
+			_attack_drag((event as InputEventMouseMotion).position)
+
+
+## Dragging the finger off the attack button while charging arms a cancel
+## (ring turns red); sliding back onto it re-arms the release.
+func _attack_drag(pos: Vector2) -> void:
+	if game == null or game.player == null:
+		return
+	game.player.charge.off_button = pos.distance_to(attack_button.center()) > attack_button.radius + 16.0
 
 
 func _button_at(point: Vector2) -> TouchButton:
@@ -1692,10 +1681,11 @@ func _press_touch(b: TouchButton, index: int, pos := Vector2.INF) -> void:
 		return
 	touch_held[index] = b
 	b.pressed_now = true
+	if b.wslot >= 0:
+		WeaponBar.tap(self, b)
+		queue_redraw()
+		return
 	Input.action_press(b.action)
-	if b.action == "switch_weapon":
-		game.player.cycle_weapon()
-		Input.action_release(b.action)
 	queue_redraw()
 
 

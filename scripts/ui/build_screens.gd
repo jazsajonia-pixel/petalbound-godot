@@ -347,8 +347,16 @@ static func _detail(hud: Control, p: Node, id: String) -> void:
 	_wrap(hud, String(item["desc"]), hud.C_TEXT, box, 200)
 	if t == "weapon":
 		var w: Dictionary = CD.weapon(id)
-		var shape := {"arc": "arc %d" % int(w["reach"]), "circle": "slam r%d" % int(w["reach"]), "line": "range %d" % int(w["reach"])}
+		var shape := {"arc": "arc %d" % int(w["reach"]), "circle": "slam r%d" % int(w["reach"]), "line": "range %d" % int(w["reach"]),
+			"ring": "360° r%d, tip +%d%%" % [int(w["reach"]), int(round((float(w.get("sweet_mult", 1.5)) - 1.0) * 100.0))]}
 		hud._label("Attack: %s · %.2fs · %s" % [String(w["pattern"]).capitalize(), float(w["cooldown"]), shape[String(w["shape"])]], 8, hud.C_TEXT, box)
+		var hd: Dictionary = w.get("hold", {})
+		if not hd.is_empty():
+			var hold_names := {"afterimage": "Afterimage (blink + fighting clone)", "moonrend": "Moonrend Dash", "burst": "Energy Burst (knockback + knockdown)",
+				"wide_lash": "Wide Lash (one bigger, stronger spin)", "overcharge": "Overcharge (bigger, stronger orb)", "barrage": "Feral Barrage"}
+			_wrap(hud, "Hold · %s · %.1fs charge, %.1fs cooldown. Aim with the move stick." % [hold_names.get(String(hd["kind"]), String(hd["kind"])), float(hd.get("time", 0.7)), float(hd.get("cd", 1.0))], Color(0.75, 0.88, 1.0), box, 200)
+		else:
+			hud._label("No hold effect (holding repeats attacks).", 8, hud.C_DIM, box)
 		var ps: Dictionary = CD.PASSIVES.get(String(w.get("passive", "")), {})
 		if not ps.is_empty():
 			_wrap(hud, "Passive · %s: %s" % [ps["name"], ps["desc"]], Color(1.0, 0.86, 0.55), box, 200)
@@ -387,6 +395,23 @@ static func _detail(hud: Control, p: Node, id: String) -> void:
 			eb.disabled = why != ""
 		else:
 			hud._label("HELD", 8, hud.C_GOLD, row)
+		if t == "weapon":
+			var brow: HBoxContainer = hud._hbox(box, 4)
+			if p.weapon_bar.has(id):
+				var rb: Button = hud._button("REMOVE FROM BAR", brow, func() -> void:
+					p.bar_remove(id)
+					hud.game.audio.play("menu5", 0.02, -4.0)
+					refresh_inventory(hud))
+				rb.name = "BarRemove"
+			else:
+				var ab: Button = hud._button("ADD TO BAR", brow, func() -> void:
+					if p.bar_add(id):
+						hud.game.audio.play("menu5", 0.02, -4.0)
+					else:
+						hud.show_message(p.last_equip_error, 2.0)
+					refresh_inventory(hud))
+				ab.name = "BarAdd"
+			hud._label("BAR %d/%d" % [p.weapon_bar.size(), p.bar_max()], 8, hud.C_DIM if p.weapon_bar.size() < p.bar_max() else hud.C_GOLD, brow)
 
 
 static func _row_button(hud: Control, text: String, parent: Control, cb: Callable) -> Button:

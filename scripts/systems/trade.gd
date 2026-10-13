@@ -23,7 +23,7 @@ static func value_of(id: String) -> int:
 	var it: Dictionary = DBRef.ITEMS.get(id, {})
 	if it.has("value"):
 		return int(it["value"])
-	return {"common": 20, "uncommon": 45, "rare": 90, "epic": 160, "legendary": 260}.get(String(it.get("rarity", "common")), 20)
+	return {"common": 20, "uncommon": 45, "rare": 90, "epic": 160, "legendary": 260, "mythical": 400}.get(String(it.get("rarity", "common")), 20)
 
 
 static func sell_price(id: String) -> int:
@@ -124,9 +124,13 @@ static func sell(game: Node, shop_id: String, id: String) -> Dictionary:
 		if not Inv.remove(p, id, 1):
 			return {"ok": false, "reason": "None left."}
 	elif p.weapons_owned.has(id):
+		var was_held: bool = p.get_weapon_id() == id
 		p.weapons_owned.erase(id)
+		p.weapon_bar.erase(id)
 		p.weapon_index = clampi(p.weapon_index, 0, p.weapons_owned.size() - 1)
 		p.ensure_fists()
+		if was_held:
+			p.weapon_index = 0
 		p.refresh_held_weapon()
 		p.inventory_changed.emit()
 	else:

@@ -57,6 +57,10 @@ func setup(p_game: Node, d: Dictionary) -> void:
 		var m := CanvasItemMaterial.new()
 		m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 		sprite.material = m
+	if d.has("scale"):
+		sprite.scale = Vector2.ONE * float(d["scale"])
+	if d.has("tint"):
+		sprite.modulate = d["tint"]
 	add_child(sprite)
 	sprite.play("play")
 	sprite.rotation = dir.angle()

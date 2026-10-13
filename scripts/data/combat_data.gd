@@ -16,6 +16,11 @@ const BALANCE := {
 	"cdr_cap": 0.40,
 	"elem_cap": 0.50,
 	"lifesteal_cap": 0.30,
+	"lifesteal_per_sec": 3.0,  # most HP lifesteal can heal in any one second
+	"charge_tap": 0.2,         # hold longer than this (s) to start charging
+	"charge_move": 0.6,        # move-speed multiplier while charging
+	"weapon_bar_max": 5,
+	"weapon_switch_lock": 0.3,
 	"target_retarget_hysteresis": 0.8, # a new target must score 20% better to steal focus
 }
 
@@ -50,6 +55,28 @@ const WEAPONS := {
 		"speed": 215.0, "homing": 4.0, "element": "arcane", "passive": "moon_resonance", "color": "e0b8ff"},
 	"moonglass_staff": {"pattern": "prism", "shape": "line", "reach": 170.0, "lock": 0.28, "cooldown": 0.48, "combo": 1,
 		"speed": 230.0, "homing": 3.0, "element": "fire", "passive": "prism", "color": "a8d8ff"},
+	# ---- arsenal pass. "hold": hold-to-charge special (scripts/combat/charge_attack.gd +
+	# weapon_specials.gd). time = seconds to full charge, cd = special cooldown.
+	"oakwood_staff": {"pattern": "combo", "shape": "arc", "reach": 34.0, "finisher_reach": 38.0, "half_angle": 1.15,
+		"lock": 0.26, "cooldown": 0.30, "combo": 3, "element": "", "passive": "", "color": "e8c890"},
+	"cloudstride_staff": {"pattern": "combo", "shape": "arc", "reach": 38.0, "finisher_reach": 46.0, "half_angle": 0.85,
+		"lock": 0.22, "cooldown": 0.25, "combo": 3, "element": "", "passive": "", "color": "ffd27a",
+		"hold": {"kind": "afterimage", "time": 0.8, "cd": 3.0, "dist": 72.0, "clone_time": 4.5, "clone_dmg": 0.6, "clone_rate": 0.55, "clone_reach": 36.0}},
+	"twin_moon_katanas": {"pattern": "katana", "shape": "arc", "reach": 28.0, "finisher_reach": 32.0, "half_angle": 1.0,
+		"lock": 0.15, "cooldown": 0.17, "combo": 4, "element": "", "passive": "", "color": "cfc8ff",
+		"hold": {"kind": "moonrend", "time": 0.7, "cd": 1.6, "dist": 104.0, "speed": 380.0, "dmg_mult": 2.5, "width": 14.0}},
+	"ironbloom_gauntlet": {"pattern": "combo", "shape": "arc", "reach": 21.0, "finisher_reach": 24.0, "half_angle": 0.8,
+		"lock": 0.30, "cooldown": 0.42, "combo": 2, "element": "", "passive": "", "color": "f2b0c8",
+		"hold": {"kind": "burst", "time": 0.75, "cd": 2.0, "radius": 30.0, "ahead": 16.0, "dmg_mult": 2.0, "force": 320.0}},
+	"thornlash_whip": {"pattern": "whip", "shape": "ring", "reach": 46.0, "sweet": 0.72, "half_angle": PI,
+		"lock": 0.32, "cooldown": 0.46, "combo": 1, "element": "", "passive": "", "color": "a8e890", "sweet_mult": 1.5,
+		"hold": {"kind": "wide_lash", "time": 0.6, "cd": 0.9, "size_mult": 1.45, "dmg_mult": 1.8}},
+	"starweave_gloves": {"pattern": "bolt", "kind": "energy_ball", "shape": "line", "reach": 200.0, "lock": 0.24, "cooldown": 0.40, "combo": 1,
+		"speed": 250.0, "homing": 0.0, "element": "arcane", "passive": "", "color": "b8c4ff",
+		"hold": {"kind": "overcharge", "time": 0.7, "cd": 1.0, "dmg_mult": 2.4, "scale": 1.8, "radius": 13.0}},
+	"direwolf_claws": {"pattern": "daggers", "shape": "arc", "reach": 24.0, "finisher_reach": 24.0, "half_angle": 0.8,
+		"lock": 0.13, "cooldown": 0.16, "combo": 2, "element": "", "passive": "wolf_hunger", "color": "e0d8f0",
+		"hold": {"kind": "barrage", "time": 0.6, "cd": 2.4, "reach": 44.0, "half_angle": 0.6, "hits": 5, "gap": 0.08}},
 	"gale_bow": {"pattern": "bow", "shape": "line", "reach": 190.0, "lock": 0.18, "cooldown": 0.34, "combo": 1,
 		"speed": 330.0, "homing": 1.0, "element": "", "passive": "steady_aim", "color": "c0f0d8"},
 }
@@ -58,6 +85,7 @@ const WEAPONS := {
 ## (_weapon_on_hit / _weapon_crit_bonus). Passives belong to the held weapon only,
 ## so they never stack with each other; buffs from relics stack additively.
 const PASSIVES := {
+	"wolf_hunger": {"name": "Wolf Hunger", "desc": "Heal 7% of the damage you deal (max 3 HP per second, all lifesteal)."},
 	"briar_venom": {"name": "Briar Venom", "desc": "The third cut of the combo poisons (1 stack)."},
 	"biting_dusk": {"name": "Biting Dusk", "desc": "Combo finishers gain +25% critical chance."},
 	"flurry": {"name": "Flurry", "desc": "Each consecutive hit on the same foe gives +4% crit (max 3 stacks, fades after 2s or on a new target)."},

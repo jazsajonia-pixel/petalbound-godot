@@ -818,6 +818,7 @@ func _reset_state() -> void:
 	# shop, a quest reward, the forge or loot
 	p.weapons_owned.assign(["fists"])
 	p.weapon_index = 0
+	p.weapon_bar.clear()
 	p.inventory.assign(["plum_cloak"])
 	p.equipped = {"cloak": "plum_cloak"}
 	p.moontea_charges = 3
@@ -956,6 +957,8 @@ func _process(delta: float) -> void:
 		world.update_foliage(Vector2(-9999, -9999), environment.gust)
 		return
 	player.input_enabled = not game_over and not hud.any_menu_open() and not get_tree().paused
+	if not player.input_enabled and player.charge.active():
+		player.charge.cancel()  # menus/pause/teleports never let a held charge fire later
 	_door_cd = maxf(0.0, _door_cd - delta)
 	_update_camera(delta)
 	world.update_foliage(player.global_position, environment.gust)
@@ -972,8 +975,12 @@ func _process(delta: float) -> void:
 			hud.open_trade("", "craft")
 		if Input.is_action_just_pressed("interact"):
 			_interact()
-		if Input.is_action_just_pressed("switch_weapon") and not hud.touch_held.size():
-			player.cycle_weapon()
+		if Input.is_action_just_pressed("switch_weapon") and not hud.touch_held.size() and player._switch_lock <= 0.0:
+			player.cycle_weapon()  # next weapon-bar slot (keyboard/gamepad)
+			player._switch_lock = 0.3
+		for i in range(5):
+			if Input.is_action_just_pressed("weapon_slot_%d" % (i + 1)):
+				player.select_bar_slot(i)
 		if Input.is_action_just_pressed("skill"):
 			player.activate_mothlight()
 		if Input.is_action_just_pressed("guard"):
@@ -1533,7 +1540,7 @@ func spawn_item(pos: Vector2, id: String, qty := 1) -> void:
 	s.modulate = Color(String(item.get("tint", "ffffff")))
 	s.offset = Vector2(0, -6)
 	var rar := String(item.get("rarity", "common"))
-	if rar in ["rare", "epic", "legendary"]:
+	if rar in ["rare", "epic", "legendary", "mythical"]:
 		var glow := Sprite2D.new()
 		glow.texture = FxScript.glow_texture()
 		glow.modulate = Color(DB.RARITY_COLORS.get(rar, "ffffff"), 0.55)
@@ -2129,7 +2136,7 @@ func save_game() -> bool:
 	return Save.write({
 		"pos": [p.global_position.x, p.global_position.y],
 		"heart_pieces": p.heart_pieces, "health": p.health,
-		"weapons": p.weapons_owned, "weapon_index": p.weapon_index,
+		"weapons": p.weapons_owned, "weapon_index": p.weapon_index, "weapon_bar": p.weapon_bar,
 		"inventory": p.inventory, "equipped": p.equipped,
 		"coins": p.petalcoins, "tea": p.moontea_charges, "tea_max": p.moontea_max,
 		"seeds": moonseeds, "bosses": defeated_bosses, "chests": opened_chests, "flags": flags,
@@ -2160,6 +2167,14 @@ func load_game() -> bool:
 	p.ensure_fists()
 	if not had_fists and p.weapons_owned.size() > 1:
 		p.weapon_index = 1  # pre-fists saves keep holding their first weapon
+	# weapon bar (arsenal pass). Older saves have none: migrate (best rarity first, held kept)
+	var bar: Array[String] = []
+	for w in d.get("weapon_bar", []):
+		bar.append(String(w))
+	p.weapon_bar = bar
+	p.sanitize_bar(not d.has("weapon_bar"))
+	if not p.is_unarmed() and not p.weapon_bar.has(p.get_weapon_id()):
+		p.weapon_index = 0
 	p.inventory.assign(d.get("inventory", ["plum_cloak"]))
 	p.equipped = d.get("equipped", {"cloak": "plum_cloak"})
 	p.petalcoins = int(d.get("coins", 0))
