@@ -65,7 +65,7 @@ func _run_test() -> void:
 	check(game.enemies.size() > 60, "World should spawn dozens of monsters.")
 	check(game.bosses.size() == 4, "Four guardians expected.")
 	check(game.npcs.size() >= 8, "Hearthgrove and the roads should have villagers.")
-	check(game.waystones.size() == 6, "Six waystones expected.")
+	check(game.waystones.size() == 7, "Seven waystones expected after the new eastern region.")
 	var lumen_found := false
 	for n in game.npcs:
 		if n.npc_id == "lumen":
@@ -78,6 +78,8 @@ func _run_test() -> void:
 	check(game.world.is_water(Vector2(1888, 1536)) or game.world.is_water(Vector2(1860, 1560)), "Lake Lumen should be water.")
 	check(game.world.biome_at(Vector2(4600, 1460)) == 6, "Starfall Rise should be the seventh biome.")
 	check(game.world.region_name(Vector2(4600, 1460)) == "Starfall Rise", "The eastern rise should be named Starfall Rise.")
+	check(game.world.biome_at(Vector2(320 * 16, 88 * 16)) == 7, "Moonpetal Hollow should be the eighth biome.")
+	check(game.world.region_name(Vector2(320 * 16, 88 * 16)) == "Moonpetal Hollow", "The far eastern grove should have a distinct region name.")
 	check(game.world.is_water(Vector2(276 * 16 + 8, 58 * 16 + 8)), "Mirror Basin should be water.")
 
 	# ---- movement kit

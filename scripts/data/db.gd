@@ -109,6 +109,14 @@ const ITEMS := {
 		"desc": "Any class. Active: Swiftwind (+35% attack speed and +15% speed for 6s).", "value": 120},
 	"barkskin_charm": {"rarity": "uncommon", "name": "Barkskin Charm", "type": "relic", "icon": NA + "items/gemgreen.png", "tint": "b8e090", "relic": "barkskin",
 		"desc": "Any class. Active: Barkskin (+2 defense and regenerate a quarter-heart per second for 5s).", "value": 90},
+	"moonpetal_ring": {"rarity": "rare", "name": "Moonpetal Ring", "type": "ring", "classes": ["petalweaver"], "icon": "res://assets/generated/petalbound/icons/moonpetal_ring.png", "tint": "e8c9ff",
+		"desc": "A ring woven from the hollow's night-blooming petals. +10% healing and +4 focus.", "heal_power": 0.10, "focus": 4, "value": 110},
+	"hollowglow_charm": {"rarity": "uncommon", "name": "Hollowglow Charm", "type": "charm", "icon": "res://assets/generated/petalbound/icons/hollowglow_charm.png", "tint": "d7efad",
+		"desc": "A lantern-seed that never goes dark. +1 defense and +4 focus.", "defense": 1, "focus": 4, "value": 75},
+	"starweft_boots": {"rarity": "rare", "name": "Starweft Boots", "type": "boots", "classes": ["windrunner"], "icon": "res://assets/generated/petalbound/icons/starweft_boots.png", "tint": "c7e8ff",
+		"desc": "Light as a falling petal. +6% move speed and +0.2 stamina recovery.", "speed": 0.06, "stamina_regen": 0.2, "value": 105},
+	"moonfall_circlet": {"rarity": "epic", "name": "Moonfall Circlet", "type": "head", "classes": ["lumimancer"], "icon": "res://assets/generated/petalbound/icons/moonfall_circlet.png", "tint": "fff0ae",
+		"desc": "A circlet tempered beneath the basin's falling stars. +6 focus and +6% cooldown reduction.", "focus": 6, "cdr": 0.06, "value": 165},
 	# ---- materials (stack in the bag, sell, exchange, craft)
 	"wood": {"rarity": "common", "name": "Oak Branch", "type": "material", "icon": NA + "items/branch.png", "value": 2, "desc": "Sturdy branches from Hollowroot trees."},
 	"ore": {"rarity": "common", "name": "Iron Ore", "type": "material", "icon": NA + "items/rock.png", "value": 3, "desc": "Rough ore knocked from boulders."},
@@ -197,7 +205,7 @@ const OUTFITS := {
 	"zephyr_boots": [["a8a129", "f6a6c1"], ["56864c", "5a7fb8"], ["345a52", "33466e"], ["d14b34", "ffd27a"]],
 }
 
-const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow"]
+const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow", "forest"]
 
 static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 	match id:

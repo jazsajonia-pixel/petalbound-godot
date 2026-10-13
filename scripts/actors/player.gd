@@ -154,6 +154,7 @@ var _charge: Dictionary = {}
 var _dash_speed := 0.0
 var _dash_time := 0.0
 var _thrall: Node2D
+var _next_zone_style := "ring"
 ## Attack direction rule (see attack_direction): deliberate stick input wins,
 ## then a locked target, then the auto-target, then the current facing.
 const ATTACK_BUFFER := 0.22
@@ -1124,6 +1125,7 @@ func cast_skill(id: String, aim := Vector2.INF) -> bool:
 			var cpt := global_position + aim.limit_length(skill_range(id))
 			var crad := skill_radius(id)
 			var cdmg := dmg
+			_next_zone_style = String(def.get("zone_style", "ring"))
 			_spawn_zone(cpt, crad, float(def["time"]), 0.5, tint, func(z: Node2D) -> void:
 				if game == null:
 					return
@@ -1156,6 +1158,7 @@ func cast_skill(id: String, aim := Vector2.INF) -> bool:
 			var hpt := global_position + aim.limit_length(skill_range(id))
 			var hrad := skill_radius(id)
 			var per_tick := maxi(1, int(round(float(Build.skill_stat(self, id, "heal", 1.0)) * heal_mult())))
+			_next_zone_style = String(def.get("zone_style", "ring"))
 			_spawn_zone(hpt, hrad, float(def["time"]), 0.6, tint, func(z: Node2D) -> void:
 				if game == null or state == State.DEAD:
 					return
@@ -1181,7 +1184,8 @@ func _cast_mothlight(dmg: int) -> void:
 func _spawn_zone(pos: Vector2, radius: float, duration: float, period: float, color: Color, cb: Callable) -> void:
 	var z := ZoneScript.new()
 	z.position = pos
-	z.setup(radius, duration, period, color, cb)
+	z.setup(radius, duration, period, color, cb, _next_zone_style)
+	_next_zone_style = "ring"
 	game.fx.add_child(z)
 
 

@@ -7,16 +7,18 @@ var radius := 30.0
 var duration := 3.0
 var period := 0.5
 var color := Color(0.6, 1.0, 0.5)
+var style := "ring"
 var on_tick: Callable
 var _t := 0.0
 var _tick := 0.0
 
 
-func setup(p_radius: float, p_duration: float, p_period: float, p_color: Color, p_on_tick: Callable) -> void:
+func setup(p_radius: float, p_duration: float, p_period: float, p_color: Color, p_on_tick: Callable, p_style := "ring") -> void:
 	radius = p_radius
 	duration = p_duration
 	period = p_period
 	color = p_color
+	style = p_style
 	on_tick = p_on_tick
 	_tick = 0.0
 	z_index = -4
@@ -42,3 +44,15 @@ func _draw() -> void:
 	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 36, Color(color, 0.7 * fade), 1.3)
 	# remaining-time sweep so players can read when the zone ends
 	draw_arc(Vector2.ZERO, radius - 3.0, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - k), 30, Color(color, 0.45 * fade), 1.0)
+	if style == "roots":
+		for i in range(8):
+			var a := TAU * float(i) / 8.0 + _t * 0.16
+			var dir := Vector2(cos(a), sin(a))
+			draw_line(dir * (radius * 0.35), dir * (radius - 2.0), Color(color, 0.65 * fade), 1.5)
+			var tip := dir * (radius - 3.0)
+			draw_line(tip, tip.rotated(0.38) - dir * 4.0, Color(color.lightened(0.35), fade), 1.2)
+	elif style == "seed":
+		draw_arc(Vector2.ZERO, 5.0 + sin(_t * 4.0) * 1.5, 0.0, TAU, 16, Color(color.lightened(0.5), fade), 1.4)
+		draw_line(Vector2(0, 4), Vector2(0, -5), Color(color.lightened(0.5), fade), 1.2)
+		draw_line(Vector2.ZERO, Vector2(-4, -3), Color(color, fade), 1.0)
+		draw_line(Vector2.ZERO, Vector2(4, -4), Color(color, fade), 1.0)

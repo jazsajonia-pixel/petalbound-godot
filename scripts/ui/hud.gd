@@ -145,6 +145,8 @@ var photo_saved_visible := {}
 var arts_overlay: ColorRect
 var arts_panel: PanelContainer
 var arts_list: VBoxContainer
+var class_list: VBoxContainer
+var arts_tabs: TabContainer
 var arts_head_label: Label
 var journeys_overlay: ColorRect
 var journeys_panel: PanelContainer
@@ -739,19 +741,29 @@ func _refresh_feats() -> void:
 # ------------------------------------------------------------------ petal arts (K)
 func _make_arts_overlay() -> void:
 	arts_overlay = _overlay()
-	arts_panel = _centered_panel(arts_overlay, Vector2(490, 0))
+	arts_panel = _centered_panel(arts_overlay, Vector2(560, 0))
 	var v := _vbox(arts_panel, 5)
 	var head := _hbox(v, 6)
-	arts_head_label = _label("PETAL ARTS", 16, C_GOLD, head)
+	arts_head_label = _label("FIELD GUIDE", 16, C_GOLD, head)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
 	_button("CLOSE", head, toggle_arts)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(470, 270)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(scroll)
-	arts_list = _vbox(scroll, 3)
+	arts_tabs = TabContainer.new()
+	arts_tabs.custom_minimum_size = Vector2(540, 300)
+	arts_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(arts_tabs)
+	var classes_scroll := ScrollContainer.new()
+	classes_scroll.name = "CLASS LINES"
+	classes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	arts_tabs.add_child(classes_scroll)
+	class_list = _vbox(classes_scroll, 4)
+	class_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var skills_scroll := ScrollContainer.new()
+	skills_scroll.name = "SKILLS + LOADOUT"
+	skills_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	arts_tabs.add_child(skills_scroll)
+	arts_list = _vbox(skills_scroll, 4)
 	arts_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
@@ -785,6 +797,7 @@ func open_loadout(slot: int) -> void:
 		toggle_arts()
 	else:
 		_refresh_arts()
+	arts_tabs.current_tab = 1
 
 
 # ------------------------------------------------------------------ journeys (H)
