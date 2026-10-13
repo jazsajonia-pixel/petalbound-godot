@@ -21,6 +21,7 @@ const CompanionScript := preload("res://scripts/actors/companion.gd")
 const Ach := preload("res://scripts/systems/achievements.gd")
 const ClassBook := preload("res://scripts/data/classdb.gd")
 const QuestSys := preload("res://scripts/systems/quests.gd")
+const StatusFx := preload("res://scripts/combat/status.gd")
 
 const CAMERA_ZOOM := 1.5
 const CRAFT_RECIPES := [
@@ -28,9 +29,13 @@ const CRAFT_RECIPES := [
 	{"id": "briar_mail_ii", "needs": {"ore": 3, "herb": 2}},
 ]
 const SHOPS := {
-	"pip": [{"id": "moontea", "price": 20}, {"id": "heart_piece", "price": 150, "once": "pip_heart"}, {"id": "fishing_rod", "price": 60, "once": "pip_rod"}],
-	"nomad": [{"id": "moontea", "price": 24}, {"id": "starlocket", "price": 300, "once": "nomad_locket"}, {"id": "heart_piece", "price": 220, "once": "nomad_heart"}],
-	"kaede": [{"id": "moontea", "price": 22}, {"id": "duskfan", "price": 220, "once": "kaede_fan"}, {"id": "sunplate", "price": 260, "once": "kaede_plate"}, {"id": "heart_piece", "price": 200, "once": "kaede_heart"}],
+	"pip": [{"id": "moontea", "price": 20}, {"id": "heart_piece", "price": 150, "once": "pip_heart"}, {"id": "fishing_rod", "price": 60, "once": "pip_rod"},
+		{"id": "mossleaf_cap", "price": 60, "once": "pip_cap"}, {"id": "rootgrip_gloves", "price": 70, "once": "pip_gloves"}, {"id": "trail_leggings", "price": 60, "once": "pip_legs"}],
+	"nomad": [{"id": "moontea", "price": 24}, {"id": "starlocket", "price": 300, "once": "nomad_locket"}, {"id": "heart_piece", "price": 220, "once": "nomad_heart"},
+		{"id": "twilight_mantle", "price": 380, "once": "nomad_mantle"}, {"id": "spellblade_sash", "price": 380, "once": "nomad_sash"}],
+	"kaede": [{"id": "moontea", "price": 22}, {"id": "duskfan", "price": 220, "once": "kaede_fan"}, {"id": "sunplate", "price": 260, "once": "kaede_plate"}, {"id": "heart_piece", "price": 200, "once": "kaede_heart"},
+		{"id": "ember_heart", "price": 280, "once": "kaede_ember"}, {"id": "shadow_wraps", "price": 240, "once": "kaede_wraps"},
+		{"id": "frostlace_robe", "price": 240, "once": "kaede_robe"}, {"id": "cryptwarden_greaves", "price": 240, "once": "kaede_greaves"}],
 }
 
 ## Enterable buildings: doors stand just south of the village house props; the
@@ -803,6 +808,11 @@ func _process(delta: float) -> void:
 			player.activate_mothlight()
 		if Input.is_action_just_pressed("guard"):
 			player.activate_petalguard()
+		if Input.is_action_just_pressed("relic"):
+			if not player.activate_relic() and player.relic_block_reason() != "cooldown":
+				hud.show_message(player.relic_block_reason(), 1.5)
+		if Input.is_action_just_pressed("target_next"):
+			player.cycle_target()
 		if Input.is_action_just_pressed("heal"):
 			if not player.drink_moontea():
 				if player.moontea_charges <= 0:
@@ -948,14 +958,48 @@ func hittable_targets(center: Vector2, radius: float) -> Array:
 	return out
 
 
-func damage_target(t: Node, amount: int, from: Vector2, force: float) -> void:
-	t.hurt(amount, from, force)
+## Every hit on an enemy/boss lands here. Curse/expose vulnerability is applied
+## once; returns the damage actually dealt.
+func damage_target(t: Node, amount: int, from: Vector2, force: float, info: Dictionary = {}) -> int:
+	if t == null or not is_instance_valid(t):
+		return 0
+	var st := StatusFx.of(t)
+	if st != null and st.vulnerability() > 0.0:
+		amount = int(ceil(float(amount) * (1.0 + st.vulnerability())))
+	if t.hurt(amount, from, force, info):
+		return amount
+	return 0
+
+
+## Targets inside a sector (origin, facing, reach, half-angle). Bosses count
+## their body radius. This is the exact shape the attack indicator draws.
+func targets_in_arc(origin: Vector2, dir: Vector2, reach: float, half_angle: float) -> Array:
+	var out: Array = []
+	var d := dir.normalized() if dir.length() > 0.01 else Vector2.DOWN
+	for t in hittable_targets(origin, reach + 40.0):
+		var pt: Vector2 = t.global_position + Vector2(0, -5)
+		var extra := 0.0
+		if t.get("cfg") != null and (t.cfg as Dictionary).has("radius"):
+			extra = float(t.cfg["radius"])
+			pt = t.global_position + Vector2(0, -10)
+		var to: Vector2 = pt - origin
+		if to.length() > reach + extra:
+			continue
+		if to.length() > 6.0 + extra and absf(d.angle_to(to)) > half_angle:
+			continue
+		out.append(t)
+	return out
+
+
+func break_props(center: Vector2, radius: float) -> void:
+	for b in world.break_at(center, radius + 4.0):
+		_break_prop(b)
 
 
 func melee_hit(center: Vector2, radius: float, damage: int, force: float, _dir: Vector2, _kind: String) -> int:
 	var hits := 0
 	for t in hittable_targets(center, radius):
-		damage_target(t, damage, player.global_position, force)
+		player.deal(t, damage, {"source": "art", "force": force, "can_crit": false})
 		hits += 1
 	for b in world.break_at(center, radius + 4.0):
 		_break_prop(b)
@@ -1670,6 +1714,7 @@ func save_game() -> bool:
 		"achievements": achievements, "stats": stats, "moth": moth_active,
 		"xp": p.xp, "level": p.level, "points": p.skill_points, "focus": p.focus,
 		"classes": p.classes, "nodes": p.class_nodes, "bar": p.skill_bar,
+		"skill_levels": p.skill_levels, "rewards": p.rewards_claimed,
 		"quests": quests, "materials": materials,
 	})
 
@@ -1692,6 +1737,15 @@ func load_game() -> bool:
 	p.classes.assign(d.get("classes", []))
 	p.class_nodes = d.get("nodes", {})
 	p.skill_bar.assign(d.get("bar", []))
+	p.skill_levels = {}
+	var lv: Dictionary = d.get("skill_levels", {})
+	for k in lv:
+		p.skill_levels[String(k)] = clampi(int(lv[k]), 1, ClassBook.SKILL_MAX_LEVEL)
+	p.rewards_claimed = d.get("rewards", {})
+	p._ensure_bar()
+	# older saves: rank rewards for lines already bound
+	for cid in p.classes:
+		p._grant_rank_rewards(cid)
 	quests = d.get("quests", {})
 	materials = d.get("materials", {"wood": 0, "ore": 0, "herb": 0})
 	for material in ["wood", "ore", "herb"]:
@@ -1713,7 +1767,7 @@ func load_game() -> bool:
 	p.health = clampi(int(d.get("health", p.max_health)), 1, p.max_health)
 	p.moontea_charges = int(d.get("tea", 3))
 	p.focus = clampf(float(d.get("focus", float(p.focus_max))), 0.0, float(p.focus_max))
-	p._refresh_skill_bar()
+	p._validate_build()
 	moonseeds = d.get("seeds", [])
 	defeated_bosses = d.get("bosses", [])
 	opened_chests = d.get("chests", [])

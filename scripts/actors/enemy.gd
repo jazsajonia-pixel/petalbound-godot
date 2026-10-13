@@ -101,6 +101,15 @@ func _physics_process(delta: float) -> void:
 		state = "wander"
 	var desired := Vector2.ZERO
 	var speed: float = cfg["speed"]
+	var st := get_node_or_null("Status")
+	if st != null:
+		speed *= st.speed_mult()
+		if st.is_disabled():
+			# frozen / stunned: no thinking, only drift from knockback
+			velocity = knock
+			knock = knock.move_toward(Vector2.ZERO, 900.0 * delta)
+			move_and_slide()
+			return
 	match state:
 		"stagger":
 			if state_t <= 0.0:
@@ -252,7 +261,7 @@ func _emote() -> void:
 		game.emote(self, 17)
 
 
-func hurt(amount: int, from: Vector2, force: float) -> bool:
+func hurt(amount: int, from: Vector2, force: float, info: Dictionary = {}) -> bool:
 	if not alive:
 		return false
 	hp -= amount
@@ -266,12 +275,15 @@ func hurt(amount: int, from: Vector2, force: float) -> bool:
 	mat.set_shader_parameter("flash", 1.0)
 	var tw := create_tween()
 	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("flash", v), 1.0, 0.0, 0.18)
-	game.fx.number(global_position + Vector2(0, -6), str(amount), Color("ffe08a") if amount < 4 else Color("ff9a6b"), amount >= 4)
-	game.fx.spawn("cut", global_position + Vector2(0, -7), randf() * TAU, 0.55, Color(1, 1, 1, 0.9), null, true)
-	game.audio.play("hit1" if amount < 4 else "hit5", 0.12, -4.0, global_position)
+	var dot := String(info.get("source", "")) == "dot"
+	var ncol: Color = info.get("color", Color("ffe08a") if amount < 4 else Color("ff9a6b"))
+	game.fx.damage_number(global_position + Vector2(0, -6), amount, ncol, bool(info.get("crit", false)), dot)
+	if not dot:
+		game.fx.spawn("cut", global_position + Vector2(0, -7), randf() * TAU, 0.55, Color(1, 1, 1, 0.9), null, true)
+		game.audio.play("hit1" if amount < 4 else "hit5", 0.12, -4.0, global_position)
 	if hp <= 0:
 		die()
-	elif state != "lunge":
+	elif state != "lunge" and not dot:
 		state = "stagger"
 		state_t = 0.22
 	return true
@@ -279,6 +291,9 @@ func hurt(amount: int, from: Vector2, force: float) -> bool:
 
 func die() -> void:
 	alive = false
+	var st := get_node_or_null("Status")
+	if st != null:
+		st.clear_all()
 	hp = 0
 	collision_layer = 0
 	collision_mask = 0

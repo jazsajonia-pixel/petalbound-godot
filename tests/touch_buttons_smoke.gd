@@ -3,6 +3,8 @@ extends SceneTree
 ## touch releases only its own input.
 
 func _initialize() -> void:
+	preload("res://scripts/systems/settings.gd").path_override = "user://petalbound_test_settings.cfg"
+	preload("res://scripts/systems/settings.gd").erase()
 	call_deferred("_run_test")
 
 func _touch(hud: Control, index: int, pos: Vector2, pressed: bool) -> void:

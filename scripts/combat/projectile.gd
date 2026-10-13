@@ -2,6 +2,7 @@ extends Node2D
 ## Lightweight projectile: moves, optionally homes, hits the opposing team or stops on solid props.
 
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
+const CD := preload("res://scripts/data/combat_data.gd")
 const FX := "res://assets/packs/ninja_adventure/fx/"
 const KINDS := {
 	"bolt": ["energy_ball.png", 16, Color(1.0, 0.75, 0.95), true],
@@ -24,6 +25,9 @@ var life := 1.5
 var pierce := false
 var radius := 7.0
 var hit_ids: Dictionary = {}
+## Player projectiles resolve hits through this (player.deal) when provided.
+var on_hit: Callable
+var element := ""
 var sprite: AnimatedSprite2D
 var glow: PointLight2D
 var _trail_t := 0.0
@@ -41,6 +45,8 @@ func setup(p_game: Node, d: Dictionary) -> void:
 	life = d.get("life", 1.5)
 	pierce = d.get("pierce", false)
 	radius = d.get("radius", 7.0 if team == "player" else 6.0)
+	on_hit = d.get("on_hit", Callable())
+	element = d.get("element", "")
 	var def: Array = KINDS.get(kind, KINDS["bolt"])
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = AnimLib.strip_frames(FX + def[0], def[1], 12.0, true)
@@ -54,6 +60,8 @@ func setup(p_game: Node, d: Dictionary) -> void:
 	add_child(sprite)
 	sprite.play("play")
 	sprite.rotation = dir.angle()
+	if element != "" and team == "player" and kind == "bolt":
+		sprite.modulate = CD.element_color(element)
 	if def[3] or d.get("glow", false):
 		glow = PointLight2D.new()
 		glow.texture = preload("res://scripts/world/world.gd").light_texture()
@@ -70,15 +78,20 @@ func _physics_process(delta: float) -> void:
 		_pop(false)
 		return
 	if homing > 0.0 and team == "player":
-		var t: Node2D = game.nearest_enemy(global_position, 120.0)
+		var t: Node2D = null
+		var pl = game.player
+		if pl != null and pl.is_valid_target(pl.current_target) and pl.current_target.global_position.distance_to(global_position) < 140.0:
+			t = pl.current_target
+		else:
+			t = game.nearest_enemy(global_position, 120.0)
 		if t:
 			var want := (t.global_position + Vector2(0, -6) - global_position).normalized()
 			dir = dir.lerp(want, clampf(homing * delta, 0.0, 1.0)).normalized()
 	position += dir * speed * delta
 	_trail_t -= delta
-	if _trail_t <= 0.0 and (kind == "bolt" or kind == "fireball" or pierce):
+	if _trail_t <= 0.0 and (kind == "bolt" or kind == "fireball" or kind == "ice_spike" or kind == "energy_ball" or pierce):
 		_trail_t = 0.04
-		game.fx.burst("spark" if kind != "fireball" else "fire", global_position, 1, 10.0, sprite.modulate, 0.0, 0.3)
+		game.fx.burst("spark" if kind != "fireball" else "fire", global_position, 1, 10.0, CD.element_color(element) if element != "" else sprite.modulate, 0.0, 0.3)
 	if game.world.is_solid(global_position + Vector2(0, 6)):
 		_pop(true)
 		return
@@ -88,7 +101,10 @@ func _physics_process(delta: float) -> void:
 			if hit_ids.has(id):
 				continue
 			hit_ids[id] = true
-			game.damage_target(e, damage, global_position - dir * 8.0, 140.0)
+			if on_hit.is_valid():
+				on_hit.call(e, global_position - dir * 8.0)
+			else:
+				game.damage_target(e, damage, global_position - dir * 8.0, 140.0)
 			if not pierce:
 				_pop(true)
 				return

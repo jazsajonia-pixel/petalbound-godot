@@ -12,6 +12,8 @@ var failures: PackedStringArray = []
 
 
 func _initialize() -> void:
+	preload("res://scripts/systems/settings.gd").path_override = "user://petalbound_test_settings.cfg"
+	preload("res://scripts/systems/settings.gd").erase()
 	call_deferred("_run_test")
 
 
@@ -85,7 +87,7 @@ func _run_test() -> void:
 	check(player.level > level0 and player.level >= 5, "XP should raise the level past the combine gate (got %d)." % player.level)
 	check(player.skill_points >= 10, "Levels should grant art points (got %d)." % player.skill_points)
 	check(player.bind_class("warden"), "Binding the Warden line should work.")
-	check(player.classes.has("warden") and player.skill_bar.size() == 2, "Warden arts should fill the skill bar.")
+	check(player.classes.has("warden") and player.skill_bar.size() == 4 and player.skill_bar[0] == "bulwark" and player.skill_bar[1] == "sunder", "Warden arts should fill the first art slots (got %s)." % str(player.skill_bar))
 	check(player.bind_class("nightbloom"), "Combining a second line at level %d should work." % player.level)
 	check(player.classes.size() == 2 and player.skill_bar.size() == 4, "Two lines should fill all four art slots.")
 	check(not player.bind_class("lumimancer"), "A third line should be refused.")

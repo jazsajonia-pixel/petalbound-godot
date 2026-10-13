@@ -120,6 +120,9 @@ func _physics_process(delta: float) -> void:
 	state_t -= delta
 	contact_cd = maxf(0.0, contact_cd - delta)
 	var speed := 42.0 * (1.3 if enraged else 1.0)
+	var st := get_node_or_null("Status")
+	if st != null:
+		speed *= st.speed_mult()
 	var to_p := p.global_position - global_position
 	var desired := Vector2.ZERO
 	match state:
@@ -281,14 +284,14 @@ func _tint(c: Color, amount: float) -> void:
 	mat.set_shader_parameter("tint_amount", amount)
 
 
-func hurt(amount: int, _from: Vector2, _force: float) -> bool:
+func hurt(amount: int, _from: Vector2, _force: float, info: Dictionary = {}) -> bool:
 	if defeated or not awake:
 		return false
 	hp = maxi(0, hp - amount)
 	mat.set_shader_parameter("flash", 1.0)
 	var tw := create_tween()
 	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("flash", v), 1.0, 0.0, 0.16)
-	game.fx.number(global_position + Vector2(0, -24), str(amount), Color("ffd27a"), amount >= 4)
+	game.fx.damage_number(global_position + Vector2(0, -24), amount, info.get("color", Color("ffd27a")), bool(info.get("crit", false)), String(info.get("source", "")) == "dot")
 	game.fx.spawn("cut", global_position + Vector2(randf_range(-8, 8), -14), randf() * TAU, 0.8, Color.WHITE, null, true)
 	game.audio.play("hit2", 0.1, -3.0)
 	if sprite.sprite_frames.has_animation("hit") and state in ["idle", "rest"]:

@@ -8,6 +8,12 @@ const Ach := preload("res://scripts/systems/achievements.gd")
 const ClassBook := preload("res://scripts/data/classdb.gd")
 const QuestSys := preload("res://scripts/systems/quests.gd")
 const NA := "res://assets/packs/ninja_adventure/"
+const TouchButton := preload("res://scripts/ui/touch_button.gd")
+const ControlsScript := preload("res://scripts/ui/combat_controls.gd")
+const Screens := preload("res://scripts/ui/build_screens.gd")
+const Settings := preload("res://scripts/systems/settings.gd")
+const Build := preload("res://scripts/combat/build.gd")
+const CD := preload("res://scripts/data/combat_data.gd")
 
 signal start_requested(new_game: bool)
 signal retry_requested
@@ -62,6 +68,12 @@ var pause_button: Button
 var bag_button: Button
 var map_button: Button
 var show_touch := true
+## Persisted preferences (scripts/systems/settings.gd) and the combat controls.
+var settings: Dictionary = {}
+var controls: Node
+var settings_panel: Control
+var loadout_slot := 0
+var satchel_selected := ""
 
 var pause_overlay: ColorRect
 var pause_panel: PanelContainer
@@ -71,6 +83,8 @@ var inventory_grid: GridContainer
 var inventory_desc: Label
 var inventory_stats: Label
 var inventory_text: Label
+var inventory_detail: VBoxContainer
+var inventory_doll: VBoxContainer
 var map_overlay: ColorRect
 var map_view: Control
 var title_overlay: ColorRect
@@ -160,10 +174,20 @@ func setup(p_game: Node) -> void:
 	heart_tex = AnimLib.tex("ui/heart.png")
 	_make_theme()
 	show_touch = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+	settings = Settings.load_all()
+	match String(settings["touch_controls"]):
+		"on":
+			show_touch = true
+		"off":
+			show_touch = false
 	_make_status()
 	_make_minimap()
 	_make_banners()
 	_make_touch_controls()
+	controls = ControlsScript.new()
+	controls.name = "CombatControls"
+	add_child(controls)
+	controls.setup(self)
 	_make_top_buttons()
 	_make_dialogue()
 	_make_item_banner()
@@ -179,6 +203,7 @@ func setup(p_game: Node) -> void:
 	_make_photo_overlay()
 	_make_end_overlay()
 	_make_title_overlay()
+	apply_settings()
 	_layout_controls()
 	resized.connect(_layout_controls)
 	get_viewport().size_changed.connect(_layout_controls)
@@ -419,11 +444,9 @@ func _make_touch_controls() -> void:
 	touch_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	touch_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(touch_root)
-	attack_button = _touch("attack", "items/weapons/katana.png", 25.0, Color(0.95, 0.45, 0.6))
+	attack_button = _touch("attack", "items/weapons/katana.png", 27.0, Color(0.95, 0.45, 0.6))
 	dash_button = _touch("dash", "ui/skill/boot.png", 16.0, Color(0.55, 0.75, 0.95))
-	jump_button = _touch("jump", "ui/skill/arrow.png", 15.0, Color(0.6, 0.9, 0.75))
-	mothlight_button = _touch("skill", "ui/skill/scroll.png", 14.0, Color(1.0, 0.85, 0.5))
-	guard_button = _touch("guard", "ui/skill/guard.png", 14.0, Color(0.95, 0.7, 0.95))
+	jump_button = _touch("jump", "ui/skill/arrow.png", 13.0, Color(0.6, 0.9, 0.75))
 	heal_button = _touch("heal", "items/lifepot.png", 13.0, Color(0.6, 1.0, 0.7))
 	weapon_button = _touch("switch_weapon", "items/weapons/magicwand.png", 12.0, Color(0.8, 0.8, 0.9))
 	interact_button = _touch("interact", "ui/skill/talk.png", 15.0, Color(1.0, 0.9, 0.6))
@@ -434,10 +457,13 @@ func _make_touch_controls() -> void:
 func _touch(action: String, icon: String, radius: float, color: Color) -> TouchButton:
 	var b := TouchButton.new()
 	b.action = action
+	b.id = action
 	b.icon = AnimLib.tex(icon)
 	b.radius = radius
+	b.base_radius = radius
 	b.tint = color
 	b.size = Vector2(radius * 2.0, radius * 2.0)
+	b.theme = ui_theme
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	touch_root.add_child(b)
 	touch_buttons.append(b)
@@ -553,7 +579,10 @@ func open_shop(stock: Array) -> void:
 		var item: Dictionary = DB.ITEMS[id]
 		var row := _hbox(shop_list, 6)
 		_icon(item["icon"], Vector2(14, 14), row)
-		var l := _label(item["name"], 8, C_TEXT, row)
+		var nm: String = item["name"]
+		if not Build.item_classes(id).is_empty():
+			nm += "  (" + Build.requirement_text(id) + ")"
+		var l := _label(nm, 8, DB.RARITY_COLORS.get(item.get("rarity", "common"), C_TEXT), row)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.custom_minimum_size = Vector2(150, 0)
 		var b := _button("%d" % entry["price"], row, func() -> void: game.buy_item(entry))
@@ -577,94 +606,45 @@ func refresh_shop(stock: Array) -> void:
 # ------------------------------------------------------------------ inventory
 func _make_inventory_overlay() -> void:
 	inventory_overlay = _overlay()
-	inventory_panel = _centered_panel(inventory_overlay, Vector2(380, 0))
-	var v := _vbox(inventory_panel, 6)
+	inventory_panel = _centered_panel(inventory_overlay, Vector2(470, 0))
+	var v := _vbox(inventory_panel, 5)
 	var head := _hbox(v, 6)
 	_label("SATCHEL", 16, C_GOLD, head)
+	_label("tap an item to inspect and compare", 8, C_DIM, head)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
 	_button("FEATS", head, toggle_feats)
 	_button("CLOSE", head, toggle_inventory)
-	var body := _hbox(v, 10)
-	var left := _vbox(body, 4)
-	_label("WEAPONS & GEAR  (tap to equip)", 8, C_DIM, left)
+	var body := _hbox(v, 8)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(212, 262)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body.add_child(scroll)
+	var left := _vbox(scroll, 4)
 	inventory_grid = GridContainer.new()
-	inventory_grid.columns = 6
+	inventory_grid.columns = 7
 	inventory_grid.add_theme_constant_override("h_separation", 3)
 	inventory_grid.add_theme_constant_override("v_separation", 3)
 	left.add_child(inventory_grid)
+	inventory_detail = _vbox(left, 2)
 	inventory_desc = _label("", 8, C_TEXT, left)
-	inventory_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inventory_desc.custom_minimum_size = Vector2(200, 34)
-	var right := _vbox(body, 3)
-	_label("MALLOW", 8, C_GOLD, right)
-	inventory_stats = _label("", 8, C_TEXT, right)
+	var rscroll := ScrollContainer.new()
+	rscroll.custom_minimum_size = Vector2(230, 262)
+	rscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body.add_child(rscroll)
+	inventory_doll = _vbox(rscroll, 2)
+	inventory_stats = _label("", 8, C_TEXT, left)
+	inventory_stats.visible = false
 	inventory_text = inventory_stats
 
 
 func _refresh_inventory() -> void:
-	for c in inventory_grid.get_children():
-		c.queue_free()
-	var p: Node = game.player
-	var ids: Array = []
-	for w in p.weapons_owned:
-		ids.append(w)
-	for i in p.inventory:
-		ids.append(i)
-	for id in ids:
-		var item: Dictionary = DB.ITEMS[id]
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(28, 28)
-		b.icon = AnimLib.tex(item["icon"])
-		b.expand_icon = true
-		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		var equipped: bool = (item["type"] == "weapon" and p.get_weapon_id() == id) or p.equipped.values().has(id)
-		if equipped:
-			b.add_theme_stylebox_override("normal", _box(Color(0.5, 0.26, 0.42), C_GOLD, 1, 3))
-		b.pressed.connect(_on_inventory_item.bind(id))
-		b.mouse_entered.connect(func() -> void: inventory_desc.text = "%s\n%s" % [item["name"], item["desc"]])
-		inventory_grid.add_child(b)
-	var lines := PackedStringArray()
-	lines.append("Hearts  %d / %d" % [ceili(p.health / 4.0), p.max_health / 4])
-	lines.append("Moontea  %d / %d" % [p.moontea_charges, p.moontea_max])
-	lines.append("Petalcoins  %d" % p.petalcoins)
-	lines.append("Moonseeds  %d / 4" % game.moonseeds.size())
-	var fish_count := 0
-	for k in game.stats.get("fish", {}):
-		fish_count += int(game.stats["fish"][k])
-	lines.append("Fish caught  %d" % fish_count)
-	lines.append("Feats  %d / %d" % [game.achievements.size(), Ach.DEFS.size()])
-	lines.append("Level  %d  (%d / %d XP)" % [p.level, p.xp, p.xp_needed()])
-	lines.append("Focus  %d / %d" % [int(p.focus), int(p.focus_max)])
-	var journey_count := 0
-	for qid in game.quests:
-		if int(game.quests[qid]["s"]) == 3:
-			journey_count += 1
-	lines.append("Journeys  %d / %d" % [journey_count, QuestSys.QUESTS.size()])
-	var class_names := PackedStringArray()
-	for cid in p.classes:
-		class_names.append(ClassBook.class_of(cid)["name"])
-	lines.append("Petal Arts  %s" % (" + ".join(class_names) if class_names.size() > 0 else "none — press K"))
-	lines.append("Speed  %d%%" % roundi(p.get_move_speed() / p.WALK_SPEED * 100.0))
-	lines.append("")
-	for slot in DB.EQUIP_SLOTS:
-		var eq: String = p.equipped.get(slot, "")
-		lines.append("%s: %s" % [slot.capitalize(), DB.ITEMS[eq]["name"] if eq != "" else "-"])
-	inventory_stats.text = "\n".join(lines)
+	Screens.refresh_inventory(self)
 
 
 func _on_inventory_item(id: String) -> void:
-	var p: Node = game.player
-	var item: Dictionary = DB.ITEMS[id]
-	if item["type"] == "weapon":
-		p.weapon_index = p.weapons_owned.find(id)
-	else:
-		p.equip(id)
-	inventory_desc.text = "%s\n%s" % [item["name"], item["desc"]]
-	game.audio.play("menu5", 0.02, -4.0)
+	satchel_selected = id
 	_refresh_inventory()
 
 
@@ -681,7 +661,7 @@ func toggle_inventory() -> void:
 	if inventory_overlay.visible:
 		_clear_touch_inputs()
 		_refresh_inventory()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible)
+	game.set_menu_pause(menus_pausing())
 
 
 # ------------------------------------------------------------------ feats
@@ -705,7 +685,7 @@ func toggle_feats() -> void:
 	if feats_overlay.visible:
 		_clear_touch_inputs()
 		_refresh_feats()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible)
+	game.set_menu_pause(menus_pausing())
 
 
 func _refresh_feats() -> void:
@@ -724,7 +704,7 @@ func _refresh_feats() -> void:
 # ------------------------------------------------------------------ petal arts (K)
 func _make_arts_overlay() -> void:
 	arts_overlay = _overlay()
-	arts_panel = _centered_panel(arts_overlay, Vector2(470, 0))
+	arts_panel = _centered_panel(arts_overlay, Vector2(490, 0))
 	var v := _vbox(arts_panel, 5)
 	var head := _hbox(v, 6)
 	arts_head_label = _label("PETAL ARTS", 16, C_GOLD, head)
@@ -733,10 +713,11 @@ func _make_arts_overlay() -> void:
 	head.add_child(sp)
 	_button("CLOSE", head, toggle_arts)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(440, 260)
+	scroll.custom_minimum_size = Vector2(470, 270)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
 	arts_list = _vbox(scroll, 3)
+	arts_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
 func toggle_arts() -> void:
@@ -754,69 +735,21 @@ func toggle_arts() -> void:
 	if arts_overlay.visible:
 		_clear_touch_inputs()
 		_refresh_arts()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible)
+	game.set_menu_pause(menus_pausing())
 
 
 func _refresh_arts() -> void:
-	for c in arts_list.get_children():
-		c.queue_free()
-	var p: Node = game.player
-	arts_head_label.text = "PETAL ARTS   LV %d  XP %d/%d  POINTS %d  FOCUS %d/%d" % [p.level, p.xp, p.xp_needed(), p.skill_points, int(p.focus), int(p.focus_max)]
-	_label("Bind a primary line now; combine with a second line at level %d (max %d). Points come from levels." % [ClassBook.COMBINE_LEVEL, ClassBook.MAX_CLASSES], 8, C_DIM, arts_list)
-	for cid in ClassBook.CLASSES:
-		var def: Dictionary = ClassBook.CLASSES[cid]
-		var bound: bool = p.classes.has(cid)
-		var box := PanelContainer.new()
-		box.add_theme_stylebox_override("panel", _box(Color(0.16, 0.12, 0.22, 0.9) if bound else Color(0.09, 0.07, 0.13, 0.75), def["color"] if bound else C_BORDER, 1, 3))
-		arts_list.add_child(box)
-		var col := _vbox(box, 1)
-		var row := _hbox(col, 6)
-		var icon := _icon(def["icon"], Vector2(14, 14), row)
-		icon.modulate = def["color"]
-		var name_col := _vbox(row, 0)
-		_label("%s — %s" % [def["name"], def["title"]], 10, def["color"] if bound else C_TEXT, name_col)
-		_label(def["desc"], 8, C_DIM, name_col)
-		var sp2 := Control.new()
-		sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(sp2)
-		if bound:
-			_label("BOUND", 8, def["color"], row)
-		else:
-			var can_bind: bool = p.classes.size() < ClassBook.MAX_CLASSES and (p.classes.is_empty() or p.level >= ClassBook.COMBINE_LEVEL)
-			var b := _button("BIND" if can_bind else ("LV %d" % ClassBook.COMBINE_LEVEL if p.classes.size() == 1 else "FULL"), row, func() -> void:
-				if game.player.bind_class(cid):
-					_refresh_arts())
-			b.disabled = not can_bind
-		if not bound:
-			continue
-		var art_names := PackedStringArray()
-		for sid in ClassBook.class_of(cid)["skills"]:
-			art_names.append(ClassBook.skill_of(sid)["name"])
-		var srow := _label("Arts: " + ", ".join(art_names), 8, C_TEXT, col)
-		srow.modulate.a = 0.9
-		for nid in def["tree"]:
-			var node: Dictionary = def["tree"][nid]
-			var nrow := _hbox(col, 4)
-			var owned: bool = (p.class_nodes.get(cid, {}) as Dictionary).has(nid)
-			var needs_met := true
-			for need in node.get("needs", []):
-				if not (p.class_nodes.get(cid, {}) as Dictionary).has(need):
-					needs_met = false
-			var l := _label(("✿ " if owned else "· ") + node["name"], 8, def["color"] if owned else C_TEXT, nrow)
-			l.custom_minimum_size = Vector2(96, 10)
-			var d := _label(node["desc"], 8, C_DIM if owned or needs_met else Color(0.45, 0.42, 0.5), nrow)
-			d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var sp3 := Control.new()
-			sp3.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			nrow.add_child(sp3)
-			if owned:
-				_label("LEARNED", 8, C_GOLD, nrow)
-			else:
-				var bb := _button("+ POINT", nrow, func() -> void:
-					if game.player.spend_node(cid, nid):
-						_refresh_arts())
-				bb.disabled = not needs_met or p.skill_points < 1
-	_label("Arts cast with keys 1-4 when bound. K toggles this page, H lists journeys.", 8, C_DIM, arts_list)
+	Screens.refresh_arts(self)
+
+
+## Open the arts page with a slot preselected (tapping an empty art button).
+func open_loadout(slot: int) -> void:
+	_clear_touch_inputs()
+	loadout_slot = clampi(slot, 0, 3)
+	if not arts_overlay.visible:
+		toggle_arts()
+	else:
+		_refresh_arts()
 
 
 # ------------------------------------------------------------------ journeys (H)
@@ -852,7 +785,7 @@ func toggle_journeys() -> void:
 	if journeys_overlay.visible:
 		_clear_touch_inputs()
 		_refresh_journeys()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible)
+	game.set_menu_pause(menus_pausing())
 
 
 func _refresh_journeys() -> void:
@@ -913,6 +846,11 @@ func _refresh_skill_bar() -> void:
 			var sid: String = p.skill_bar[i]
 			var def: Dictionary = ClassBook.skill_of(sid)
 			s["panel"].visible = true
+			if def.is_empty():
+				s["icon"].texture = null
+				s["cd"].text = s["key"]
+				s["panel"].modulate = Color(0.55, 0.55, 0.6, 0.55)
+				continue
 			s["icon"].texture = AnimLib.tex(def["icon"])
 			var cdv := float(p.skill_cd.get(sid, 0.0))
 			if cdv > 0.05:
@@ -953,42 +891,91 @@ func toggle_map() -> void:
 	if map_overlay.visible:
 		_clear_touch_inputs()
 		map_view.queue_redraw()
-	game.set_menu_pause(inventory_overlay.visible or map_overlay.visible or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible)
+	game.set_menu_pause(menus_pausing())
 
 
 # ------------------------------------------------------------------ pause / settings
 func _make_pause_overlay() -> void:
 	pause_overlay = _overlay()
-	pause_panel = _centered_panel(pause_overlay, Vector2(300, 200))
-	var v := _vbox(pause_panel, 5)
-	var t := _label("PAUSED", 16, C_GOLD, v)
+	pause_panel = _centered_panel(pause_overlay, Vector2(330, 0))
+	var v := _vbox(pause_panel, 4)
+	var head := _hbox(v, 6)
+	var t := _label("PAUSED", 16, C_GOLD, head)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var resume := _button("RESUME", v, func() -> void: set_game_paused(false))
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	var resume := _button("RESUME", head, func() -> void: set_game_paused(false))
 	resume.name = "ResumeButton"
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(310, 220)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(scroll)
+	var body := _vbox(scroll, 3)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# --- controls
+	_label("CONTROLS", 8, C_GOLD, body)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 4)
-	v.add_child(grid)
-	deadzone_label = _label("DEAD ZONE  8%", 8, C_TEXT, grid)
-	deadzone_slider = _slider(0.0, 0.35, joystick_deadzone, 0.01, grid)
+	grid.add_theme_constant_override("v_separation", 3)
+	body.add_child(grid)
+	_label("JOYSTICK", 8, C_TEXT, grid)
+	_choice(grid, "joystick_mode", ["floating", "fixed"], ["FLOATING", "FIXED"])
+	deadzone_label = _label("DEAD ZONE  %d%%" % roundi(float(settings["joystick_deadzone"]) * 100.0), 8, C_TEXT, grid)
+	deadzone_slider = _slider(0.0, 0.35, float(settings["joystick_deadzone"]), 0.01, grid)
 	deadzone_slider.value_changed.connect(_on_deadzone_changed)
-	sensitivity_label = _label("SENSITIVITY  1.00x", 8, C_TEXT, grid)
-	sensitivity_slider = _slider(0.6, 1.8, joystick_sensitivity, 0.05, grid)
+	sensitivity_label = _label("SENSITIVITY  %.2fx" % float(settings["joystick_sensitivity"]), 8, C_TEXT, grid)
+	sensitivity_slider = _slider(0.6, 1.8, float(settings["joystick_sensitivity"]), 0.05, grid)
 	sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
-	_label("MUSIC", 8, C_TEXT, grid)
-	music_slider = _slider(0.0, 1.0, 0.7, 0.05, grid)
+	_label("TOUCH CONTROLS", 8, C_TEXT, grid)
+	touch_toggle = _choice(grid, "touch_controls", ["auto", "on", "off"], ["AUTO", "ON", "OFF"])
+	_setting_slider(grid, "HUD SCALE", "hud_scale", 0.75, 1.3, 0.05, true)
+	_setting_slider(grid, "BUTTON SIZE", "button_size", 0.8, 1.35, 0.05, true)
+	_setting_slider(grid, "HUD OPACITY", "hud_opacity", 0.3, 1.0, 0.05, true)
+	var erow := _hbox(body, 4)
+	_button("EDIT HUD LAYOUT", erow, func() -> void: controls.start_edit())
+	_button("RESET LAYOUT", erow, func() -> void:
+		controls.reset_layout()
+		_sync_settings_widgets())
+	# --- combat
+	_label("COMBAT", 8, C_GOLD, body)
+	var g2 := GridContainer.new()
+	g2.columns = 2
+	g2.add_theme_constant_override("h_separation", 8)
+	g2.add_theme_constant_override("v_separation", 3)
+	body.add_child(g2)
+	_label("AUTO-TARGET", 8, C_TEXT, g2)
+	_toggle(g2, "auto_target")
+	_label("AIM ASSIST", 8, C_TEXT, g2)
+	_toggle(g2, "aim_assist")
+	_setting_slider(g2, "ATTACK AREA", "attack_indicator", 0.0, 1.0, 0.05, false)
+	_label("DAMAGE NUMBERS", 8, C_TEXT, g2)
+	_toggle(g2, "damage_numbers")
+	# --- audio & video
+	_label("AUDIO & VIDEO", 8, C_GOLD, body)
+	var g3 := GridContainer.new()
+	g3.columns = 2
+	g3.add_theme_constant_override("h_separation", 8)
+	g3.add_theme_constant_override("v_separation", 3)
+	body.add_child(g3)
+	_label("MUSIC", 8, C_TEXT, g3)
+	music_slider = _slider(0.0, 1.0, float(settings["music_volume"]), 0.05, g3)
 	music_slider.value_changed.connect(func(x: float) -> void:
-		game.audio.music_volume = x
-		game.audio.apply_volumes())
-	_label("EFFECTS", 8, C_TEXT, grid)
-	sfx_slider = _slider(0.0, 1.0, 0.85, 0.05, grid)
+		settings["music_volume"] = x
+		apply_settings()
+		save_settings())
+	_label("EFFECTS", 8, C_TEXT, g3)
+	sfx_slider = _slider(0.0, 1.0, float(settings["sfx_volume"]), 0.05, g3)
 	sfx_slider.value_changed.connect(func(x: float) -> void:
-		game.audio.sfx_volume = x
-		game.audio.apply_volumes())
-	var row := _hbox(v, 4)
-	quality_button = _button("FX: HIGH", row, _toggle_quality)
-	touch_toggle = _button("TOUCH: ON", row, _toggle_touch)
+		settings["sfx_volume"] = x
+		apply_settings()
+		save_settings())
+	_setting_slider(g3, "SCREEN SHAKE", "screen_shake", 0.0, 1.0, 0.1, false)
+	_setting_slider(g3, "FX INTENSITY", "fx_intensity", 0.25, 1.0, 0.05, false)
+	_label("LIGHTING", 8, C_TEXT, g3)
+	quality_button = _choice(g3, "quality_high", [true, false], ["HIGH", "LOW (FAST)"])
+	_label("Settings save automatically.", 8, C_DIM, body)
 	var row2 := _hbox(v, 4)
 	_button("PHOTO MODE", row2, func() -> void:
 		set_game_paused(false)
@@ -1002,6 +989,89 @@ func _make_pause_overlay() -> void:
 		game.return_to_title())
 
 
+var _setting_widgets: Array = []
+
+
+## Cycling choice button bound to a settings key.
+func _choice(parent: Control, key: String, values: Array, labels: Array) -> Button:
+	var b := _button("", parent, func() -> void: pass)
+	var refresh := func() -> void:
+		var i := values.find(settings[key])
+		b.text = labels[maxi(0, i)]
+	b.pressed.connect(func() -> void:
+		var i := values.find(settings[key])
+		settings[key] = values[(i + 1) % values.size()]
+		refresh.call()
+		apply_settings()
+		_layout_controls()
+		save_settings())
+	refresh.call()
+	_setting_widgets.append(refresh)
+	return b
+
+
+func _toggle(parent: Control, key: String) -> Button:
+	return _choice(parent, key, [true, false], ["ON", "OFF"])
+
+
+func _setting_slider(parent: Control, title: String, key: String, mn: float, mx: float, step: float, relayout: bool) -> HSlider:
+	var l := _label("%s  %d%%" % [title, roundi(float(settings[key]) * 100.0)], 8, C_TEXT, parent)
+	var sl := _slider(mn, mx, float(settings[key]), step, parent)
+	sl.value_changed.connect(func(x: float) -> void:
+		settings[key] = x
+		l.text = "%s  %d%%" % [title, roundi(x * 100.0)]
+		apply_settings()
+		if relayout:
+			_layout_controls()
+		save_settings())
+	_setting_widgets.append(func() -> void:
+		sl.set_value_no_signal(float(settings[key]))
+		l.text = "%s  %d%%" % [title, roundi(float(settings[key]) * 100.0)])
+	return sl
+
+
+func _sync_settings_widgets() -> void:
+	for f in _setting_widgets:
+		f.call()
+
+
+## Push settings into the systems that use them.
+func apply_settings() -> void:
+	joystick_deadzone = float(settings["joystick_deadzone"])
+	joystick_sensitivity = float(settings["joystick_sensitivity"])
+	match String(settings["touch_controls"]):
+		"on":
+			show_touch = true
+		"off":
+			show_touch = false
+		_:
+			show_touch = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+	if game == null:
+		return
+	if game.get("fx") != null:
+		game.fx.intensity = float(settings["fx_intensity"])
+		game.fx.shake_scale = float(settings["screen_shake"])
+		game.fx.numbers_enabled = bool(settings["damage_numbers"])
+	if game.get("audio") != null:
+		game.audio.music_volume = float(settings["music_volume"])
+		game.audio.sfx_volume = float(settings["sfx_volume"])
+		game.audio.apply_volumes()
+	if game.get("environment") != null and game.environment.quality_high != bool(settings["quality_high"]):
+		game.environment.set_quality(bool(settings["quality_high"]))
+	if game.get("player") != null:
+		game.player.auto_target_enabled = bool(settings["auto_target"])
+		game.player.aim_assist = bool(settings["aim_assist"])
+		game.player.attack_indicator_opacity = float(settings["attack_indicator"])
+		if not game.player.auto_target_enabled:
+			game.player.current_target = null
+	for b in touch_buttons:
+		b.opacity = float(settings["hud_opacity"])
+
+
+func save_settings() -> void:
+	Settings.save_all(settings)
+
+
 func _slider(minimum: float, maximum: float, initial: float, step: float, parent: Control) -> HSlider:
 	var s := HSlider.new()
 	s.min_value = minimum
@@ -1012,16 +1082,6 @@ func _slider(minimum: float, maximum: float, initial: float, step: float, parent
 	s.custom_minimum_size = Vector2(120, 12)
 	parent.add_child(s)
 	return s
-
-
-func _toggle_quality() -> void:
-	game.environment.set_quality(not game.environment.quality_high)
-	quality_button.text = "FX: HIGH" if game.environment.quality_high else "FX: LOW"
-
-
-func _toggle_touch() -> void:
-	show_touch = not show_touch
-	touch_toggle.text = "TOUCH: ON" if show_touch else "TOUCH: OFF"
 
 
 func toggle_pause() -> void:
@@ -1055,7 +1115,8 @@ func set_game_paused(paused: bool) -> void:
 	if paused:
 		_clear_touch_inputs()
 	pause_overlay.visible = paused
-	touch_toggle.text = "TOUCH: ON" if show_touch else "TOUCH: OFF"
+	if paused:
+		_sync_settings_widgets()
 	get_tree().paused = paused
 
 
@@ -1090,6 +1151,8 @@ func _enter_photo_mode() -> void:
 	photo_dragging = false
 	photo_saved_visible.clear()
 	for n in get_children():
+		if not n is CanvasItem:
+			continue
 		photo_saved_visible[n] = n.visible
 		if n != photo_overlay:
 			n.visible = false
@@ -1303,8 +1366,13 @@ func _on_dialogue_gui(event: InputEvent) -> void:
 		accept_event()
 
 
+## True while any overlay that pauses the world is open.
+func menus_pausing() -> bool:
+	return inventory_overlay.visible or map_overlay.visible or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible or (controls != null and controls.edit_active)
+
+
 func any_menu_open() -> bool:
-	return title_overlay.visible or pause_overlay.visible or inventory_overlay.visible or map_overlay.visible or end_overlay.visible or shop_overlay.visible or dialogue_open or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible or photo_active
+	return (controls != null and controls.edit_active) or title_overlay.visible or pause_overlay.visible or inventory_overlay.visible or map_overlay.visible or end_overlay.visible or shop_overlay.visible or dialogue_open or feats_overlay.visible or arts_overlay.visible or journeys_overlay.visible or photo_active
 
 
 # ------------------------------------------------------------------ layout
@@ -1347,22 +1415,15 @@ func _layout_controls() -> void:
 	feat_banner.position = Vector2(safe_rect.get_center().x - 130, safe_rect.position.y + 104)
 	photo_row.position = Vector2(safe_rect.get_center().x - 110, safe_rect.position.y + 6)
 	photo_status.position = Vector2(safe_rect.get_center().x - 60, safe_rect.position.y + 30)
-	# touch cluster (bottom right)
-	var br := safe_rect.end
-	attack_button.center_at(br + Vector2(-34, -34))
-	dash_button.center_at(br + Vector2(-82, -22))
-	jump_button.center_at(br + Vector2(-34, -84))
-	mothlight_button.center_at(br + Vector2(-122, -24))
-	guard_button.center_at(br + Vector2(-84, -66))
-	heal_button.center_at(br + Vector2(-70, -108))
-	weapon_button.center_at(br + Vector2(-24, -124))
-	interact_button.center_at(br + Vector2(-128, -64))
-	joystick_radius = clampf(minf(safe_rect.size.x * 0.07, safe_rect.size.y * 0.12), 26.0, 42.0)
+	# touch cluster (bottom right) + joystick (bottom left); scaled, saved offsets
+	joystick_radius = clampf(minf(safe_rect.size.x * 0.07, safe_rect.size.y * 0.12), 26.0, 42.0) * float(settings.get("hud_scale", 1.0))
 	joystick_knob_radius = maxf(10.0, joystick_radius * 0.4)
-	joystick_home = Vector2(safe_rect.position.x + joystick_radius + 16, safe_rect.end.y - joystick_radius - 14)
-	sprint_button.center_at(joystick_home + Vector2(0, -joystick_radius - 26))
-	if joystick_touch_index == -1:
-		joystick_center = joystick_home
+	if controls != null:
+		controls.apply_layout()
+		if controls.edit_active:
+			controls._place_edit_panel()
+	if settings_panel != null:
+		settings_panel.position = Vector2(safe_rect.get_center().x - settings_panel.size.x / 2.0, safe_rect.position.y + 4)
 	queue_redraw()
 
 
@@ -1401,12 +1462,14 @@ func _process(delta: float) -> void:
 	weapon_icon.texture = AnimLib.tex(DB.ITEMS[wid]["icon"])
 	weapon_label.text = p.get_weapon_name()
 	attack_button.icon = weapon_icon.texture
-	var next_w: String = p.weapons_owned[(p.weapon_index + 1) % p.weapons_owned.size()]
+	var next_w: String = p.get_weapon_id()
+	for step in range(1, p.weapons_owned.size() + 1):
+		var cand: String = p.weapons_owned[(p.weapon_index + step) % p.weapons_owned.size()]
+		if Build.can_equip(p, cand):
+			next_w = cand
+			break
 	weapon_button.icon = AnimLib.tex(DB.ITEMS[next_w]["icon"])
-	mothlight_button.cooldown = p.mothlight_cooldown / 6.0
-	guard_button.cooldown = p.guard_cooldown / 10.0
-	heal_button.cooldown = 0.0 if p.moontea_charges > 0 else 1.0
-	heal_button.label = str(p.moontea_charges)
+	controls.update_buttons()
 	quest_label.text = game.quest_text()
 	journey_label.text = game.journey_text()
 	_refresh_skill_bar()
@@ -1427,12 +1490,14 @@ func _process(delta: float) -> void:
 		if dialogue_text.visible_characters >= dialogue_text.text.length():
 			dialogue_text.visible_characters = -1
 	var playing: bool = game.game_started and not any_menu_open()
-	touch_root.visible = show_touch and playing
+	touch_root.visible = show_touch and (playing or controls.edit_active)
 	for n in [hearts_box, stamina_bar, quest_label, journey_label, xp_bar, focus_bar, skill_row, minimap, get_node("CounterRow"), get_node("SeedRow"), get_node("WeaponBox"), pause_button, bag_button, map_button, arts_button]:
 		if photo_active:
 			n.visible = false
 		else:
 			n.visible = game.game_started and not title_overlay.visible
+	# keyboard skill bar only without touch controls (touch has its own art buttons)
+	skill_row.visible = skill_row.visible and not show_touch
 	minimap.queue_redraw()
 	queue_redraw()
 	if dialogue_open and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("attack")):
@@ -1484,6 +1549,9 @@ func _input(event: InputEvent) -> void:
 			game.camera.global_position -= event.relative / game.camera.zoom.x
 			get_viewport().set_input_as_handled()
 		return
+	if controls != null and controls.edit_active:
+		controls.edit_input(event)
+		return
 	if not get_tree().paused and event.is_action_pressed("photo") and not any_menu_open():
 		toggle_photo_mode()
 		get_viewport().set_input_as_handled()
@@ -1506,6 +1574,9 @@ func _input(event: InputEvent) -> void:
 		toggle_journeys()
 		get_viewport().set_input_as_handled()
 		return
+	if controls != null and controls.edit_active:
+		controls.edit_input(event)
+		return
 	if any_menu_open():
 		return
 	if event is InputEventScreenTouch:
@@ -1513,12 +1584,17 @@ func _input(event: InputEvent) -> void:
 		if touch.pressed:
 			var b := _button_at(touch.position)
 			if b != null:
-				_press_touch(b, touch.index)
+				_press_touch(b, touch.index, touch.position)
 				get_viewport().set_input_as_handled()
 			elif joystick_touch_index == -1 and _can_start_joystick(touch.position):
 				joystick_touch_index = touch.index
-				joystick_center = touch.position
+				if String(settings.get("joystick_mode", "floating")) == "fixed":
+					joystick_center = joystick_home
+				else:
+					joystick_center = touch.position
 				_update_joystick(touch.position)
+				get_viewport().set_input_as_handled()
+			elif _try_lock_target(touch.position):
 				get_viewport().set_input_as_handled()
 		else:
 			if touch.index == joystick_touch_index:
@@ -1532,16 +1608,22 @@ func _input(event: InputEvent) -> void:
 		if drag.index == joystick_touch_index:
 			_update_joystick(drag.position)
 			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION and show_touch:
+		elif controls.drag(drag.index, drag.position):
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
-				var b2 := _button_at(mb.position)
+				var b2 := _button_at(mb.position) if show_touch else null
 				if b2 != null:
-					_press_touch(b2, 100)
+					_press_touch(b2, 100, mb.position)
+					get_viewport().set_input_as_handled()
+				elif _try_lock_target(mb.position):
 					get_viewport().set_input_as_handled()
 			elif touch_held.has(100):
 				_release_touch(100)
+	elif event is InputEventMouseMotion and touch_held.has(100) and event.device != InputEvent.DEVICE_ID_EMULATION:
+		controls.drag(100, (event as InputEventMouseMotion).position)
 
 
 func _button_at(point: Vector2) -> TouchButton:
@@ -1553,7 +1635,21 @@ func _button_at(point: Vector2) -> TouchButton:
 	return null
 
 
-func _press_touch(b: TouchButton, index: int) -> void:
+## Tap on an enemy (outside controls) to lock it as the target; tap again to clear.
+func _try_lock_target(screen_pos: Vector2) -> bool:
+	if game == null or not game.game_started or game.player == null:
+		return false
+	var world_pos: Vector2 = game.get_viewport().get_canvas_transform().affine_inverse() * screen_pos
+	var had: bool = game.player.manual_target != null
+	var locked: bool = game.player.lock_target_at(world_pos + Vector2(0, 4))
+	return locked or had
+
+
+func _press_touch(b: TouchButton, index: int, pos := Vector2.INF) -> void:
+	if b.slot >= 0:
+		controls.press_skill(b, index, b.center() if pos == Vector2.INF else pos)
+		queue_redraw()
+		return
 	touch_held[index] = b
 	b.pressed_now = true
 	Input.action_press(b.action)
@@ -1567,16 +1663,24 @@ func _release_touch(index: int) -> void:
 	var b: TouchButton = touch_held[index]
 	touch_held.erase(index)
 	b.pressed_now = false
-	Input.action_release(b.action)
+	if controls.release(index):
+		return
+	if b.action != "":
+		Input.action_release(b.action)
 
 
 func _can_start_joystick(point: Vector2) -> bool:
+	if String(settings.get("joystick_mode", "floating")) == "fixed":
+		return point.distance_to(joystick_home) <= joystick_radius * 2.2
 	return point.x <= safe_rect.position.x + safe_rect.size.x * 0.48 and point.y >= safe_rect.position.y + safe_rect.size.y * 0.30
 
 
 func _update_joystick(point: Vector2) -> void:
 	var offset := point - joystick_center
-	if offset.length() > joystick_radius * 1.4:
+	if String(settings.get("joystick_mode", "floating")) == "fixed":
+		joystick_center = joystick_home
+		offset = point - joystick_center
+	elif offset.length() > joystick_radius * 1.4:
 		joystick_center = point - offset.normalized() * joystick_radius * 1.4
 		offset = point - joystick_center
 	var raw_strength := minf(offset.length() / maxf(1.0, joystick_radius), 1.0)
@@ -1624,10 +1728,12 @@ func _set_axis_action(action: String, strength: float) -> void:
 
 
 func _clear_touch_inputs() -> void:
+	if controls != null:
+		controls.cancel_aim()
 	_end_joystick()
 	for idx in touch_held.keys():
 		_release_touch(idx)
-	for action in ["dash", "attack", "skill", "guard", "heal", "interact", "jump", "sprint", "switch_weapon"]:
+	for action in ["dash", "attack", "skill", "guard", "heal", "interact", "jump", "sprint", "switch_weapon", "relic"]:
 		if InputMap.has_action(action):
 			Input.action_release(action)
 
@@ -1639,6 +1745,8 @@ func _notification(what: int) -> void:
 
 func _on_deadzone_changed(value: float) -> void:
 	joystick_deadzone = value
+	settings["joystick_deadzone"] = value
+	save_settings()
 	deadzone_label.text = "DEAD ZONE  %d%%" % roundi(value * 100.0)
 	if joystick_touch_index != -1:
 		_update_joystick(joystick_center + joystick_raw_direction * joystick_raw_strength * joystick_radius)
@@ -1646,6 +1754,8 @@ func _on_deadzone_changed(value: float) -> void:
 
 func _on_sensitivity_changed(value: float) -> void:
 	joystick_sensitivity = value
+	settings["joystick_sensitivity"] = value
+	save_settings()
 	sensitivity_label.text = "SENSITIVITY  %.2fx" % value
 	if joystick_touch_index != -1:
 		_update_joystick(joystick_center + joystick_raw_direction * joystick_raw_strength * joystick_radius)
@@ -1655,63 +1765,20 @@ func _draw() -> void:
 	if not touch_root.visible:
 		return
 	var center := joystick_center if joystick_touch_index != -1 else joystick_home
-	draw_circle(center, joystick_radius + 3.0, Color(0.08, 0.05, 0.12, 0.25))
-	draw_circle(center, joystick_radius, Color(0.2, 0.14, 0.26, 0.42))
-	draw_arc(center, joystick_radius, 0.0, TAU, 40, Color(0.98, 0.78, 0.88, 0.6), 1.5)
+	var op := float(settings.get("hud_opacity", 0.9))
+	draw_circle(center, joystick_radius + 3.0, Color(0.08, 0.05, 0.12, 0.25 * op))
+	draw_circle(center, joystick_radius, Color(0.2, 0.14, 0.26, 0.42 * op))
+	draw_arc(center, joystick_radius, 0.0, TAU, 40, Color(0.98, 0.78, 0.88, 0.6 * op), 1.5)
+	if String(settings.get("joystick_mode", "floating")) == "fixed":
+		draw_arc(center, joystick_radius * 0.55, 0.0, TAU, 24, Color(0.98, 0.78, 0.88, 0.25 * op), 1.0)
 	var knob := center + joystick_vector * joystick_radius
-	draw_circle(knob, joystick_knob_radius, Color(0.86, 0.48, 0.66, 0.8))
-	draw_arc(knob, joystick_knob_radius, 0.0, TAU, 28, Color(1.0, 0.94, 0.86, 0.9), 1.5)
+	draw_circle(knob, joystick_knob_radius, Color(0.86, 0.48, 0.66, 0.8 * op))
+	draw_arc(knob, joystick_knob_radius, 0.0, TAU, 28, Color(1.0, 0.94, 0.86, 0.9 * op), 1.5)
+	if controls != null and controls.edit_active:
+		draw_arc(center, joystick_radius + 4.0, 0.0, TAU, 40, Color(1.0, 0.85, 0.4, 0.95), 1.0)
 
 
 # ------------------------------------------------------------------ inner widgets
-class TouchButton:
-	extends Control
-	var action := ""
-	var icon: Texture2D:
-		set(v):
-			icon = v
-			queue_redraw()
-	var radius := 16.0
-	var tint := Color.WHITE
-	var pressed_now := false:
-		set(v):
-			pressed_now = v
-			queue_redraw()
-	var cooldown := 0.0:
-		set(v):
-			if absf(v - cooldown) > 0.01:
-				queue_redraw()
-			cooldown = v
-	var label := "":
-		set(v):
-			if v != label:
-				label = v
-				queue_redraw()
-
-	func center_at(p: Vector2) -> void:
-		position = p - Vector2(radius, radius)
-
-	func hit(p: Vector2) -> bool:
-		return p.distance_to(position + Vector2(radius, radius)) <= radius + 4.0
-
-	func _draw() -> void:
-		var c := Vector2(radius, radius)
-		draw_circle(c, radius + 1.5, Color(0.06, 0.04, 0.1, 0.35))
-		var bg := Color(0.18, 0.12, 0.24, 0.62) if not pressed_now else Color(tint.r * 0.6, tint.g * 0.4, tint.b * 0.6, 0.85)
-		draw_circle(c, radius, bg)
-		draw_arc(c, radius, 0.0, TAU, 36, Color(tint.r, tint.g, tint.b, 0.85), 1.5)
-		if icon:
-			var s := minf(radius * 1.15, 22.0)
-			var sz := icon.get_size()
-			var k := s / maxf(sz.x, sz.y)
-			draw_texture_rect(icon, Rect2(c - sz * k / 2.0, sz * k), false, Color(1, 1, 1, 0.95 if cooldown <= 0.0 else 0.45))
-		if cooldown > 0.0:
-			draw_arc(c, radius - 2.5, -PI / 2.0, -PI / 2.0 + TAU * clampf(cooldown, 0.0, 1.0), 32, Color(0.05, 0.03, 0.08, 0.75), 4.0)
-		if label != "":
-			var f := get_theme_default_font()
-			draw_string(f, c + Vector2(-radius, radius + 9), label, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, 8, Color(1, 0.95, 0.85))
-
-
 class StaminaBar:
 	extends Control
 	var hud: Control

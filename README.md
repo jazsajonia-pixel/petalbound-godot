@@ -15,21 +15,38 @@ Open `project.godot` in Godot 4.3 or newer (validated on 4.7.2). The game uses t
 
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
-| Move | WASD / arrows | Left stick / D-pad | Floating joystick (lower left) |
+| Move | WASD / arrows | Left stick / D-pad | Joystick (lower left) — floating or fixed, see Settings |
 | Sprint (uses stamina) | Shift | L2 | SPRINT button, or push the stick to its edge |
-| Roll (i-frames, early-window parry) | Space | B | Roll button |
+| Dodge (directional, i-frames, early-window parry, 0.55s cooldown) | Space | B | Dodge button |
 | Jump (hop low props, plunge attack) | C / L | Y | Jump button |
-| Attack / combo / charge bow | J / Enter | A / X | Large weapon button |
-| Petal Arts (bind, trees) | K | – | ARTS button |
-| Cast arts 1-4 | 1 · 2 · 3 · 4 | – | ARTS page |
+| Basic attack (auto-targets; pattern depends on weapon) | J / Enter | A / X | Large weapon button |
+| Arts slots 1-4 (tap arts fire at once; aimed arts smart-cast) | 1 · 2 · 3 · 4 | – | Four art buttons: tap, or drag to aim and release; slide back onto the button to cancel |
+| Relic active (accessory slot, not an art slot) | V / 5 | – | Relic button (shows when a relic is worn) |
+| Moontea healing flask | R | – | Flask button (charges badge) |
+| Mothlight · Petalguard (also slottable arts) | F · G | L1 · R2 | Art slots |
+| Lock / cycle target | T, or click an enemy | – | Tap an enemy (tap again to unlock) |
+| Petal Arts (loadout, upgrades, lines) | K | – | ARTS button, or tap an empty art slot |
 | Journeys (quest log) | H | – | Pause menu → ARTS page |
 | Swap weapon | Q / Tab | R1 | Weapon button |
-| Mothlight · Petalguard · Moontea | F · G · R | L1 · R2 · – | Skill buttons |
 | Talk / open / rest / gather / fish | E | A | Context button |
 | Fieldcraft (craft next available upgrade) | U | – | – |
-| Satchel (equip gear) · World map | I / B · M | Select | BAG · MAP |
+| Satchel (inspect, compare, equip) · World map | I / B · M | Select | BAG · MAP |
 | Photo mode (drag to pan, zoom, capture) | F9 | – | Pause menu → PHOTO MODE |
-| Pause / settings | Esc / P | Start | ❚❚ |
+| Pause / settings / HUD editor | Esc / P | Start | ❚❚ |
+
+## Combat, classes and gear
+
+- **Auto-targeting.** Mallow picks the best nearby foe (distance, facing, bosses first, sticky current target) ten times a second, retargets when it dies, and shows a bracket under it plus a small target frame with its health and statuses. Tap/click a foe to lock it (gold bracket); auto-target and aim assist can be turned off in Settings.
+- **Always-on attack area.** A soft ground shape under Mallow is the held weapon's real hit area — an arc for blades, daggers and scythes, an impact circle for the hammer, a projectile lane for staves and bows. The hit test uses exactly this shape. It brightens when a target is inside it.
+- **Weapons** (`scripts/data/combat_data.gd`): Thornblade/Duskfan three-hit combos (Briar Venom / Biting Dusk), Nightfang twin daggers (fast two-cut combo, Ambush crits), Grave Scythe wide sweep (Reap: curse, heal on cursed kills), Ironroot Hammer delayed slam (Quake: chill), Bloomstaff homing arcane bolts (Moon Resonance), Moonglass Staff prism bolts cycling fire/frost/storm, Gale Bow charged piercing shots (Steady Aim).
+- **Seven class lines, three arts each.** The third art of each line unlocks at line rank 3 (rank = 1 + tree nodes learned). Bind a primary line, combine a secondary at level 5; arts from both can be mixed freely in the four slots. The primary line gives full rank attributes, the secondary half. Releasing a line keeps its tree, art levels and gear; gear the remaining lines cannot use returns to the satchel. Arts upgrade to level 3 with art points (more damage, -10% cooldown per level; level N needs line rank N).
+- **Equipment slots:** head, chest, arms, legs, feet, cloak, charm, ring and relic. Every item has a rarity, class requirement, stats and description. Line gear unlocks as line ranks rise; hybrid gear (e.g. Twilight Reaper Mantle for Nightbloom + Gravetender, Spellblade Sash for Nightbloom + Lumimancer) needs both lines. The satchel compares an item with what is worn and explains why something can't be equipped. Stats are always recomputed from scratch, so bonuses never stack twice.
+- **Elements and statuses** (`scripts/combat/status.gd`): burn (DoT, 3 stacks), poison (DoT, 5 stacks), chill (slow; three chills freeze, then freeze immunity), stun (brief, with immunity), curse/expose (+25%/+20% damage taken, don't stack). Fire foes ignore burn, frost foes ignore chill, skulls ignore poison; bosses take half duration and can't be frozen or stunned.
+- **Feedback:** coloured damage numbers (gold and larger for crits), hit sparks, lightning arcs, projectile trails, zone rings with a remaining-time sweep, status pips over enemies, active-buff readout, cooldown sweeps with seconds, ready flashes, and dimmed buttons when focus or stamina is short. Screen shake, FX intensity and damage numbers are adjustable.
+
+## Settings and HUD editor
+
+Pause → settings (saved to `user://petalbound_settings.cfg`, separate from the journey save): joystick mode (floating / fixed), dead zone, sensitivity, touch controls (auto/on/off), HUD scale, button size, HUD opacity, auto-target, aim assist, attack-area opacity, damage numbers, music, effects, screen shake, FX intensity and lighting quality. **EDIT HUD LAYOUT** pauses the game and lets you drag every touch control and the joystick; drops that overlap another control are refused, controls are clamped on-screen, and **RESET LAYOUT** restores the defaults. Nothing fires while editing.
 
 ## What's in the world
 
@@ -83,7 +100,8 @@ godot --headless --editor --path . --quit          # import + parse
 for t in tests/*.gd; do godot --headless --path . -s "$t"; done
 ```
 
-There are seven smoke tests:
+There are eight smoke tests:
+- `combat_overhaul_smoke` (230 checks): every class/skill/item combination, auto-targeting and retargeting, the attack indicator, weapon shapes and passives, the four art slots with tap, aimed and cancelled touch casts, every art of every line, unlocks and upgrades, hybrid gear, all nine equipment slots and stat recalculation, dodge, flask, statuses and resistances, relics, fixed and floating joysticks, the HUD editor, settings persistence, save/load and loading a pre-overhaul save.
 - `adventure_slice_smoke`: world, movement, combat, loot, gear, dialogue, guardians, ending, save/load and respawn.
 - `content_smoke`: the Starfall expansion, fishing, moonpetals and wisps, perfect parry, the Blighted Depths, the moth, feats, photo mode and the new save keys.
 - `growth_smoke`: Petal Arts (levels, binding and combining lines, trees, art casting), journeys, Kaede's shop, harvesting and Tier II crafting, enterable houses, the Hollow Crypt, the arts/journeys overlays and skill bar, and target snap with soft knockback.
@@ -92,7 +110,9 @@ There are seven smoke tests:
 - `touch_buttons_smoke`
 - `world_bounds_smoke`
 
-Tests write to a separate `user://petalbound_test_save.json`.
+Tests write to separate `user://petalbound_*test*` save and settings files.
+
+`tools/screenshot_tour.gd` renders HUD, aiming, menu and editor screenshots to `user://shots/` (needs a display, e.g. `xvfb-run godot --path . --rendering-driver opengl3 -s tools/screenshot_tour.gd`).
 
 To rebuild the world data, run `python3 tools/generate_world.py && python3 tools/preview_world.py`. This needs numpy, scipy and Pillow. The preview is written to `docs/world_map.png`. Starfall Rise is generated deterministically at runtime (seed 20261012), so `world.json` regeneration stays compatible with the expansion.
 

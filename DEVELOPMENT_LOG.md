@@ -147,3 +147,14 @@ After that, tune enemy density and boss HP from that playtest, and add side ques
 ### Next recommended slice
 
 Pull this build into Godot on the target landscape Android phone and complete the Phase 1 five-minute playtest: verify stick/button separation, safe margins, weapon/field-kit text readability, scene performance, and app background/resume behavior. Then continue replacing the code-drawn Mallow with an original matching sprite sheet/animation set; further combat polish (wind-ups, knockback, cooldown feedback, and enemy tells) remains prototype work, not a completed Phase 2 gate.
+
+
+### Completed slice — 2026-10-13: combat, classes & UI overhaul
+
+- Combat core: auto-targeting with manual lock, always-visible weapon-accurate attack area, weapon patterns and passives as data (`scripts/data/combat_data.gd`), one damage pipeline (`player.deal`) for crits, elements, statuses, lifesteal and passives, so each hit resolves once.
+- Classes: third art per line (rank 3 unlock), art upgrades to level 3, primary/secondary attribute scaling, rank-gated signature gear, release / make-primary without losing progress. Rules live in `scripts/combat/build.gd`.
+- Gear: head, arms, legs and relic slots added (chest/feet keep their old save keys), rarities, class and hybrid requirements, satchel compare panel.
+- Dodge cooldown, flask cooldown and full-health guard, relic actives, elemental statuses with resistances (`scripts/combat/status.gd`), zones and the Bone Thrall.
+- Mobile HUD: four art buttons with drag-to-aim / release / cancel, relic button, rebuilt cluster layout, fixed or floating joystick, HUD editor, persistent settings (`scripts/systems/settings.gd`).
+
+Validation: Godot 4.7.2 headless import clean; all eight smoke tests pass, including the new `combat_overhaul_smoke` (230 checks); screenshots inspected under Xvfb/OpenGL. Not verified on a physical phone.

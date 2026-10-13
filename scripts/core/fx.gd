@@ -31,6 +31,10 @@ const PARTICLES := {
 
 var font: Font
 var _materials: Dictionary = {}
+## Player settings (applied by Settings): particle density, screen shake, damage numbers.
+var intensity := 1.0
+var shake_scale := 1.0
+var numbers_enabled := true
 signal shake_requested(strength: float, duration: float)
 
 
@@ -65,6 +69,7 @@ func burst(kind: String, pos: Vector2, amount := 8, speed := 60.0, tint := Color
 	if not PARTICLES.has(kind):
 		return
 	var def: Array = PARTICLES[kind]
+	amount = maxi(1, int(round(float(amount) * intensity)))
 	var p := CPUParticles2D.new()
 	p.texture = AnimLib.tex(FX + def[0])
 	p.material = _particle_material(def[1])
@@ -145,7 +150,68 @@ func ring(pos: Vector2, radius: float, duration: float, color: Color, filled := 
 
 
 func shake(strength: float, duration := 0.18) -> void:
-	shake_requested.emit(strength, duration)
+	if shake_scale <= 0.01:
+		return
+	shake_requested.emit(strength * shake_scale, duration)
+
+
+## Combat damage number. Honors the damage-number setting; crits are larger and
+## gold, elemental hits take their element colour, DoT ticks are small.
+func damage_number(pos: Vector2, amount: int, color: Color, crit := false, small := false) -> void:
+	if not numbers_enabled:
+		return
+	var text := str(amount) + ("!" if crit else "")
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", font)
+	l.add_theme_font_size_override("font_size", 16 if crit else (8 if not small else 8))
+	l.add_theme_color_override("font_color", Color("ffd24a") if crit else color)
+	l.add_theme_color_override("font_outline_color", Color("1b1726"))
+	l.add_theme_constant_override("outline_size", 3)
+	l.position = pos + Vector2(-4 + randf_range(-5, 5), -30 if crit else -24)
+	l.z_index = 20
+	if small:
+		l.modulate.a = 0.85
+	add_child(l)
+	var tw := l.create_tween()
+	tw.set_parallel(true)
+	var rise := 22.0 if crit else 16.0
+	tw.tween_property(l, "position:y", l.position.y - rise, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if crit:
+		l.scale = Vector2(1.6, 1.6)
+		l.pivot_offset = Vector2(8, 8)
+		tw.tween_property(l, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.3).set_delay(0.35)
+	tw.chain().tween_callback(l.queue_free)
+
+
+## Small additive impact flash for crits and elemental hits.
+func spark_hit(pos: Vector2, color: Color) -> void:
+	if intensity < 0.35:
+		return
+	spawn("spark", pos, randf() * TAU, 0.55, color, null, true)
+
+
+## A short-lived jagged lightning arc between two points (chain lightning, shock).
+func bolt(from: Vector2, to: Vector2, color := Color(1.0, 0.95, 0.5)) -> void:
+	var line := Line2D.new()
+	line.width = 1.6
+	line.default_color = color
+	line.z_index = 15
+	var m := CanvasItemMaterial.new()
+	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	line.material = m
+	var segs := 6
+	for i in range(segs + 1):
+		var k := float(i) / float(segs)
+		var pt := from.lerp(to, k)
+		if i > 0 and i < segs:
+			pt += (to - from).orthogonal().normalized() * randf_range(-5.0, 5.0)
+		line.add_point(pt)
+	add_child(line)
+	var tw := line.create_tween()
+	tw.tween_property(line, "modulate:a", 0.0, 0.22)
+	tw.tween_callback(line.queue_free)
 
 
 class Telegraph:
