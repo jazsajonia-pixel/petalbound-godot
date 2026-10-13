@@ -21,6 +21,7 @@ const CharCreate := preload("res://scripts/ui/char_create.gd")
 const Fonts := preload("res://scripts/ui/fonts.gd")
 
 signal start_requested(new_game: bool)
+signal test_profile_requested
 signal retry_requested
 
 const C_PANEL := Color(0.13, 0.10, 0.19, 0.86)
@@ -94,6 +95,7 @@ var title_heading: Label
 var title_subheading: Label
 var title_button: Button
 var continue_button: Button
+var test_profile_button: Button
 var end_overlay: ColorRect
 var end_heading: Label
 var end_body: Label
@@ -1257,7 +1259,8 @@ func _make_title_overlay() -> void:
 	title_panel.add_child(spacer)
 	continue_button = _button("CONTINUE JOURNEY", title_panel, func() -> void: start_requested.emit(false))
 	title_button = _button("NEW JOURNEY", title_panel, func() -> void: CharCreate.open(self))
-	for b in [continue_button, title_button]:
+	test_profile_button = _button("TEST PROFILE · ALL UNLOCKED", title_panel, func() -> void: test_profile_requested.emit())
+	for b in [continue_button, title_button, test_profile_button]:
 		b.custom_minimum_size = Vector2(150, 20)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var keys := _label("WASD move  SHIFT sprint  C jump  J attack (hold)  1-4 arts\nV gear active  R potion  G guard  Q swap  E talk  T target\nI satchel  U craft  M map  K arts  H journeys  F9 photo", 8, C_DIM, title_panel)
@@ -1267,6 +1270,7 @@ func _make_title_overlay() -> void:
 func show_title_menu(has_save: bool) -> void:
 	title_overlay.visible = true
 	continue_button.visible = has_save
+	test_profile_button.tooltip_text = "Starts a separate test save. The normal journey save stays untouched."
 	_clear_touch_inputs()
 
 

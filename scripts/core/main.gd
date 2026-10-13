@@ -193,6 +193,7 @@ func _ready() -> void:
 	hud.setup(self)
 	hud.build_minimap_texture(world.biome_image, world.field_image)
 	hud.start_requested.connect(_on_start_requested)
+	hud.test_profile_requested.connect(begin_test_profile)
 	hud.retry_requested.connect(_on_retry_requested)
 	_enter_title()
 
@@ -765,9 +766,87 @@ func _enter_title() -> void:
 
 ## Title -> character creation -> new journey with the chosen look.
 func begin_new_game(look: Dictionary) -> void:
+	Save.path_override = ""
 	_on_start_requested(true)
 	player.set_appearance(look)
 	save_game()
+
+
+## Start a separate, disposable save with everything unlocked for QA and playtesting.
+func begin_test_profile() -> void:
+	Save.path_override = "user://petalbound_test_profile.json"
+	_on_start_requested(true)
+	_grant_test_loadout()
+	save_game()
+	hud.show_message("TEST PROFILE READY · Level %d · all items and skills unlocked" % player.level, 5.0)
+
+
+func _grant_test_loadout() -> void:
+	var p := player
+	var weapons: Array[String] = []
+	var owned: Array[String] = []
+	var bag_all: Dictionary = {}
+	var best_by_slot: Dictionary = {}
+	var best_rarity: Dictionary = {}
+	for id in DB.ITEMS:
+		var item: Dictionary = DB.ITEMS[id]
+		var item_id := String(id)
+		var item_type := String(item.get("type", ""))
+		if item_type == "weapon":
+			weapons.append(item_id)
+		elif item_type in DB.STACKABLE:
+			bag_all[item_id] = DB.STACK_MAX
+		else:
+			owned.append(item_id)
+			if item_type in DB.EQUIP_SLOTS:
+				var rarity := DB.RARITIES.find(String(item.get("rarity", "common")))
+				if rarity >= int(best_rarity.get(item_type, -1)):
+					best_rarity[item_type] = rarity
+					best_by_slot[item_type] = item_id
+	weapons.sort()
+	p.weapons_owned.assign(weapons)
+	p.weapon_index = 0
+	p.weapon_bar.clear()
+	for id in weapons:
+		if id != "fists" and p.weapon_bar.size() < p.bar_max():
+			p.weapon_bar.append(id)
+	p.sanitize_bar()
+	p.inventory.assign(owned)
+	p.bag = bag_all
+	materials = p.bag
+	p.equipped = best_by_slot
+	p.petalcoins = 99999
+	p.moontea_max = 99
+	p.moontea_charges = 99
+	p.heart_pieces = 8
+	p.level = ClassBook.LEVEL_CAP
+	p.xp = 0
+	p.skill_points = 999
+	p.classes.clear()
+	p.class_nodes.clear()
+	for cls in ClassBook.CLASSES:
+		p.classes.append(String(cls))
+		var nodes: Dictionary = {}
+		for node_id in ClassBook.class_of(String(cls)).get("tree", {}):
+			nodes[String(node_id)] = true
+		p.class_nodes[String(cls)] = nodes
+	p.skill_levels.clear()
+	for sid in ClassBook.SKILLS:
+		p.skill_levels[String(sid)] = ClassBook.SKILL_MAX_LEVEL
+	p.rewards_claimed.clear()
+	for cls in ClassBook.CLASSES:
+		for reward_ranks in ClassBook.class_of(String(cls)).get("rewards", {}).values():
+			for item_id in reward_ranks:
+				p.rewards_claimed[String(item_id)] = true
+	p.skill_bar.clear()
+	for sid in ClassBook.WANDERER_SKILLS:
+		if p.skill_bar.size() < 4:
+			p.skill_bar.append(String(sid))
+	p.recalc_stats()
+	p.health = p.max_health
+	p.focus = p.focus_max
+	p.apply_outfit()
+	p.inventory_changed.emit()
 
 
 func _on_start_requested(new_game: bool = true) -> void:
