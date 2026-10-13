@@ -1,5 +1,49 @@
 # Development Log
 
+## Arsenal pass — 2026-10-13
+
+**Status:** Implemented on branch `arsenal` (built on `gaps-pass`) and verified with headless Godot 4.7.2: the editor import passes and all eleven smoke tests pass (the new `arsenal_smoke` has 176 checks). A screenshot tour under xvfb was inspected: weapon bar, every charge preview, clone, whip ring, vine, satchel detail, HUD editor, 960x432 and max HUD scale. **Not tested on a phone.**
+
+### What changed
+
+- **Weapon bar:** `player.weapon_bar` (max `CD.BALANCE.weapon_bar_max` = 5), `bar_add` / `bar_remove` / `select_bar_slot` (0.3s `weapon_switch_lock`) / `sanitize_bar(migrate)`. `give_item` fills free slots. `equip_weapon` adds to the bar, or with a full bar replaces the held weapon's slot (bare-handed + full bar fails with a message). `_set_weapon_index` auto-adds when there is room and cancels any charge. `cycle_weapon` now steps through bar slots only. `scripts/ui/weapon_bar.gd` builds the five `wslot0-4` TouchButtons (square rarity frames, gold highlight + pointer, mythical animation, empty dashed slots) from `combat_controls.DEFAULTS` (x -188 from the safe right edge, 26px apart). The `WeaponBox` chip and the `switch_weapon` touch button were removed. Satchel detail: ADD TO BAR / REMOVE FROM BAR and a BAR n/5 label. Selling a weapon removes it from the bar. Save key `weapon_bar`; loading without it migrates.
+- **Charge framework:** `ChargeCtl` (RefCounted on the player) and its `ChargeView` node. Press = normal attack plus start tracking; after `charge_tap` (0.2s) it charges (if the special is off cooldown); release at full calls `WeaponSpecials.release`. `_state_move` skips hold-repeat for weapons with `"hold"`, and `_state_attack` also starts tracking on a press mid-swing. Cancels: weapon switch, input disabled or menus (also cancelled from the always-processing HUD while paused), HURT/ROLL/JUMP/POSE, swimming, death, and drag-off (`hud._attack_drag`). The attack TouchButton draws the ring (`charge`, `charge_full`, `charge_cancel`). The normal range hint dims while charging.
+- **Weapons:** `DB.ITEMS` plus `CD.WEAPONS[...]["hold"]` data (kind/time/cd plus tuning). New patterns: `katana` (cross-slash fx, finisher x2) and `whip` (`WeaponSpecials.whip_attack`, sweet band from `sweet` x reach). Gloves reuse the `bolt` path with `kind: energy_ball`. Projectiles accept `scale` and `tint`. Indicator shape `ring` draws the sweet band. `wolf_hunger` passive (+7% lifesteal); lifesteal heals are capped by `lifesteal_per_sec` (3).
+- **Dashes:** `_start_dash` / `_state_roll` gained `_dash_should_stop` (no progress = wall, `dry` = stop before water, `dest`) and `_end_dash` with `on_hit` / `on_end` callbacks and `no_stun`. Moonrend, Petal Rush and Vine Hook all use it.
+- **Arts:** `petal_rush` (exec `rush`) and `vine_hook` (exec `hook`) are in Nightbloom's list (now 5 arts; the overhaul test now requires at least 3 per line). Petal Rush recasts skip the Focus check and cost; `rush_tick` ends the chain and sets the cooldown. Vine Hook probes with a physics ray (walls/props) and a segment test (foes), draws a `VineLine`, and dashes to a `dest` short of the target; Tornado Slash fires on the first foe touched, with an arrival fallback.
+- **Rarity:** `mythical` is added to `DB.RARITIES`/names/colours, the `rarity_ui` STYLE (colour cycling border, orbiting sparks), the trade value table, the loot banner and the world-drop glow lists. It is not in `GEAR_RARITY_WEIGHTS` or `GEAR_POOL`.
+- **Sources:** shop stock (Pip, Bramble, Kaede, Nomad), forge recipes (claws level 5, katanas after the Emberbark, Cloudstride via `recipe_cloudstride`), and a Bramble exchange gated by `emberbark_felled`. Crafting lock messages now name the Emberbark.
+- **Art:** `tools/make_weapon_art.py` generates original 16px-style icons and held sprites into `assets/art/weapons/` (staffs, gauntlet, whip, gloves, claws). The katanas reuse the Ninja Adventure katana with a tint.
+- **Tests/tools:** `tests/arsenal_smoke.gd`; `touch_buttons_smoke` now taps a weapon-bar slot; `tools/screenshot_tour.gd` has `_arsenal_shots()` (`ARSENAL_ONLY=1` runs just those).
+
+### Not done / limits
+
+- **Phone feel untested:** the hold threshold, the 60% charge move speed and the 16px drag-off margin need tuning on a real device.
+- **Editor:** bar slots move individually in the HUD editor, not as one group.
+- **Clone:** a still, golden copy of Mallow's current frame. It stays put and has no walk/attack animation.
+- **Placeholder art:** the new weapon icons are simple original pixel art made for this pass; a pass by an artist would help. The Twin Moon Katanas share the katana icon.
+- **Water:** dashes stop before overworld water, but the tests only check walls with real colliders, not water.
+- **Feat text:** the existing "Full Arsenal - Carry all four weapons" still refers to the original four weapons.
+
+## Known-gaps pass — 2026-10-13
+
+**Status:** Implemented on branch `gaps-pass` and verified with headless Godot 4.7.2: the editor import passes, and all ten smoke tests pass (the new `gaps_smoke` has 102 checks). A screenshot tour under xvfb was inspected for the vale, camp, map, telegraphs, cloak close-ups and rift chambers. **Not tested on a phone.**
+
+### What changed
+
+- **Region:** `world._expand_ember()` appends 40 columns (biome 7, seed 20261013) after Starfall. It grows the biome and field maps and the shader arrays (`ground.gdshader` arrays [7] to [8]), and stamps the Ember Road, plaza, north and south roads and Amber Pond. Starfall's east wall skips rows 93 to 101, and Starfall props left on the finished road are removed. `_ember_place_actors` adds the autumn wall, camp props, the hollow ring, the grove, scatter, decor, 16 monsters plus an elite cyclope, 3 chests, a waystone, Rowan and the Emberbark. New prop kinds (`rock_orange`, `leaf_orange`, `ember_ore`) come from Ninja Adventure `nature.png`; `ember_ore` is breakable and gives Ore, with a 35% chance of an Ember Core. Biome clamps in `main.gd` (region subtitle, music, ambience) and the map palette now cover biome 7. Map labels near the east edge flip left.
+- **Emberbark:** `DB.BOSSES["emberbark"]` uses `sheet` (reuses the giantbamboo frames), `swap` (palette swap via `boss.apply_palette`) and `side: true`. `main.is_side_boss` / `_side_boss_reward`: recorded in `defeated_bosses`, sets the flag `emberbark_felled`, pays 60 coins plus coin pickups and 2 Moon Shards, and is excluded from the Moonseed objective and reload Moonseed spawns. Journeys of type flag now complete immediately if the flag was earned before the journey began.
+- **Telegraphs:** `fx.Telegraph` gains lane, cone and spokes shapes and draws true circles (previously squashed to 0.62 height while the damage check used a circle). `boss.gd`: lane matches the charge distance and contact width, the volley gets a wind-up and cone with the first burst along the cone, the ring warning uses the same offset as the shots, a "!" label shows while winding up, and `attack_pattern()` adds `quake` (r 64, 1.0s, 4 damage) when enraged.
+- **Cloak:** `scripts/actors/cloak_layer.gd` is a child of the player, re-layered each frame with `_layer_behind_body`. Item `look` colour triples were added to every cloak, plus a new `emberleaf_mantle`. `visible_gear["cloak"]` is set while worn.
+- **Rifts:** `rifts.tiled()` / `decal()` / `tile_texture()` (single tiles cut from the CC0 sheets, cached, repeated with `TEXTURE_REPEAT_ENABLED`), replacing the flat floor and wall colours.
+- **Tests:** `tests/gaps_smoke.gd`. Updated counts in `adventure_slice_smoke` (5 bosses, 4 Moonseed keepers, 7 waystones) and `content_smoke` (344 x 176, 7 waystones). The screenshot tour gained `_gaps_shots()`.
+
+### Not done / limits
+
+- The Emberbark reuses the Briarback's animation sheet (recoloured); there is no new boss art.
+- The cape is a procedural pixel layer with one sway frame, not hand-animated frames. Charms, rings and relics are still not drawn.
+- The 8px reachability test approximates Mallow's collision; real walking in the vale was only spot-checked in screenshots.
+
 ## Open-world expansion — 2026-10-13
 
 **Status:** Implemented on branch `open-world-expansion` and verified with headless Godot 4.7.2: the editor import/parse and all nine smoke tests pass (run one after another). A screenshot tour under xvfb was inspected for font clipping, HUD overlap, interiors, rifts, character creation and the trade screens. **Not tested on a phone** (touch feel, safe areas, performance).

@@ -25,6 +25,19 @@ const STARFALL_ROAD := [[228.0, 122.0], [244.0, 116.0], [258.0, 106.0], [272.0, 
 const STARFALL_LAKE := [276.0, 58.0]
 const STARFALL_POND := [294.0, 138.0]
 
+## Emberleaf Vale: an autumn valley appended east of Starfall Rise. Reached by
+## the Ember Road through a gap in Starfall's white grove wall.
+const EMBER := 8
+const EXPAND_EAST2 := 64
+const EMBER_SEED := 20261013
+const EMBER_ROAD := [[287.0, 92.0], [294.0, 94.0], [300.0, 96.0], [306.0, 97.0], [314.0, 98.0], [322.0, 98.0], [342.0, 98.0], [362.0, 98.0]]
+const EMBER_PLAZA := [362.0, 98.0]
+const EMBER_ARENA := [371.0, 62.0]
+const EMBER_POND := [353.0, 124.0]
+const EMBER_GROVE := [375.0, 138.0]
+## Rows of Starfall's east wall left open for the Ember Road.
+const EMBER_GATE_ROWS := [93, 101]
+
 const DECOR_CELLS := {
 	"fd_leaves": Vector2i(0, 0), "fd_pebbles": Vector2i(4, 0), "fd_sticks": Vector2i(5, 0), "fd_sand_rock": Vector2i(9, 0),
 	"fd_bone": Vector2i(14, 0), "fd_shell": Vector2i(15, 0), "fd_pebbles_gray": Vector2i(0, 1), "fd_flower_yellow": Vector2i(2, 0),
@@ -33,7 +46,7 @@ const DECOR_CELLS := {
 	"fd_white_tuft": Vector2i(0, 3), "fd_white_tuft2": Vector2i(2, 3), "fd_white_flower": Vector2i(5, 3),
 }
 const FOLIAGE_PREFIX := ["tree_", "big_", "grove_", "palm", "bamboo", "small_tree", "thin"]
-const BREAKABLE := ["bush_round", "bush_round2", "pot", "pot_red", "crate", "pot_desert", "barrel"]
+const BREAKABLE := ["bush_round", "bush_round2", "pot", "pot_red", "crate", "pot_desert", "barrel", "ember_ore"]
 const LIGHT_PROPS := {"stone_lantern": Color(1.0, 0.78, 0.45), "lion_fountain": Color(0.6, 0.85, 1.0), "statue_monk": Color(0.75, 0.9, 1.0), "torii": Color(1.0, 0.55, 0.45)}
 
 var data: Dictionary = {}
@@ -76,6 +89,7 @@ func build(entities_parent: Node2D) -> void:
 	if field_image.is_compressed():
 		field_image.decompress()
 	_expand_starfall()
+	_expand_ember()
 	_clear_interiors()
 	biome_tex = ImageTexture.create_from_image(biome_image)
 	field_tex = ImageTexture.create_from_image(field_image)
@@ -106,15 +120,15 @@ func _make_ground(biome_tex: Texture2D, field_tex: Texture2D) -> void:
 	ground_material.set_shader_parameter("atlas_px", Vector2(atlas.get_width(), atlas.get_height()))
 	# plain fill tile (xy), first decorated tile x (z), decorated count (w)
 	ground_material.set_shader_parameter("ground_tiles", PackedVector4Array([
-		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4)]))
+		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 12, 1, 4)]))
 	ground_material.set_shader_parameter("path_tiles", PackedVector4Array([
-		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0), Vector4(12, 8, 11, 0)]))
+		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 8, 0, 0)]))
 	ground_material.set_shader_parameter("water_shallow", PackedColorArray([
-		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8"), Color("d99ccc")]))
+		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8"), Color("d99ccc"), Color("7cc6d8")]))
 	ground_material.set_shader_parameter("water_deep", PackedColorArray([
-		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0"), Color("855aab")]))
+		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0"), Color("855aab"), Color("3a7f9a")]))
 	ground_material.set_shader_parameter("biome_grade", PackedColorArray([
-		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42), Color(1.05, 0.84, 1.05, 0.34)]))
+		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42), Color(1.05, 0.84, 1.05, 0.34), Color(1.06, 0.80, 0.56, 0.46)]))
 	var mw: Array = data["landmarks"]["moonwell"]
 	ground_material.set_shader_parameter("moonwell_px", Vector2(mw[0], mw[1]))
 	ground.material = ground_material
@@ -359,6 +373,9 @@ func _expand_starfall() -> void:
 	_star_stamp_water(324.0, 61.0, 6.0, 4.0, rng)
 	_star_clear_water(324.0, 61.0, 1.5, 1.0)
 	_star_stamp_water(313.0, 130.0, 3.0, 2.2, rng)
+	# the first stretch of the Ember Road (the rest is stamped once the vale exists)
+	for i in range(EMBER_ROAD.size() - 1):
+		_star_stamp_road(EMBER_ROAD[i], EMBER_ROAD[i + 1])
 	# widen the world bookkeeping
 	tiles = Vector2i(new_w, tiles.y)
 	world_size = Vector2(tiles) * 16.0
@@ -514,6 +531,8 @@ func _star_place_actors(rng: RandomNumberGenerator) -> void:
 	var occupied: Dictionary = {}
 	# white grove walls along the new east edge
 	for ty in range(4, h - 4):
+		if ty >= EMBER_GATE_ROWS[0] and ty <= EMBER_GATE_ROWS[1]:
+			continue
 		if ty % 2 == 0:
 			_star_add_prop("tree_white", float(new_w) - 2.5, float(ty) + 0.5, occupied, true, 0.9)
 		elif ty % 4 == 1:
@@ -575,6 +594,173 @@ func _star_place_actors(rng: RandomNumberGenerator) -> void:
 			d["night"] = [d["x"] + night_off[d["id"]][0], d["y"] + night_off[d["id"]][1]]
 
 
+# ------------------------------------------------------------------ Emberleaf Vale
+func _expand_ember() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = EMBER_SEED
+	var old_w := biome_image.get_width()
+	var new_w := old_w + EXPAND_EAST2
+	var h := biome_image.get_height()
+	var grow := Image.create(new_w, h, false, biome_image.get_format())
+	grow.blit_rect(biome_image, Rect2i(0, 0, old_w, h), Vector2i.ZERO)
+	for y in range(h):
+		var b := int(round(biome_image.get_pixel(old_w - 1, y).r * 255.0))
+		if b != BEACH:
+			b = EMBER
+		for x in range(old_w, new_w):
+			grow.set_pixel(x, y, Color(b / 255.0, b / 255.0, b / 255.0))
+	biome_image = grow
+	var fw_old := field_image.get_width()
+	var fh := field_image.get_height()
+	var fw_new := new_w * field_res
+	var fgrow := Image.create(fw_new, fh, false, field_image.get_format())
+	fgrow.blit_rect(field_image, Rect2i(0, 0, fw_old, fh), Vector2i.ZERO)
+	for fy in range(fh):
+		var fedge := field_image.get_pixel(fw_old - 1, fy)
+		if fedge.g > 0.5:
+			for fx in range(fw_old, fw_new):
+				fgrow.set_pixel(fx, fy, Color(0.0, fedge.g, fedge.b))
+	field_image = fgrow
+	# the Ember Road to Cinderbrook Camp, north to the Emberbark's hollow, south to Amber Pond
+	for i in range(EMBER_ROAD.size() - 1):
+		_star_stamp_road(EMBER_ROAD[i], EMBER_ROAD[i + 1])
+	_star_stamp_road_plaza(EMBER_PLAZA[0], EMBER_PLAZA[1], 4.0)
+	var north := [[362.0, 98.0], [365.0, 86.0], [369.0, 74.0], [371.0, 67.0]]
+	for i in range(north.size() - 1):
+		_star_stamp_road(north[i], north[i + 1])
+	_star_stamp_road_plaza(EMBER_ARENA[0], EMBER_ARENA[1] + 1.0, 2.2)
+	var south := [[362.0, 98.0], [359.0, 108.0], [356.0, 117.0]]
+	for i in range(south.size() - 1):
+		_star_stamp_road(south[i], south[i + 1])
+	_star_stamp_water(EMBER_POND[0], EMBER_POND[1], 4.5, 3.0, rng)
+	# Starfall props that ended up on the now-complete road near the gate
+	var keep: Array = []
+	for pr in data["props"]:
+		var ptx := float(pr["x"]) / 16.0
+		var pty := float(pr["y"]) / 16.0
+		if ptx > 290.0 and ptx < float(old_w) and pty > 88.0 and pty < 104.0:
+			var on_road := false
+			for o in [Vector2(0, 0), Vector2(0, -0.8), Vector2(0, -1.6), Vector2(0.6, -0.5), Vector2(-0.6, -0.5), Vector2(0, 0.6)]:
+				if _star_field(ptx + o.x, pty + o.y).r > 0.25:
+					on_road = true
+			if on_road:
+				continue
+		keep.append(pr)
+	data["props"] = keep
+	tiles = Vector2i(new_w, tiles.y)
+	world_size = Vector2(tiles) * 16.0
+	data["tiles"] = [new_w, tiles.y]
+	if not (data["biome_names"] as Array).has("Emberleaf Vale"):
+		(data["biome_names"] as Array).append("Emberleaf Vale")
+	data["landmarks"]["cinderbrook"] = [int(EMBER_PLAZA[0]) * 16, int(EMBER_PLAZA[1]) * 16]
+	data["landmarks"]["emberbark_hollow"] = [int(EMBER_ARENA[0]) * 16, int(EMBER_ARENA[1]) * 16]
+	data["landmarks"]["amber_pond"] = [int(EMBER_POND[0]) * 16, int(EMBER_POND[1]) * 16]
+	_ember_place_actors(rng, old_w)
+
+
+func _ember_collision(kind: String) -> Dictionary:
+	if kind in ["big_orange"]:
+		return {"w": 14.0, "h": 9.0, "oy": -5.0}
+	if kind in ["tree_dead", "grove_dead"]:
+		return {"w": 12.0, "h": 8.0, "oy": -4.0}
+	if kind in ["stump", "boulder_brown", "oven", "stall_red", "rocks_brown"]:
+		return {"w": 14.0 if kind == "rocks_brown" else 11.0, "h": 8.0, "oy": -4.0}
+	if kind in ["stone_lantern", "sign", "haystack", "barrel", "rock_orange"]:
+		return {"w": 10.0, "h": 7.0, "oy": -4.0}
+	if kind in ["log", "ember_ore", "bush_round"]:
+		return {"w": 10.0, "h": 6.0, "oy": -3.0, "low": kind == "log"}
+	return {}
+
+
+func _ember_add_prop(kind: String, tx: float, ty: float, occupied: Dictionary, force := false, rad := 0.8) -> bool:
+	if not _star_add_prop(kind, tx, ty, occupied, force, rad):
+		return false
+	var col := _ember_collision(kind)
+	if not col.is_empty():
+		(data["props"] as Array)[-1]["c"] = col
+	return true
+
+
+## Mark a disc as taken so scatter keeps camps, arenas and chests clear.
+func _ember_reserve(occupied: Dictionary, tx: float, ty: float, rad: float) -> void:
+	var r := int(ceil(rad * 2.0))
+	var cx := int(tx * 2.0)
+	var cy := int(ty * 2.0)
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			if dx * dx + dy * dy <= r * r:
+				occupied[Vector2i(cx + dx, cy + dy)] = true
+
+
+func _ember_place_actors(rng: RandomNumberGenerator, old_w: int) -> void:
+	var new_w := biome_image.get_width()
+	var h := tiles.y
+	var occupied: Dictionary = {}
+	# autumn grove wall along the new east edge
+	for ty in range(4, h - 4):
+		if ty % 2 == 0:
+			_ember_add_prop("big_orange" if ty % 6 != 0 else "tree_dead", float(new_w) - 2.5, float(ty) + 0.5, occupied, true, 0.9)
+		elif ty % 4 == 1:
+			_ember_add_prop("tree_dead", float(new_w) - 4.5, float(ty) + 0.5, occupied, true, 0.9)
+	# Cinderbrook Camp: a hunters' market around the plaza
+	var px: float = EMBER_PLAZA[0]
+	var py: float = EMBER_PLAZA[1]
+	_ember_reserve(occupied, px, py, 6.5)
+	for it in [["stall_red", px - 4.5, py - 3.5], ["oven", px + 4.5, py - 3.5], ["haystack", px + 6.0, py - 1.5],
+			["haystack", px + 6.5, py + 0.5], ["barrel", px - 6.0, py - 2.0], ["barrel", px - 6.2, py - 0.6],
+			["log", px - 3.0, py + 4.5], ["log", px + 3.0, py + 4.5], ["sign", 349.0, 95.6],
+			["stone_lantern", 344.0, 95.0], ["stone_lantern", 354.0, 96.0], ["stone_lantern", px - 2.5, py - 4.5],
+			["stone_lantern", px + 2.5, py - 4.5]]:
+		_ember_add_prop(it[0], it[1], it[2], occupied, true, 0.6)
+	# the Emberbark's hollow: a ring of stumps and boulders, open to the south road
+	var ax: float = EMBER_ARENA[0]
+	var ay: float = EMBER_ARENA[1]
+	_ember_reserve(occupied, ax, ay, 9.5)
+	for i in range(18):
+		var ang := TAU * i / 18.0
+		if absf(wrapf(ang - PI / 2.0, -PI, PI)) < 0.5:
+			continue
+		_ember_add_prop("boulder_brown" if i % 3 == 0 else ("stump" if i % 3 == 1 else "big_orange"),
+				ax + cos(ang) * 9.0, ay + sin(ang) * 7.0, occupied, true, 0.8)
+	# keep chest spots and the grove clear
+	for c in [[EMBER_GROVE[0], EMBER_GROVE[1]], [px + 1.5, py - 5.5], [EMBER_POND[0] + 6.0, EMBER_POND[1] - 1.0]]:
+		_ember_reserve(occupied, c[0], c[1], 1.5)
+	for i in range(8):
+		var ang := TAU * i / 8.0
+		_ember_add_prop("big_orange" if i % 2 == 0 else "tree_dead", EMBER_GROVE[0] + cos(ang) * 4.0, EMBER_GROVE[1] + sin(ang) * 3.0, occupied, i != 2, 0.9)
+	# scatter: dense autumn canopy with clearings, ore and herb nodes to gather
+	var scatter := [
+		["big_orange", 0.024, 1.1], ["tree_dead", 0.006, 0.9], ["grove_dead", 0.0012, 1.7], ["stump", 0.004, 0.8],
+		["log", 0.003, 0.6], ["boulder_brown", 0.004, 0.9], ["rocks_brown", 0.0012, 1.5], ["shrub_dry", 0.010, 0.4],
+		["rock_orange", 0.004, 0.5], ["leaf_orange", 0.012, 0.4], ["ember_ore", 0.004, 0.6], ["bush_round", 0.006, 0.5]]
+	var decor_kinds := ["fd_leaves", "fd_leaves", "fd_sticks", "fd_flower_red", "fd_tuft", "fd_pebbles"]
+	for ty in range(h):
+		for tx in range(old_w, new_w):
+			for sc in scatter:
+				if rng.randf() < float(sc[1]):
+					_ember_add_prop(sc[0], float(tx) + 0.5, float(ty) + 0.5, occupied, false, float(sc[2]))
+			if rng.randf() < 0.24:
+				var f := _star_field(float(tx) + 0.5, float(ty) + 0.5)
+				if f.g <= 0.4 and f.r <= 0.3:
+					data["decor"].append([decor_kinds[rng.randi() % decor_kinds.size()], round((float(tx) + 0.5) * 16.0), round((float(ty) + 0.5) * 16.0)])
+	# monster camps: tougher than Starfall, plus one elite on the hollow road
+	for e in [["spiderred", 348.0, 104.0], ["spiderred", 351.0, 88.0], ["flam", 356.0, 84.0], ["flam", 373.0, 92.0],
+			["snake2", 367.0, 108.0], ["snake2", 370.0, 116.0], ["owl", 358.0, 70.0], ["owl", 376.0, 78.0],
+			["mushroom", 349.0, 118.0], ["mushroom", 360.0, 130.0], ["spirit2", 366.0, 140.0], ["cyclope", 373.0, 124.0],
+			["skull", 352.0, 140.0], ["flam", 378.0, 104.0], ["spiderred", 346.0, 76.0], ["snake2", 364.0, 150.0]]:
+		data["enemies"].append({"s": e[0], "x": round(e[1] * 16.0), "y": round(e[2] * 16.0)})
+	data["enemies"].append({"s": "cyclope", "x": 367 * 16, "y": 80 * 16, "elite": true})
+	# treasure: the mantle sits in the hidden grove, ore and coins elsewhere
+	data["chests"].append({"id": "c_ember_mantle", "x": int(EMBER_GROVE[0] * 16.0), "y": int(EMBER_GROVE[1] * 16.0), "item": "emberleaf_mantle", "big": true})
+	data["chests"].append({"id": "c_ember_heart", "x": int((px + 1.5) * 16.0), "y": int((py - 5.5) * 16.0), "item": "heart_piece"})
+	data["chests"].append({"id": "c_ember_coins", "x": int((EMBER_POND[0] + 6.0) * 16.0), "y": int((EMBER_POND[1] - 1.0) * 16.0), "item": "coins_50"})
+	# waystone, the camp's hunter, and the Emberbark
+	data["shrines"].append({"id": "cinderbrook", "name": "Cinderbrook Waystone", "x": int(px * 16.0), "y": int((py - 1.0) * 16.0)})
+	data["npcs"].append({"id": "rowan", "sprite": "hunter", "name": "Rowan the Hunter", "x": int((px - 2.0) * 16.0), "y": int((py + 2.0) * 16.0), "wander": 14})
+	data["bosses"].append({"id": "emberbark", "kind": "emberbark", "name": "The Emberbark", "x": int(ax * 16.0), "y": int(ay * 16.0), "region": EMBER})
+	data["animals"].append({"sprite": "frog", "x": int(EMBER_POND[0] * 16.0) - 80, "y": int(EMBER_POND[1] * 16.0) - 40, "wander": 24})
+
+
 # ------------------------------------------------------------------ queries
 func biome_at(pos: Vector2) -> int:
 	var x := clampi(int(pos.x / 16.0), 0, tiles.x - 1)
@@ -612,7 +798,9 @@ func region_name(pos: Vector2) -> String:
 		return "The Moonwell"
 	if pos.distance_to(Vector2(lm["lake_lumen"][0], lm["lake_lumen"][1])) < 15.0 * 16.0:
 		return "Lake Lumen"
-	if pos.x >= 304.0 * 16.0:
+	if lm.has("cinderbrook") and pos.distance_to(Vector2(lm["cinderbrook"][0], lm["cinderbrook"][1])) < 9.0 * 16.0:
+		return "Cinderbrook Camp"
+	if pos.x >= 304.0 * 16.0 and pos.x < 336.0 * 16.0:
 		return "Moonpetal Hollow"
 	var names: Array = data["biome_names"]
 	return names[clampi(biome_at(pos), 0, names.size() - 1)]

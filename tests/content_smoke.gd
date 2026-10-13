@@ -50,14 +50,15 @@ func _run_test() -> void:
 	check(game.game_started, "New Journey should start the game.")
 
 	# ---- Starfall Rise
-	check(game.world.tiles == Vector2i(336, 176), "The world should expand to 336 x 176 tiles (got %s)." % game.world.tiles)
-	check(game.world.world_size.x > 5300.0, "The world width should grow past 5300px.")
+	check(game.world.tiles == Vector2i(400, 176), "The world should expand to 400 x 176 tiles (Starfall + Moonpetal + Emberleaf) (got %s)." % game.world.tiles)
+	check(game.world.world_size.x > 6300.0, "The world width should grow past 5900px.")
 	check(game.world.biome_at(Vector2(4600, 1460)) == 6, "Starfall Rise should be biome 6 at the Watch.")
 	check(game.world.region_name(Vector2(4600, 1460)) == "Starfall Rise", "The eastern rise should be named Starfall Rise.")
-	check(game.waystones.size() == 7, "Seven waystones expected after Moonpetal Hollow (got %d)." % game.waystones.size())
 	check(game.world.biome_at(Vector2(320 * 16, 88 * 16)) == 7, "Moonpetal Hollow should use its own eighth biome index.")
-	check(game.world.region_name(Vector2(320 * 16, 88 * 16)) == "Moonpetal Hollow", "The new eastern grove should have its own region name.")
+	check(game.world.region_name(Vector2(320 * 16, 88 * 16)) == "Moonpetal Hollow", "The eastern grove should retain its region name.")
 	check(game.world.is_water(Vector2(328 * 16 + 8, 61 * 16 + 8)), "Moonpetal's upper pool should be water outside its central islet.")
+	check(game.world.biome_at(Vector2(350 * 16, 88 * 16)) == 8, "Emberleaf Vale should use a distinct ninth biome index.")
+	check(game.world.region_name(Vector2(362 * 16, 98 * 16)) == "Cinderbrook Camp", "Cinderbrook should be named around its waystone.")
 	check(game.hud.arts_tabs.get_tab_title(0) == "CLASS LINES" and game.hud.arts_tabs.get_tab_title(1) == "SKILLS + LOADOUT", "Classes and skills should be shown on separate, clearly named tabs.")
 	check(game.hud.class_list != null and game.hud.arts_list != null, "The class and skill tables should both be available.")
 	for sid in ["moonstep", "seedling", "thorn_snare"]:

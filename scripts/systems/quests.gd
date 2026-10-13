@@ -52,6 +52,13 @@ const QUESTS := [
 		"type": "waystone", "target": "starfall", "goal": 1, "reward": {"coins": 50, "xp": 30}},
 	{"id": "q_rift", "giver": "lumen", "name": "Mend a Rift", "desc": "Rifts tear open at random (watch your map). Defeat a Rift Warden.",
 		"type": "rift_boss", "goal": 1, "reward": {"coins": 90, "xp": 70}},
+	# ---- Emberleaf Vale (Rowan at Cinderbrook Camp)
+	{"id": "q_ember_patrol", "giver": "rowan", "name": "Ember Patrol", "desc": "Defeat 5 Ember Spiders around Cinderbrook Camp.",
+		"type": "kill_kind", "target": "spiderred", "goal": 5, "reward": {"coins": 60, "xp": 45}},
+	{"id": "q_ember_cores", "giver": "rowan", "name": "Banked Embers", "desc": "Bring 3 Ember Cores (glowing ore rocks, Cinder Wisps).",
+		"type": "collect", "target": "ember_core", "goal": 3, "reward": {"coins": 70, "xp": 50, "item": "ore", "qty": 3}},
+	{"id": "q_emberbark", "giver": "rowan", "requires": "q_ember_patrol", "name": "Fell the Emberbark", "desc": "Defeat the Emberbark in its hollow north of camp.",
+		"type": "flag", "target": "emberbark_felled", "goal": 1, "reward": {"coins": 120, "xp": 90, "item": "moon_shard", "qty": 1}},
 	{"id": "q_crypt", "giver": "sora", "name": "The Hollow Crypt", "desc": "Something stirs under the graveyard in the marsh. Clear the Hollow Crypt.",
 		"type": "flag", "target": "crypt_cleared", "goal": 1, "reward": {"coins": 80, "xp": 60, "item": "heart_piece"}},
 ]

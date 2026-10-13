@@ -18,6 +18,7 @@ class AttackIndicator:
 	var color := Color(1.0, 0.6, 0.8)
 	var opacity := 1.0
 	var engaged := false  # a valid target is inside reach: brighten slightly
+	var sweet := 0.0      # "ring": inner edge of the sweet-spot band (fraction of reach)
 	var _t := 0.0
 
 	func setup_from(def: Dictionary) -> void:
@@ -25,6 +26,7 @@ class AttackIndicator:
 		reach = float(def.get("reach", 30.0))
 		half_angle = float(def.get("half_angle", 0.95))
 		offset = float(def.get("offset", 0.0))
+		sweet = float(def.get("sweet", 0.0))
 		color = Color(String(def.get("color", "ffb8d8")))
 		queue_redraw()
 
@@ -55,6 +57,19 @@ class AttackIndicator:
 				draw_arc(o, reach, a0, a1, segs, edge, 1.2)
 				draw_line(o, o + Vector2.RIGHT.rotated(a0) * reach, Color(edge, edge.a * 0.5), 1.0)
 				draw_line(o, o + Vector2.RIGHT.rotated(a1) * reach, Color(edge, edge.a * 0.5), 1.0)
+			"ring":
+				# 360° whip: full circle; the outer tip band (sweet spot) is brighter
+				# and its inner edge dashed, so players can see where hits land harder
+				draw_circle(o, reach, fill)
+				var inner := reach * sweet
+				var band := Color(1.0, 0.92, 0.5, (0.20 if engaged else 0.13) * opacity + pulse * 0.5)
+				draw_arc(o, (reach + inner) * 0.5, 0.0, TAU, 40, band, reach - inner)
+				draw_arc(o, reach + 0.8, 0.0, TAU, 40, shade, 1.6)
+				draw_arc(o, reach, 0.0, TAU, 40, Color(1.0, 0.95, 0.6, edge.a), 1.2)
+				var segs := 24
+				for i in range(segs):
+					if i % 2 == 0:
+						draw_arc(o, inner, TAU * i / segs, TAU * (i + 1) / segs, 3, Color(1.0, 0.9, 0.5, edge.a * 0.8), 1.0)
 			"circle":
 				var c := o + dir * offset
 				draw_circle(c, reach, fill)

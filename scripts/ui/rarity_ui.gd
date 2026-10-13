@@ -14,6 +14,8 @@ const STYLE := {
 	"rare": {"border": Color("72b6ff"), "bg": Color(0.09, 0.13, 0.22), "width": 1, "glow": 0.0},
 	"epic": {"border": Color("cc93ff"), "bg": Color(0.16, 0.09, 0.24), "width": 2, "glow": 0.5},
 	"legendary": {"border": Color("ffcc5c"), "bg": Color(0.22, 0.15, 0.06), "width": 2, "glow": 1.0},
+	# Mythical: crimson-gold frame, colour cycling border, orbiting sparks (never a random drop)
+	"mythical": {"border": Color("ff7066"), "bg": Color(0.24, 0.07, 0.10), "width": 2, "glow": 1.4},
 }
 
 
@@ -95,7 +97,7 @@ class RarityFrame extends PanelContainer:
 	var _t := 0.0
 
 	func _ready() -> void:
-		set_process(rarity == "epic" or rarity == "legendary")
+		set_process(rarity in ["epic", "legendary", "mythical"])
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -103,10 +105,22 @@ class RarityFrame extends PanelContainer:
 		if sb:
 			var base: Color = STYLE[rarity]["border"]
 			sb.border_color = base.lerp(Color.WHITE, 0.25 + 0.25 * sin(_t * 3.0))
-		if rarity == "legendary":
+			if rarity == "mythical":
+				sb.border_color = Color("ff6a5c").lerp(Color("ffd24a"), 0.5 + 0.5 * sin(_t * 2.4))
+		if rarity == "legendary" or rarity == "mythical":
 			queue_redraw()
 
 	func _draw() -> void:
+		if rarity == "mythical":
+			# two sparks orbiting the frame edge + a corner flare
+			var sz := size
+			var per := 2.0 * (sz.x + sz.y)
+			for i in range(2):
+				var d := fmod(_t * 28.0 + per * 0.5 * i, per)
+				var q := Vector2(d, 1) if d < sz.x else (Vector2(sz.x - 1, d - sz.x) if d < sz.x + sz.y else (Vector2(sz.x - (d - sz.x - sz.y), sz.y - 1) if d < 2.0 * sz.x + sz.y else Vector2(1, sz.y - (d - 2.0 * sz.x - sz.y))))
+				draw_circle(q, 1.4, Color(1, 0.92, 0.6, 0.95))
+				draw_circle(q, 2.6, Color(1, 0.5, 0.4, 0.35))
+			return
 		if rarity != "legendary":
 			return
 		var s := size

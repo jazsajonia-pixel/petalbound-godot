@@ -49,7 +49,10 @@ func _run_test() -> void:
 	ok = ok and not Input.is_action_pressed("jump")
 	game.player.give_item("thornblade")
 	var w_before: int = game.player.weapon_index
-	var swap_center: Vector2 = hud.weapon_button.position + Vector2(hud.weapon_button.radius, hud.weapon_button.radius)
+	# the quick-swap button is gone: tapping a weapon-bar slot switches weapons
+	ok = ok and not ("weapon_button" in hud) and hud.weapon_slots.size() == 5
+	game.player._switch_lock = 0.0
+	var swap_center: Vector2 = hud.weapon_slots[0].center()
 	_touch(hud, 3, swap_center, true)
 	_touch(hud, 3, swap_center, false)
 	ok = ok and game.player.weapon_index != w_before

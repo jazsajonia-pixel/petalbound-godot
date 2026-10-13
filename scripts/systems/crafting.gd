@@ -21,11 +21,15 @@ static func unlock_reason(game: Node, r: Dictionary) -> String:
 	if u.has("level") and p.level < int(u["level"]):
 		return "Reach level %d." % int(u["level"])
 	if u.has("flag") and not game.flags.get(String(u["flag"]), false):
-		return "Clear a rift dungeon first." if u["flag"] == "rift_cleared" else "Locked."
+		if u["flag"] == "rift_cleared":
+			return "Clear a rift dungeon first."
+		if u["flag"] == "emberbark_felled":
+			return "Fell the Emberbark first."
+		return "Locked."
 	if u.has("recipe") and not game.flags.get("learned_" + String(u["recipe"]), false):
 		return "Learn the recipe scroll (trade at Bramble's forge)."
 	if u.has("boss") and not game.defeated_bosses.has(String(u["boss"])):
-		return "Defeat the Quiet Warden."
+		return "Fell the Emberbark first." if u["boss"] == "emberbark" else "Defeat the Quiet Warden."
 	if r.has("requires_owned") and not p.owns(String(r["requires_owned"])):
 		return "Needs a %s to temper." % DBRef.ITEMS[r["requires_owned"]]["name"]
 	return ""
