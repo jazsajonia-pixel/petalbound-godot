@@ -5,7 +5,7 @@ extends Control
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const DB := preload("res://scripts/data/db.gd")
 const Ach := preload("res://scripts/systems/achievements.gd")
-const ClassDB := preload("res://scripts/data/classdb.gd")
+const ClassBook := preload("res://scripts/data/classdb.gd")
 const QuestSys := preload("res://scripts/systems/quests.gd")
 const NA := "res://assets/packs/ninja_adventure/"
 
@@ -646,7 +646,7 @@ func _refresh_inventory() -> void:
 	lines.append("Journeys  %d / %d" % [journey_count, QuestSys.QUESTS.size()])
 	var class_names := PackedStringArray()
 	for cid in p.classes:
-		class_names.append(ClassDB.class_of(cid)["name"])
+		class_names.append(ClassBook.class_of(cid)["name"])
 	lines.append("Petal Arts  %s" % (" + ".join(class_names) if class_names.size() > 0 else "none — press K"))
 	lines.append("Speed  %d%%" % roundi(p.get_move_speed() / p.WALK_SPEED * 100.0))
 	lines.append("")
@@ -762,9 +762,9 @@ func _refresh_arts() -> void:
 		c.queue_free()
 	var p: Node = game.player
 	arts_head_label.text = "PETAL ARTS   LV %d  XP %d/%d  POINTS %d  FOCUS %d/%d" % [p.level, p.xp, p.xp_needed(), p.skill_points, int(p.focus), int(p.focus_max)]
-	_label("Bind a primary line now; combine with a second line at level %d (max %d). Points come from levels." % [ClassDB.COMBINE_LEVEL, ClassDB.MAX_CLASSES], 8, C_DIM, arts_list)
-	for cid in ClassDB.CLASSES:
-		var def: Dictionary = ClassDB.CLASSES[cid]
+	_label("Bind a primary line now; combine with a second line at level %d (max %d). Points come from levels." % [ClassBook.COMBINE_LEVEL, ClassBook.MAX_CLASSES], 8, C_DIM, arts_list)
+	for cid in ClassBook.CLASSES:
+		var def: Dictionary = ClassBook.CLASSES[cid]
 		var bound: bool = p.classes.has(cid)
 		var box := PanelContainer.new()
 		box.add_theme_stylebox_override("panel", _box(Color(0.16, 0.12, 0.22, 0.9) if bound else Color(0.09, 0.07, 0.13, 0.75), def["color"] if bound else C_BORDER, 1, 3))
@@ -782,16 +782,16 @@ func _refresh_arts() -> void:
 		if bound:
 			_label("BOUND", 8, def["color"], row)
 		else:
-			var can_bind: bool = p.classes.size() < ClassDB.MAX_CLASSES and (p.classes.is_empty() or p.level >= ClassDB.COMBINE_LEVEL)
-			var b := _button("BIND" if can_bind else ("LV %d" % ClassDB.COMBINE_LEVEL if p.classes.size() == 1 else "FULL"), row, func() -> void:
+			var can_bind: bool = p.classes.size() < ClassBook.MAX_CLASSES and (p.classes.is_empty() or p.level >= ClassBook.COMBINE_LEVEL)
+			var b := _button("BIND" if can_bind else ("LV %d" % ClassBook.COMBINE_LEVEL if p.classes.size() == 1 else "FULL"), row, func() -> void:
 				if game.player.bind_class(cid):
 					_refresh_arts())
 			b.disabled = not can_bind
 		if not bound:
 			continue
 		var art_names := PackedStringArray()
-		for sid in ClassDB.class_of(cid)["skills"]:
-			art_names.append(ClassDB.skill_of(sid)["name"])
+		for sid in ClassBook.class_of(cid)["skills"]:
+			art_names.append(ClassBook.skill_of(sid)["name"])
 		var srow := _label("Arts: " + ", ".join(art_names), 8, C_TEXT, col)
 		srow.modulate.a = 0.9
 		for nid in def["tree"]:
@@ -912,7 +912,7 @@ func _refresh_skill_bar() -> void:
 		var s: Dictionary = skill_slots[i]
 		if i < p.skill_bar.size():
 			var sid: String = p.skill_bar[i]
-			var def: Dictionary = ClassDB.skill_of(sid)
+			var def: Dictionary = ClassBook.skill_of(sid)
 			s["panel"].visible = true
 			s["icon"].texture = AnimLib.tex(def["icon"])
 			var cdv := float(p.skill_cd.get(sid, 0.0))

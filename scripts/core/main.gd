@@ -19,7 +19,7 @@ const FishingScript := preload("res://scripts/systems/fishing.gd")
 const DepthsScript := preload("res://scripts/systems/depths.gd")
 const CompanionScript := preload("res://scripts/actors/companion.gd")
 const Ach := preload("res://scripts/systems/achievements.gd")
-const ClassDB := preload("res://scripts/data/classdb.gd")
+const ClassBook := preload("res://scripts/data/classdb.gd")
 const QuestSys := preload("res://scripts/systems/quests.gd")
 
 const CAMERA_ZOOM := 1.5
@@ -909,6 +909,15 @@ func player_targetable() -> bool:
 	return game_started and not game_over and player.state != player.State.DEAD
 
 
+## Depths foes are duck-typed Nodes (enemies or echo bosses); Node.get() takes
+## one argument, so probe the members defensively instead of two-arg get().
+func _depths_target_alive(t: Node) -> bool:
+	var v = t.get("alive")
+	if v == null:
+		v = true
+	return bool(v) and not bool(t.get("defeated"))
+
+
 func hittable_targets(center: Vector2, radius: float) -> Array:
 	var out: Array = []
 	for e in enemies:
@@ -920,7 +929,7 @@ func hittable_targets(center: Vector2, radius: float) -> Array:
 	if is_instance_valid(crypt_boss) and crypt_boss.awake and not crypt_boss.defeated and (crypt_boss.global_position + Vector2(0, -10)).distance_to(center) <= radius + float(crypt_boss.cfg["radius"]):
 		out.append(crypt_boss)
 	for t in depths.targets():
-		if is_instance_valid(t) and t.get("alive", true) and not t.get("defeated", false) and (t.global_position + Vector2(0, -5)).distance_to(center) <= radius:
+		if is_instance_valid(t) and _depths_target_alive(t) and (t.global_position + Vector2(0, -5)).distance_to(center) <= radius:
 			out.append(t)
 	return out
 
@@ -1243,7 +1252,7 @@ func _update_interactables() -> void:
 				bd = dm
 				best = {"type": "moonpetal", "mp": mp, "label": "GATHER"}
 	if not fishing.active and not game_over and player.state == player.State.MOVE and not player.swimming and player.health > 0:
-		var probe := pp + player.facing * 20.0
+		var probe: Vector2 = pp + player.facing * 20.0
 		if world.is_water(probe) and best.is_empty():
 			best = {"type": "fishing", "pos": probe, "label": "FISH"}
 	if moonwell.global_position.distance_to(pp) < 44.0:
@@ -1629,7 +1638,7 @@ func load_game() -> bool:
 	p.petalcoins = int(d.get("coins", 0))
 	p.moontea_max = int(d.get("tea_max", 3))
 	p.xp = int(d.get("xp", 0))
-	p.level = clampi(int(d.get("level", 1)), 1, ClassDB.LEVEL_CAP)
+	p.level = clampi(int(d.get("level", 1)), 1, ClassBook.LEVEL_CAP)
 	p.skill_points = int(d.get("points", 0))
 	p.classes.assign(d.get("classes", []))
 	p.class_nodes = d.get("nodes", {})

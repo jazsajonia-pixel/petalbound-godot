@@ -150,18 +150,18 @@ func _run_test() -> void:
 
 	# ---- feats overlay & photo mode
 	game.hud.toggle_inventory()
-	check(game.hud.inventory_overlay.visible and get_tree().paused, "Satchel should open and pause.")
+	check(game.hud.inventory_overlay.visible and paused, "Satchel should open and pause.")
 	game.hud.toggle_inventory()
 	game.hud.toggle_feats()
-	check(game.hud.feats_overlay.visible and get_tree().paused, "Feats overlay should open and pause.")
+	check(game.hud.feats_overlay.visible and paused, "Feats overlay should open and pause.")
 	game.hud.toggle_feats()
-	check(not get_tree().paused, "Closing overlays should unpause.")
+	check(not paused, "Closing overlays should unpause.")
 	game.hud.toggle_photo_mode()
-	check(game.hud.photo_active and get_tree().paused, "Photo mode should pause the world.")
+	check(game.hud.photo_active and paused, "Photo mode should pause the world.")
 	game.hud._photo_zoom(1.2)
 	check(absf(game.camera.zoom.x - 1.8) < 0.01, "Photo zoom should adjust the camera (got %.2f)." % game.camera.zoom.x)
 	game.hud.toggle_photo_mode()
-	check(not game.hud.photo_active and not get_tree().paused, "Exiting photo mode should restore play.")
+	check(not game.hud.photo_active and not paused, "Exiting photo mode should restore play.")
 	check(absf(game.camera.zoom.x - game.CAMERA_ZOOM) < 0.001, "Camera zoom should be restored after photo mode.")
 
 	# ---- save / load round-trip

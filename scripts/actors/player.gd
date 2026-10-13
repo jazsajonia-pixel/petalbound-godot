@@ -6,7 +6,7 @@ extends CharacterBody2D
 
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const DB := preload("res://scripts/data/db.gd")
-const ClassDB := preload("res://scripts/data/classdb.gd")
+const ClassBook := preload("res://scripts/data/classdb.gd")
 const SPRITE_SHADER := preload("res://assets/shaders/sprite_fx.gdshader")
 const HERO := "res://assets/packs/ninja_adventure/hero/"
 
@@ -317,7 +317,7 @@ func _tree_sum(stat: String) -> float:
 	for cid in classes:
 		var nodes: Dictionary = class_nodes.get(cid, {})
 		for nid in nodes:
-			var node: Dictionary = ClassDB.class_of(cid).get("tree", {}).get(nid, {})
+			var node: Dictionary = ClassBook.class_of(cid).get("tree", {}).get(nid, {})
 			total += float(node.get("effect", {}).get(stat, 0.0))
 	return total
 
@@ -456,7 +456,7 @@ func equip_moonheart_charm() -> bool:
 
 # ------------------------------------------------------------------ petal arts
 func xp_needed() -> int:
-	return ClassDB.xp_needed(level)
+	return ClassBook.xp_needed(level)
 
 
 func add_xp(amount: int) -> void:
@@ -464,7 +464,7 @@ func add_xp(amount: int) -> void:
 		return
 	xp += amount
 	var leveled := false
-	while level < ClassDB.LEVEL_CAP and xp >= xp_needed():
+	while level < ClassBook.LEVEL_CAP and xp >= xp_needed():
 		xp -= xp_needed()
 		level += 1
 		skill_points += 1
@@ -478,11 +478,11 @@ func add_xp(amount: int) -> void:
 
 
 func bind_class(id: String) -> bool:
-	if not ClassDB.CLASSES.has(id) or classes.has(id):
+	if not ClassBook.CLASSES.has(id) or classes.has(id):
 		return false
 	if classes.is_empty():
 		classes.append(id)
-	elif classes.size() == 1 and level >= ClassDB.COMBINE_LEVEL:
+	elif classes.size() == 1 and level >= ClassBook.COMBINE_LEVEL:
 		classes.append(id)
 	else:
 		return false
@@ -490,7 +490,7 @@ func bind_class(id: String) -> bool:
 		class_nodes[id] = {}
 	_refresh_skill_bar()
 	if game:
-		var def: Dictionary = ClassDB.CLASSES[id]
+		var def: Dictionary = ClassBook.CLASSES[id]
 		game.audio.play("secret2", 0.0, -3.0)
 		game.fx.spawn("aura", global_position + Vector2(0, -8), 0.0, 1.4, def["color"], null, true)
 		game.hud.show_message("%s line bound%s. Arts 1-4 on the keys." % [def["name"], " (combined)" if classes.size() == 2 else ""], 3.5)
@@ -500,7 +500,7 @@ func bind_class(id: String) -> bool:
 func spend_node(class_id: String, node_id: String) -> bool:
 	if not classes.has(class_id):
 		return false
-	var node: Dictionary = ClassDB.class_of(class_id).get("tree", {}).get(node_id, {})
+	var node: Dictionary = ClassBook.class_of(class_id).get("tree", {}).get(node_id, {})
 	if node.is_empty() or skill_points < 1:
 		return false
 	var owned: Dictionary = class_nodes.get(class_id, {})
@@ -530,7 +530,7 @@ func _refresh_skill_bar() -> void:
 			seen[sid] = true
 			skill_bar.append(sid)
 	for cid in classes:
-		add.call(ClassDB.class_of(cid).get("skills", []))
+		add.call(ClassBook.class_of(cid).get("skills", []))
 
 
 func cast_slot(index: int) -> void:
@@ -540,7 +540,7 @@ func cast_slot(index: int) -> void:
 
 
 func cast_skill(id: String) -> bool:
-	var def: Dictionary = ClassDB.skill_of(id)
+	var def: Dictionary = ClassBook.skill_of(id)
 	if def.is_empty() or not game:
 		return false
 	if state != State.MOVE and state != State.ATTACK:
