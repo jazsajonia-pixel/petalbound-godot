@@ -1485,6 +1485,10 @@ func _process(delta: float) -> void:
 	tea_label.text = "%d/%d" % [p.moontea_charges, p.moontea_max]
 	clock_label.text = game.environment.clock_text()
 	var wid: String = p.get_weapon_id()
+	# the HUD keeps processing while the game is paused: any menu/pause cancels a
+	# held charge so it can never fire late when the game resumes
+	if p.charge.active() and (any_menu_open() or get_tree().paused):
+		p.charge.cancel()
 	attack_button.icon = AnimLib.tex(DB.ITEMS[wid]["icon"])
 	WeaponBar.update(self)
 	controls.update_buttons()

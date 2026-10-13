@@ -134,7 +134,7 @@ static func afterimage(p: Node, hold: Dictionary, dir: Vector2) -> void:
 	if p.clone_ref != null and is_instance_valid(p.clone_ref):
 		p.clone_ref.queue_free()
 	var c := CloneScript.new()
-	p.game.add_child(c)
+	p.game.entities.add_child(c)  # y-sorted with Mallow and the foes
 	c.global_position = from
 	c.setup(p, hold, maxi(1, int(round(float(base_damage(p)) * float(hold.get("clone_dmg", 0.6))))))
 	p.clone_ref = c
@@ -142,7 +142,7 @@ static func afterimage(p: Node, hold: Dictionary, dir: Vector2) -> void:
 		p._afterimage()
 	p.global_position = to
 	p.velocity = Vector2.ZERO
-	p.game.fx.spawn("ripple", to + Vector2(0, -4), 0.0, 1.1, Color(1.0, 0.85, 0.5))
+	p.game.fx.spawn("spark_circle", to + Vector2(0, -6), 0.0, 0.9, Color(1.0, 0.85, 0.5), null, true)
 	p.game.fx.spawn("smoke", from + Vector2(0, -6), 0.0, 0.8, Color(1.0, 0.9, 0.7, 0.7))
 	p.game.audio.play("spirit", 0.05, -4.0, to)
 
@@ -174,7 +174,7 @@ static func burst(p: Node, hold: Dictionary, dir: Vector2) -> void:
 		p.deal(t, dmg, {"element": "", "source": "special", "force": float(hold.get("force", 320.0)), "from": origin, "status": {"stun": 1}})
 		n += 1
 	p.game.fx.spawn("explosion", center, 0.0, 1.1, Color(1.0, 0.75, 0.85), null, true)
-	p.game.fx.spawn("ripple", center, 0.0, 1.6, Color(1.0, 0.8, 0.9))
+	p.game.fx.spawn("spark_circle", center, 0.0, 1.5, Color(1.0, 0.8, 0.9), null, true)
 	p.game.break_props(center, r * 0.8)
 	p.game.audio.play("explosion", 0.05, -4.0, center)
 	if n > 0:

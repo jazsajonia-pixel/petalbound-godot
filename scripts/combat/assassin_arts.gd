@@ -53,7 +53,7 @@ static func _rush_dash_end(p: Node) -> void:
 	if bool(p._rush.get("hit", false)) and int(p._rush["count"]) < int(p._rush["cap"]):
 		p._rush["window"] = float(ClassBook.skill_of(String(p._rush["id"])).get("window", 0.75))
 		if p.game:
-			p.game.fx.spawn("sparkle", p.global_position + Vector2(0, -26), 0.0, 0.7, Color(1.0, 0.8, 1.0), null, true)
+			p.game.fx.spawn("spark_circle", p.global_position + Vector2(0, -8), 0.0, 0.6, Color(1.0, 0.8, 1.0), null, true)
 	else:
 		rush_end(p)
 

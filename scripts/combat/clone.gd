@@ -30,10 +30,18 @@ func setup(player: Node, hold: Dictionary, damage: int) -> void:
 	body.texture = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
 	body.flip_h = spr.flip_h
 	body.position = spr.offset + spr.position
-	body.modulate = Color(1.0, 0.86, 0.55, 0.62)
+	# golden, see-through copy (normal blend so it reads on bright grass too)
+	body.modulate = Color(1.4, 1.2, 0.75, 0.75)
+	var glow := Sprite2D.new()
+	glow.texture = body.texture
+	glow.flip_h = body.flip_h
+	glow.position = body.position
+	glow.scale = Vector2(1.12, 1.08)
+	glow.modulate = Color(1.0, 0.95, 0.6, 0.35)
 	var m := CanvasItemMaterial.new()
 	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	body.material = m
+	glow.material = m
+	add_child(glow)
 	add_child(body)
 	var held = p.get("weapon_sprite")
 	if held is Sprite2D and (held as Sprite2D).texture != null and (held as Sprite2D).visible:
@@ -60,7 +68,7 @@ func _process(delta: float) -> void:
 		_vanish()
 		return
 	body.position.y = (p.sprite.offset + p.sprite.position).y + sin(_t * 4.0) * 0.6
-	var a := 0.62 if life > 0.6 else 0.62 * life / 0.6
+	var a := 0.75 if life > 0.6 else 0.75 * life / 0.6
 	body.modulate.a = a
 	if staff:
 		staff.modulate.a = a

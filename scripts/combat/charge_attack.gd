@@ -23,7 +23,6 @@ var off_button := false     # set by the HUD while the finger is outside the att
 var special_cd := 0.0
 var last_release := ""      # "special" | "early" | "cancel" (read by tests/HUD)
 var _full_fx := false
-var _last_tick_ms := 0
 var view: Node2D = null
 
 
@@ -70,7 +69,6 @@ func press(id: String, hold_def: Dictionary) -> void:
 	charging = false
 	off_button = false
 	_full_fx = false
-	_last_tick_ms = Time.get_ticks_msec()
 
 
 func aim_dir() -> Vector2:
@@ -97,14 +95,7 @@ func cancel_reason() -> String:
 ## pressed = whether the attack input is still held this frame.
 func tick(delta: float, pressed: bool) -> void:
 	special_cd = maxf(0.0, special_cd - delta)
-	var now := Time.get_ticks_msec()
-	var gap := now - _last_tick_ms
-	_last_tick_ms = now
 	if held_t < 0.0:
-		return
-	# the game was paused (bag, map, pause menu) since the last tick: never fire late
-	if gap > 250 and held_t > 0.0:
-		cancel()
 		return
 	if cancel_reason() != "":
 		cancel()
@@ -115,11 +106,12 @@ func tick(delta: float, pressed: bool) -> void:
 	held_t += delta
 	if not charging and held_t >= tap_time() and special_cd <= 0.0:
 		charging = true
+		if p.range_hint != null:
+			p.range_hint.modulate.a = 0.3  # the charge preview takes over
 	if is_full() and not _full_fx:
 		_full_fx = true
 		if p.game:
 			p.game.audio.play("menu3", 0.02, -4.0, p.global_position)
-			p.game.fx.spawn("sparkle", p.global_position + Vector2(0, -30), 0.0, 0.9)
 
 
 func release() -> void:
@@ -148,6 +140,8 @@ func cancel() -> void:
 
 
 func _reset() -> void:
+	if p != null and p.range_hint != null:
+		p.range_hint.modulate.a = 1.0
 	held_t = -1.0
 	charging = false
 	off_button = false
@@ -208,7 +202,7 @@ class ChargeView extends Node2D:
 				var r2: float = float(w.get("reach", 46.0)) * float(h.get("size_mult", 1.45))
 				draw_arc(o, r2, 0.0, TAU, 40, line, 1.5)
 				draw_arc(o, r2 * float(w.get("sweet", 0.72)), 0.0, TAU, 40, Color(line.r, line.g, line.b, 0.35), 1.0)
-				draw_arc(o, r2 * (1.0 + float(w.get("sweet", 0.72))) * 0.5, 0.0, TAU, 40, gc, r2 * (1.0 - float(w.get("sweet", 0.72))))
+				draw_arc(o, r2 * (1.0 + float(w.get("sweet", 0.72))) * 0.5, 0.0, TAU, 40, Color(gc.r, gc.g, gc.b, gc.a * 0.55), r2 * (1.0 - float(w.get("sweet", 0.72))))
 			"overcharge":
 				var reach: float = float(p.weapon_def().get("reach", 200.0))
 				_lane(o, dir, reach, 6.0 + 10.0 * pr, Color(gc.r, gc.g, gc.b, a * 0.6), line)

@@ -552,7 +552,7 @@ func _test_staffs() -> void:
 	await let_go()
 	await frames(3)
 	var n := 0
-	for ch in game.get_children():
+	for ch in game.entities.get_children():
 		if ch.name.begins_with("Afterimage") and not ch.is_queued_for_deletion():
 			n += 1
 	check(n == 1, "Only one clone exists at a time (%d)." % n)

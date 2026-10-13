@@ -33,6 +33,29 @@ Open `project.godot` in Godot 4.3 or newer (validated on 4.7.2). The game uses t
 | Photo mode (drag to pan, zoom, capture) | F9 | – | Pause menu → PHOTO MODE |
 | Pause / settings / HUD editor | Esc / P | Start | ❚❚ |
 
+## Arsenal pass (2026-10-13)
+
+- **Weapon bar:** a vertical column of five weapon slots on the right, just left of the attack/art/potion buttons. Tap a slot to switch. The held weapon is framed in gold with a pointer, and each frame uses the weapon's rarity colour. The old "Q SWAP" chip and quick-swap button are gone. Up to 5 weapons sit in the bar (bare paws never take a slot); extra weapons stay in the bag. Use ADD TO BAR / REMOVE FROM BAR in the satchel ("Weapon bar full (5/5)" when full). Switching has a 0.3s lockout so it can't cancel animations. Keyboard: 6-0 pick slots 1-5, Q/Tab steps through the bar. Each slot is movable in the HUD editor; reset restores it. Saved; older saves fill the bar automatically (best rarity first, held weapon kept).
+- **Hold-to-charge basic attacks** (`scripts/combat/charge_attack.gd`): on signature weapons, a tap still attacks at once. Holding past 0.2s charges instead of repeating, and releasing at FULL fires the weapon's special. Releasing early does nothing extra. Mallow moves at 60% speed while charging. The release goes where the move stick points (or the facing), never the locked target. A live ground preview shows the dash lane, blink spot, burst circle, whip ring, orb path or claw cone. Charge indicator: a ring around the attack button (closes, pulses and says FULL) plus a small arc over Mallow. Dragging off the attack button turns the ring red and releasing there cancels. Switching weapons, opening menus, pausing, teleporting, getting hit, rolling, swimming and death also cancel. Common weapons keep hold-to-repeat.
+- **New weapons** (`scripts/combat/weapon_specials.gd`, `clone.gd`):
+  - **Oakwood Staff** (Common): wide sweeping strikes, no hold effect.
+  - **Cloudstride Staff** (Mythical): fast extending strikes. Hold: blink up to 72px (valid ground only, never through walls) and leave a golden clone that strikes nearby foes for 4.5s (one at a time).
+  - **Twin Moon Katanas** (Epic): a blade in each paw, 4-cut cross-slash combo. Hold: Moonrend Dash, 104px, hits each foe on the path once, stops at walls and water.
+  - **Ironbloom Gauntlet** (Rare): heavy punches. Hold: Energy Burst, a short-range blast with knockback (capped, wall-safe) and a knockdown stun (bosses resist).
+  - **Thornlash Whip** (Rare): 360° spin at mid range. The outer tip band hits 50% harder and is drawn brighter, with a dashed inner edge. Hold: Wide Lash makes the next spin 45% bigger and 80% stronger, then it returns to normal.
+  - **Starweave Gloves** (Epic): long-range star orbs, no homing. Hold: Overcharge fires a bigger, piercing, 2.4x orb.
+  - **Direwolf Claws** (Epic): Wolf Hunger heals 7% of damage dealt. Hold: Feral Barrage, 5 strikes with 44px reach. Lifesteal applies, and all lifesteal is capped at 3 HP per second.
+- **Mythical rarity:** a new tier above Legendary with a crimson-gold colour-cycling frame and orbiting sparks. It is never a random drop, and the Cloudstride Staff is crafted only from a recipe scroll.
+- **Where to get them:** Oakwood Staff (Pip), Ironbloom Gauntlet (Bramble, level 3), Thornlash Whip (Kaede), Starweave Gloves (Nomad), Direwolf Claws (forge recipe, level 5), Twin Moon Katanas (forge recipe after felling the Emberbark), Cloudstride Staff (Bramble exchange of 2 Moon Shards + 4 Ember Cores after felling the Emberbark for the recipe scroll, then forge it with 4 Moon Shards, 4 Spirit Dust and 6 Wood).
+- **Nightbloom arts** (`scripts/combat/assassin_arts.gd`):
+  - **Petal Rush**: an aimed dash. Each dash that hits opens a 0.75s window for a free recast (shown as "xN" on the button), up to 6 dashes (+1 per upgrade). The cooldown starts when the chain ends.
+  - **Vine Hook**: a thorned vine (120px) that hooks a foe (zip to it) or a wall, tree or rock (zip to it and stop in front). Hitting a foe on the way unleashes Tornado Slash. 8 Focus, 1.5s cooldown. A miss retracts with no movement.
+
+| | |
+| --- | --- |
+| ![Weapon bar](docs/screenshots/arsenal_weapon_bar.png) | ![Katana charge aimed with the stick](docs/screenshots/arsenal_katana_charge.png) |
+| ![Whip ring with sweet-spot band](docs/screenshots/arsenal_whip_ring.png) | ![Mythical staff in the satchel](docs/screenshots/arsenal_satchel_mythical.png) |
+
 ## Known-gaps pass (2026-10-13)
 
 - **Emberleaf Vale:** a new autumn region 40 tiles east of Starfall Rise (the world is now 344 x 176 tiles), reached by the Ember Road through a gate in Starfall's white grove. It has Cinderbrook Camp with a waystone and Rowan the Hunter, who gives three quests (Ember Patrol, Banked Embers, Fell the Emberbark). There are monster camps plus one elite, glowing ember ore to break for Ore and Ember Cores, Amber Pond, and a hidden grove chest with the Emberleaf Mantle.
@@ -134,7 +157,8 @@ godot --headless --editor --path . --quit          # import + parse
 for t in tests/*.gd; do godot --headless --path . -s "$t"; done
 ```
 
-There are ten smoke tests:
+There are eleven smoke tests:
+- `arsenal_smoke` (176 checks): weapon bar cap, full-bar errors, remove/add, tap switch through the touch path, lockout, Q/Tab stepping, full-bar slot swap, HUD column placement/overlap/highlight/Mythical frame, editor move + reset, save/load and pre-bar save migration. Also: hold-repeat on basic weapons vs charge on signature weapons, the charge ring and FULL state, early release, slowed movement, cancel by drag-off (real touch drag), weapon switch, menu and hurt, and stick aim beating the locked target. Every weapon special is covered (blink + clone + one-at-a-time + expiry + wall-safe blink; Moonrend once-per-foe + wall stop; burst range + knockdown; whip 360°/sweet spot/Wide Lash reset; orb no-homing + Overcharge size and aim; claw lifesteal, the per-second cap and barrage reach), plus Petal Rush (free chained recasts, miss ends the chain, cap, window expiry) and Vine Hook (enemy zip + Tornado, wall zip with no clipping, pass-through Tornado, miss, Focus and cooldown).
 - `gaps_smoke` (102 checks): Emberleaf Vale size, biome, names and the Starfall gate; on-foot reachability (8px flood fill) from the start to the camp, hollow, pond, every vale chest, the waystone and Rowan; monsters on open ground; the Emberbark side guardian (no Moonseed, reward once, saved), Rowan's quest chain including a kill made before the quest; telegraph lane/cone/spokes matching the real attack; the "!" mark; quake only when enraged, safe outside the circle and damaging inside; cloak shown/hidden/recoloured and layered per facing; rift chambers built from repeating tiles and props.
 - `expansion_smoke` (112 checks): character creation, unarmed start, attack facing while steering, aim-assist cone, line-of-sight melee, held weapon / dual knives / armour region visuals, loot once per death, bag stacks and full bag, shop/sell/exchange failures that keep coins and items, crafting once, HUD layout without a dodge control, quest chains/markers/single rewards, knockback caps and walls, house interiors and inner rooms, rift spawn rules/enter/gates/boss/cache once/exit/save data/death, save/load of bag, weapons and appearance, and settings.
 - `combat_overhaul_smoke` (230 checks): every class/skill/item combination, auto-targeting and retargeting, the attack indicator, weapon shapes and passives, the four art slots with tap, aimed and cancelled touch casts, every art of every line, unlocks and upgrades, hybrid gear, all nine equipment slots and stat recalculation, dodge, flask, statuses and resistances, relics, fixed and floating joysticks, the HUD editor, settings persistence, save/load and loading a pre-overhaul save.
