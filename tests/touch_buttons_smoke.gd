@@ -52,4 +52,5 @@ func _run_test() -> void:
 		quit(1)
 		return
 	print("Touch-buttons smoke test passed: joystick + action buttons work together with independent releases.")
+	game.free()
 	quit(0)

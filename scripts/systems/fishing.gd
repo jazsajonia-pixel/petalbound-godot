@@ -124,13 +124,23 @@ func _pick_species() -> Dictionary:
 		ids.append(id)
 		weights.append(float(def["weight"]))
 	if ids.is_empty():
-		return DB.FISH["dewfin"]
+		return _fish_definition("dewfin")
+	return _weighted_fish(ids, weights)
+
+
+func _weighted_fish(ids: Array, weights: Array) -> Dictionary:
 	var total := 0.0
 	for w in weights:
-		total += w
+		total += float(w)
 	var roll := randf() * total
 	for i in range(ids.size()):
 		roll -= float(weights[i])
 		if roll <= 0.0:
-			return DB.FISH[ids[i]]
-	return DB.FISH[ids[0]]
+			return _fish_definition(String(ids[i]))
+	return _fish_definition(String(ids[0]))
+
+
+func _fish_definition(id: String) -> Dictionary:
+	var result: Dictionary = DB.FISH[id].duplicate()
+	result["id"] = id
+	return result

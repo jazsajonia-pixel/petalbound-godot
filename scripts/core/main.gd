@@ -23,6 +23,10 @@ const ClassBook := preload("res://scripts/data/classdb.gd")
 const QuestSys := preload("res://scripts/systems/quests.gd")
 
 const CAMERA_ZOOM := 1.5
+const CRAFT_RECIPES := [
+	{"id": "thornblade_ii", "needs": {"wood": 3, "ore": 3}},
+	{"id": "briar_mail_ii", "needs": {"ore": 3, "herb": 2}},
+]
 const SHOPS := {
 	"pip": [{"id": "moontea", "price": 20}, {"id": "heart_piece", "price": 150, "once": "pip_heart"}, {"id": "fishing_rod", "price": 60, "once": "pip_rod"}],
 	"nomad": [{"id": "moontea", "price": 24}, {"id": "starlocket", "price": 300, "once": "nomad_locket"}, {"id": "heart_piece", "price": 220, "once": "nomad_heart"}],
@@ -101,6 +105,7 @@ var current_interior: Dictionary = {}
 var crypt_enemies: Array = []
 var crypt_boss: Node = null
 var crypt_cleared_once := false
+var materials: Dictionary = {"wood": 0, "ore": 0, "herb": 0}
 
 
 func _ready() -> void:
@@ -332,7 +337,6 @@ func _build_all_interiors() -> void:
 		l.texture_scale = 0.7
 		l.position = h["door"] + Vector2(0, -8)
 		add_child(l)
-		h["_in_door"] = h["center"] + Vector2(0, h["size"].y / 2.0 - 10.0)
 
 
 func _flat_sprite(parent: Node, color: Color, rect: Rect2, z: int) -> void:
@@ -492,8 +496,14 @@ func _clear_crypt_contents() -> void:
 func _house(id: String) -> Dictionary:
 	for h in HOUSES:
 		if h["id"] == id:
-			return h
+			var found: Dictionary = h.duplicate()
+			found["_in_door"] = _interior_door(found)
+			return found
 	return {}
+
+
+func _interior_door(h: Dictionary) -> Vector2:
+	return h["center"] + Vector2(0, h["size"].y / 2.0 - 10.0)
 
 
 func _use_door(h: Dictionary) -> void:
@@ -503,13 +513,14 @@ func _use_door(h: Dictionary) -> void:
 			flags["crypt_open"] = true
 		if h.get("dungeon", false):
 			_spawn_crypt_contents()
-		current_interior = h
+		current_interior = h.duplicate()
+		current_interior["_in_door"] = _interior_door(h)
 		player.velocity = Vector2.ZERO
 		player.knockback = Vector2.ZERO
 		environment.fade = 1.0
 		var tw := create_tween()
 		tw.tween_method(func(v: float) -> void: environment.fade = v, 1.0, 0.0, 0.5)
-		player.global_position = h["_in_door"] + Vector2(0, -6.0)
+		player.global_position = _interior_door(h) + Vector2(0, -6.0)
 		camera.global_position = player.global_position
 		camera.reset_smoothing()
 		audio.play("menu2", 0.03, -6.0)
@@ -640,6 +651,7 @@ func _reset_state() -> void:
 	defeated_bosses.clear()
 	opened_chests.clear()
 	flags.clear()
+	materials = {"wood": 0, "ore": 0, "herb": 0}
 	discovered_waystones = ["hearthgrove"]
 	last_waystone = "hearthgrove"
 	victory = false
@@ -781,6 +793,8 @@ func _process(delta: float) -> void:
 		_update_activation()
 		_update_region(false)
 	if not get_tree().paused and not game_over:
+		if Input.is_action_just_pressed("craft"):
+			craft_next_upgrade()
 		if Input.is_action_just_pressed("interact"):
 			_interact()
 		if Input.is_action_just_pressed("switch_weapon") and not hud.touch_held.size():
@@ -952,6 +966,15 @@ func melee_hit(center: Vector2, radius: float, damage: int, force: float, _dir: 
 func _break_prop(b: Dictionary) -> void:
 	var pos: Vector2 = b["pos"]
 	var kind: String = b["kind"]
+	var material := ""
+	if kind.begins_with("bush") or kind == "grass":
+		material = "herb"
+	elif kind in ["crate", "barrel", "stump", "log"]:
+		material = "wood"
+	elif kind in ["rock", "stone", "ore"]:
+		material = "ore"
+	if not material.is_empty():
+		gather_material(material, 1 + (1 if randf() < 0.25 else 0))
 	if kind.begins_with("bush"):
 		fx.burst("leaf", pos, 10, 70.0, Color(1, 1, 1), 120.0)
 		fx.burst("grass", pos, 6, 50.0, Color(1, 1, 1), 120.0)
@@ -964,6 +987,32 @@ func _break_prop(b: Dictionary) -> void:
 		spawn_coin(pos, 1 + randi() % 2)
 	elif roll < 0.45 and player.health < player.max_health:
 		spawn_heart(pos)
+
+
+func gather_material(id: String, amount := 1) -> void:
+	if not materials.has(id) or amount <= 0:
+		return
+	materials[id] = int(materials[id]) + amount
+	hud.show_message("Gathered %d %s · W %d / O %d / H %d. Press U to craft." % [amount, id, int(materials["wood"]), int(materials["ore"]), int(materials["herb"])], 2.5)
+
+
+func craft_next_upgrade() -> bool:
+	for recipe in CRAFT_RECIPES:
+		if player.weapons_owned.has(recipe["id"]) or player.inventory.has(recipe["id"]):
+			continue
+		for material in recipe["needs"]:
+			if int(materials.get(material, 0)) < int(recipe["needs"][material]):
+				hud.show_message("Need %s to craft %s." % [str(recipe["needs"]), DB.ITEMS[recipe["id"]]["name"]], 2.5)
+				return false
+		for material in recipe["needs"]:
+			materials[material] = int(materials[material]) - int(recipe["needs"][material])
+		player.give_item(recipe["id"])
+		hud.show_item_get(recipe["id"])
+		hud.show_message("Crafted %s (Tier II)." % DB.ITEMS[recipe["id"]]["name"], 3.0)
+		save_game()
+		return true
+	hud.show_message("All available fieldcraft upgrades are complete.", 2.5)
+	return false
 
 
 func auto_aim(origin: Vector2, facing: Vector2, reach: float) -> Vector2:
@@ -1233,7 +1282,7 @@ func _update_interactables() -> void:
 			best = {"type": "waystone", "ws": w, "label": "REST"}
 	if not current_interior.is_empty():
 		# the way out stands at the south wall of whatever room we are in
-		var d4: float = (current_interior["_in_door"] as Vector2).distance_to(pp)
+		var d4: float = _interior_door(current_interior).distance_to(pp)
 		if d4 < 30.0:
 			bd = d4
 			best = {"type": "door", "house": current_interior, "label": "LEAVE"}
@@ -1621,7 +1670,7 @@ func save_game() -> bool:
 		"achievements": achievements, "stats": stats, "moth": moth_active,
 		"xp": p.xp, "level": p.level, "points": p.skill_points, "focus": p.focus,
 		"classes": p.classes, "nodes": p.class_nodes, "bar": p.skill_bar,
-		"quests": quests,
+		"quests": quests, "materials": materials,
 	})
 
 
@@ -1644,6 +1693,9 @@ func load_game() -> bool:
 	p.class_nodes = d.get("nodes", {})
 	p.skill_bar.assign(d.get("bar", []))
 	quests = d.get("quests", {})
+	materials = d.get("materials", {"wood": 0, "ore": 0, "herb": 0})
+	for material in ["wood", "ore", "herb"]:
+		materials[material] = maxi(0, int(materials.get(material, 0)))
 	p.recalc_stats()
 	p.apply_outfit()
 	var pos: Array = d.get("pos", world.data["start"])
@@ -1653,7 +1705,8 @@ func load_game() -> bool:
 		var hc: Vector2 = h["center"]
 		var hs: Vector2 = h["size"]
 		if absf(p.global_position.x - hc.x) < hs.x / 2.0 + 8.0 and absf(p.global_position.y - hc.y) < hs.y / 2.0 + 8.0:
-			current_interior = h
+			current_interior = h.duplicate()
+			current_interior["_in_door"] = _interior_door(h)
 			if h.get("dungeon", false):
 				_spawn_crypt_contents()
 			break
@@ -1694,4 +1747,3 @@ func load_game() -> bool:
 	_refresh_waystones()
 	hud.set_seed_count(moonseeds.size())
 	return true
-

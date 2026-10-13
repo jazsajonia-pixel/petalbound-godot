@@ -60,17 +60,25 @@ func _run_test() -> void:
 	check(DB.dialogue("lumen", 0, {}).size() >= 3, "Lumen should have dialogue.")
 
 	# ---- fishing
-	var shore := Vector2(1890, 1560)
-	for x in range(1890, 1690, -2):
-		if not game.world.is_water(Vector2(x, 1560)):
-			shore = Vector2(x, 1560)
+	var shore := Vector2.ZERO
+	var cast_pos := Vector2.ZERO
+	for y in range(1500, 1650, 2):
+		for x in range(1890, 1690, -2):
+			var dry: Vector2 = Vector2(x, y)
+			var water: Vector2 = dry + Vector2(20, 0)
+			if not game.world.is_water(dry) and game.world.is_water(water):
+				shore = dry
+				cast_pos = water
+				break
+		if cast_pos != Vector2.ZERO:
 			break
+	check(cast_pos != Vector2.ZERO, "A dry shoreline next to water should be available.")
 	player.global_position = shore
 	player.state = player.State.MOVE
+	player._set_facing(Vector2.RIGHT)
 	await frames(2)
-	var cast_pos := Vector2(1904, 1560)
-	if not game.world.is_water(cast_pos):
-		cast_pos = shore + Vector2(14, 0)
+	game._update_interactables()
+	check(game._interact_target.get("label", "") == "FISH", "The FISH prompt should appear from dry ground beside water.")
 	check(game.world.is_water(cast_pos), "A fishing spot should be found at Lake Lumen.")
 	var coins_before: int = player.petalcoins
 	check(game.fishing.start(game, cast_pos), "Casting should start fishing.")
@@ -181,4 +189,5 @@ func _run_test() -> void:
 		quit(1)
 		return
 	print("Starfall content smoke test passed: seventh biome, fishing, moonpetals and wisps, perfect parry, Blighted Depths, moth companion, feats and photo mode, save/load all work.")
+	game.free()
 	quit(0)

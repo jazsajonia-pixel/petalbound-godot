@@ -50,4 +50,5 @@ func _run_test() -> void:
 			quit(1)
 			return
 	print("World-bounds smoke test passed: Mallow reached and was stopped at all four edges of the open world.")
+	game.free()
 	quit(0)

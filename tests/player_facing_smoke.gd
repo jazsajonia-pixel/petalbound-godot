@@ -52,4 +52,5 @@ func _run_test() -> void:
 			return
 
 	print("Character-facing smoke test passed: all four cardinal and four diagonal inputs select matching pose states.")
+	game.free()
 	quit(0)

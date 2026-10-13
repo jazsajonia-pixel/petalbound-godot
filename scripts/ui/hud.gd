@@ -899,9 +899,8 @@ func _make_skill_bar() -> void:
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		v.add_child(icon)
-		var cd := _label(str(i + 1), 7, C_GOLD)
+		var cd := _label(str(i + 1), 7, C_GOLD, v)
 		cd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(cd)
 		skill_row.add_child(panel)
 		skill_slots.append({"panel": panel, "icon": icon, "cd": cd, "key": str(i + 1)})
 
@@ -1811,4 +1810,3 @@ class WorldMapView:
 		var pp: Vector2 = origin + g.player.global_position / 16.0 * k
 		draw_circle(pp, 3.5, Color.WHITE)
 		draw_circle(pp, 2.4, Color(0.95, 0.4, 0.62))
-

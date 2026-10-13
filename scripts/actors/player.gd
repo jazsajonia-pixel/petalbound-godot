@@ -196,6 +196,7 @@ func _register_inputs() -> void:
 	_add_keys("photo", [KEY_F9])
 	_add_keys("arts", [KEY_K])
 	_add_keys("journeys", [KEY_H])
+	_add_keys("craft", [KEY_U])
 	_add_keys("art1", [KEY_1])
 	_add_keys("art2", [KEY_2])
 	_add_keys("art3", [KEY_3])
