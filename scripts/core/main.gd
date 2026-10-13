@@ -1062,7 +1062,7 @@ func _content_tick(delta: float) -> void:
 func _update_region(force: bool) -> void:
 	if not current_interior.is_empty():
 		# inside a house or the crypt: show the room name, leave the music alone
-		current_biome = clampi(world.biome_at(player.global_position), 0, 6)
+		current_biome = clampi(world.biome_at(player.global_position), 0, 7)
 		if current_region != current_interior["name"] or force:
 			current_region = current_interior["name"]
 			hud.show_region(current_interior["name"], "inside")
@@ -1083,19 +1083,21 @@ func _update_region(force: bool) -> void:
 			sub = "heart of the valley"
 		"Lake Lumen":
 			sub = "where the moon used to bathe"
+		"Moonpetal Hollow":
+			sub = "a quiet grove where moonflowers open at night"
 		_:
-			sub = ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells", "where petals fall from the stars"][clampi(current_biome, 0, 6)]
+			sub = ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells", "where petals fall from the stars", "a quiet grove where moonflowers open at night"][clampi(current_biome, 0, 7)]
 	hud.show_region(name, sub)
 	if name == "Starfall Rise":
 		unlock_achievement("star_walker")
 	if active_boss == null:
-		var track: String = DB.REGION_MUSIC[clampi(current_biome, 0, 6)]
+		var track: String = DB.REGION_MUSIC[clampi(current_biome, 0, 7)]
 		if name == "Hearthgrove":
 			track = "village"
 		elif name == "The Moonwell" or environment.is_night():
 			track = "night" if not victory else "ending"
 		audio.play_music(track)
-	audio.play_ambient(["bird", "wind", "wind", "wind", "rain", "water1", "wind"][clampi(current_biome, 0, 6)] if environment.quality_high else "")
+	audio.play_ambient(["bird", "wind", "wind", "wind", "rain", "water1", "wind", "wind"][clampi(current_biome, 0, 7)] if environment.quality_high else "")
 
 
 # ------------------------------------------------------------------ combat api

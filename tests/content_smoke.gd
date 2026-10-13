@@ -5,6 +5,7 @@ extends SceneTree
 
 const Save := preload("res://scripts/systems/save.gd")
 const DB := preload("res://scripts/data/db.gd")
+const ClassBook := preload("res://scripts/data/classdb.gd")
 
 var game: Node
 var player: CharacterBody2D
@@ -49,11 +50,26 @@ func _run_test() -> void:
 	check(game.game_started, "New Journey should start the game.")
 
 	# ---- Starfall Rise
-	check(game.world.tiles == Vector2i(304, 176), "The world should expand to 304 x 176 tiles (got %s)." % game.world.tiles)
-	check(game.world.world_size.x > 4860.0, "The world width should grow past 4860px.")
+	check(game.world.tiles == Vector2i(336, 176), "The world should expand to 336 x 176 tiles (got %s)." % game.world.tiles)
+	check(game.world.world_size.x > 5300.0, "The world width should grow past 5300px.")
 	check(game.world.biome_at(Vector2(4600, 1460)) == 6, "Starfall Rise should be biome 6 at the Watch.")
 	check(game.world.region_name(Vector2(4600, 1460)) == "Starfall Rise", "The eastern rise should be named Starfall Rise.")
-	check(game.waystones.size() == 6, "Six waystones expected (got %d)." % game.waystones.size())
+	check(game.waystones.size() == 7, "Seven waystones expected after Moonpetal Hollow (got %d)." % game.waystones.size())
+	check(game.world.biome_at(Vector2(320 * 16, 88 * 16)) == 7, "Moonpetal Hollow should use its own eighth biome index.")
+	check(game.world.region_name(Vector2(320 * 16, 88 * 16)) == "Moonpetal Hollow", "The new eastern grove should have its own region name.")
+	check(game.world.is_water(Vector2(328 * 16 + 8, 61 * 16 + 8)), "Moonpetal's upper pool should be water outside its central islet.")
+	check(game.hud.arts_tabs.get_tab_title(0) == "CLASS LINES" and game.hud.arts_tabs.get_tab_title(1) == "SKILLS + LOADOUT", "Classes and skills should be shown on separate, clearly named tabs.")
+	check(game.hud.class_list != null and game.hud.arts_list != null, "The class and skill tables should both be available.")
+	for sid in ["moonstep", "seedling", "thorn_snare"]:
+		var sd: Dictionary = ClassBook.skill_of(sid)
+		check(not sd.is_empty() and FileAccess.file_exists(sd["icon"]), "New art %s should have a definition and unique icon." % sid)
+	for gid in ["hollowglow_charm", "starweft_boots", "moonpetal_ring", "moonfall_circlet"]:
+		check(DB.ITEMS.has(gid) and FileAccess.file_exists(DB.ITEMS[gid]["icon"]), "New Moonpetal gear %s should have a definition and icon." % gid)
+	var hollow_chests := 0
+	for chest in game.chests:
+		if String(chest["id"]).begins_with("c_hollow_"):
+			hollow_chests += 1
+	check(hollow_chests == 4, "The new grove should contain four discoverable equipment chests.")
 	var lumen_found := false
 	for n in game.npcs:
 		if n.npc_id == "lumen":

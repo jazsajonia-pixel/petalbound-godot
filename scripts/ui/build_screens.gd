@@ -48,13 +48,17 @@ static func _icon_button(hud: Control, tex_path: String, parent: Control, cb: Ca
 # ------------------------------------------------------------------ petal arts
 static func refresh_arts(hud: Control) -> void:
 	var list: VBoxContainer = hud.arts_list
+	var classes: VBoxContainer = hud.class_list
 	for c in list.get_children():
 		c.queue_free()
+	for c in classes.get_children():
+		c.queue_free()
 	var p: Node = hud.game.player
-	hud.arts_head_label.text = "PETAL ARTS   LV %d  XP %d/%d  POINTS %d" % [p.level, p.xp, p.xp_needed(), p.skill_points]
+	hud.arts_head_label.text = "FIELD GUIDE  ·  LV %d  ·  %d ART POINTS" % [p.level, p.skill_points]
 	var refresh := func() -> void: refresh_arts(hud)
-	# ---- loadout
-	hud._label("ART LOADOUT  ·  tap a slot, then choose an art for it", 8, hud.C_GOLD, list)
+	# ---- skills and loadout: this page never contains class trees
+	hud._label("YOUR FOUR ACTIVE ARTS", 10, hud.C_GOLD, list)
+	hud._label("Choose an empty slot, then assign an unlocked art below. Tap an occupied slot to select it.", 8, hud.C_DIM, list)
 	var slots: HBoxContainer = hud._hbox(list, 4)
 	for i in range(4):
 		var sid: String = p.skill_bar[i] if i < p.skill_bar.size() else ""
@@ -74,14 +78,16 @@ static func refresh_arts(hud: Control) -> void:
 		nm.custom_minimum_size = Vector2(68, 0)
 	var rid: String = p.relic_id()
 	var relic_line := "Relic slot: %s" % ("none — equip a relic in the satchel" if rid == "" else "%s — %s" % [CD.RELICS[rid]["name"], CD.RELICS[rid]["desc"]])
-	_wrap(hud, relic_line + "  (own button / key V, not an art slot)", hud.C_DIM, list, 430)
+	_wrap(hud, relic_line + "  ·  Relics use their own button / V key.", hud.C_DIM, list, 500)
+	hud._label("AVAILABLE ARTS  ·  grey entries explain their unlock requirement", 9, hud.C_GOLD, list)
 	for sid in Build.listed_skills(p):
 		_art_row(hud, p, sid, list, refresh)
-	# ---- lines
-	hud._label("CLASS LINES  ·  primary gets full attributes, secondary half. Combine at level %d." % ClassBook.COMBINE_LEVEL, 8, hud.C_GOLD, list)
+	hud._label("Controls: keys 1–4 cast · K opens this guide.", 8, hud.C_DIM, list)
+	# ---- classes: dedicated table so binding/rank/trees are not mixed with arts
+	hud._label("CLASS LINES  ·  bind a primary line; at level %d you may add one secondary." % ClassBook.COMBINE_LEVEL, 10, hud.C_GOLD, classes)
+	hud._label("Primary attributes are full strength; secondary attributes are half strength. You can change your mind without losing progress.", 8, hud.C_DIM, classes)
 	for cid in ClassBook.CLASSES:
-		_line_panel(hud, p, cid, list, refresh)
-	hud._label("Keys: 1-4 arts · V relic · T next target · K this page.", 8, hud.C_DIM, list)
+		_line_panel(hud, p, cid, classes, refresh)
 
 
 static func _art_row(hud: Control, p: Node, sid: String, list: Control, refresh: Callable) -> void:
@@ -183,12 +189,7 @@ static func _line_panel(hud: Control, p: Node, cid: String, list: Control, refre
 		if v != 0.0:
 			attrs.append(CD.format_stat(k, v))
 	hud._label("Line attributes: " + (", ".join(attrs) if attrs.size() > 0 else "grow with rank"), 8, hud.C_TEXT, col)
-	var unlocks := PackedStringArray()
-	for sid in def["skills"]:
-		var sd: Dictionary = ClassBook.skill_of(sid)
-		var ok: bool = bound and Build.rank(p, cid) >= int(sd.get("unlock", 1))
-		unlocks.append("%s%s (rank %d)" % ["+ " if ok else "· ", sd["name"], int(sd.get("unlock", 1))])
-	hud._label("Arts: " + ", ".join(unlocks), 8, hud.C_TEXT, col)
+	hud._label("Signature arts (%d) are listed on the SKILLS + LOADOUT tab." % def["skills"].size(), 8, hud.C_DIM, col)
 	var gear := PackedStringArray()
 	var rw: Dictionary = def.get("rewards", {})
 	for need in rw:

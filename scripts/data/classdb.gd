@@ -12,7 +12,7 @@ extends RefCounted
 const NA := "res://assets/packs/ninja_adventure/"
 
 ## Innate arts every wanderer may slot, whatever their lines.
-const WANDERER_SKILLS := ["mothlight", "petalguard"]
+const WANDERER_SKILLS := ["mothlight", "petalguard", "moonstep", "seedling", "thorn_snare"]
 
 ## Active arts. "exec" maps to an archetype implemented in player.cast_skill().
 ## aim: "tap" (instant, auto-targets), "direction" (arrow), "point" (ground circle).
@@ -22,10 +22,19 @@ const SKILLS := {
 	"mothlight": {"name": "Mothlight", "icon": NA + "ui/skill/scroll.png", "cost": 0, "cd": 6.0, "class": "",
 		"desc": "A burst of moth-glow that scorches everything around you.",
 		"exec": "mothlight", "aim": "tap", "dmg": 3, "radius": 72.0, "element": "arcane", "tint": "ffb8d8", "unlock": 1},
-	"petalguard": {"name": "Petalguard", "icon": NA + "ui/skill/guard.png", "cost": 0, "cd": 10.0, "class": "",
-		"desc": "A petal shield that swallows the next hit within 5s.",
-		"exec": "petalguard", "aim": "tap", "tint": "ffd0f0", "unlock": 1, "dmg_step": 0},
-	"bulwark": {"name": "Bulwark", "icon": NA + "ui/skill/guard.png", "cost": 16, "cd": 14.0, "class": "warden",
+		"petalguard": {"name": "Petalguard", "icon": NA + "ui/skill/guard.png", "cost": 0, "cd": 10.0, "class": "",
+			"desc": "A petal shield that swallows the next hit within 5s.",
+			"exec": "petalguard", "aim": "tap", "tint": "ffd0f0", "unlock": 1, "dmg_step": 0},
+		"moonstep": {"name": "Moonstep", "icon": "res://assets/generated/petalbound/icons/moonstep.png", "cost": 8, "cd": 8.0, "class": "",
+			"desc": "Slip a short distance through moonlight and gain a brief window of safety.",
+			"exec": "blink", "aim": "direction", "range": 64.0, "dist": 64.0, "buff": "moonstep", "time": 1.2, "tint": "d9c5ff", "unlock": 1, "dmg_step": 0},
+		"seedling": {"name": "Seedling Ward", "icon": "res://assets/generated/petalbound/icons/seedling.png", "cost": 12, "cd": 14.0, "class": "",
+			"desc": "Plant a soft-glowing seed at your feet; the little ward restores health while you stand nearby.",
+			"exec": "heal_zone", "aim": "tap", "radius": 30.0, "time": 4.2, "heal": 1, "tint": "b7f1af", "zone_style": "seed", "unlock": 1, "dmg_step": 0},
+		"thorn_snare": {"name": "Thorn Snare", "icon": "res://assets/generated/petalbound/icons/thorn_snare.png", "cost": 15, "cd": 12.0, "class": "",
+			"desc": "Mark a patch of ground; thorny roots lash foes caught inside.",
+			"exec": "cloud", "aim": "point", "range": 105.0, "radius": 28.0, "time": 3.0, "dmg": 2, "tint": "c7e587", "zone_style": "roots", "element": "poison", "status": {"poison": 1}, "unlock": 1},
+		"bulwark": {"name": "Bulwark", "icon": NA + "ui/skill/armor.png", "cost": 16, "cd": 14.0, "class": "warden",
 		"desc": "Root your feet: +2 defense for 6s and a heartbeat of invulnerability.",
 		"exec": "buff", "aim": "tap", "buff": "bulwark", "time": 6.0, "invuln": 0.8, "fx": "aura", "tint": "9fc4ff", "unlock": 1, "dmg_step": 0},
 	"sunder": {"name": "Sunder", "icon": NA + "items/weapons/bigsword.png", "cost": 12, "cd": 6.0, "class": "warden",
@@ -41,7 +50,7 @@ const SKILLS := {
 	"haymaker": {"name": "Haymaker", "icon": NA + "items/weapons/hammer.png", "cost": 16, "cd": 10.0, "class": "pugilist",
 		"desc": "A wide, staggering swing with everything behind it.",
 		"exec": "strike", "aim": "tap", "dmg": 5, "knock": 160.0, "radius": 28.0, "fx": "explosion", "tint": "ffc9a8", "unlock": 1},
-	"thunder_palm": {"name": "Thunder Palm", "icon": NA + "ui/skill/punch.png", "cost": 16, "cd": 7.0, "class": "pugilist",
+		"thunder_palm": {"name": "Thunder Palm", "icon": "res://assets/generated/petalbound/icons/thunder_palm.png", "cost": 16, "cd": 7.0, "class": "pugilist",
 		"desc": "A crackling palm strike; lightning arcs to two more foes and stuns briefly.",
 		"exec": "strike", "aim": "tap", "dmg": 3, "knock": 90.0, "radius": 22.0, "fx": "thunder", "tint": "fff2a0",
 		"element": "lightning", "chain": 2, "unlock": 3},
@@ -64,7 +73,7 @@ const SKILLS := {
 		"desc": "Call an arcane star down onto the ground you choose.",
 		"exec": "burst_point", "aim": "point", "range": 120.0, "dmg": 4, "radius": 30.0, "delay": 0.35, "dist": 64.0, "tint": "ffe9a8",
 		"element": "arcane", "unlock": 1},
-	"chain_lightning": {"name": "Chain Lightning", "icon": NA + "items/gemyellow.png", "cost": 20, "cd": 8.0, "class": "lumimancer",
+		"chain_lightning": {"name": "Chain Lightning", "icon": "res://assets/generated/petalbound/icons/chain_lightning.png", "cost": 20, "cd": 8.0, "class": "lumimancer",
 		"desc": "Lightning leaps to your target and on to three more, stunning each.",
 		"exec": "chain", "aim": "tap", "range": 130.0, "dmg": 4, "chain": 3, "tint": "fff6a8", "element": "lightning", "unlock": 3},
 	"grave_bolt": {"name": "Grave Bolt", "icon": NA + "items/weapons/lance.png", "cost": 14, "cd": 6.0, "class": "gravetender",

@@ -17,7 +17,9 @@ const BEACH := 5
 
 ## Starfall Rise: a scripted seventh biome appended east of the dunes at runtime.
 const STARFALL := 6
-const EXPAND_EAST := 48
+const MOONPETAL := 7
+const EXPAND_EAST := 80
+const STARFALL_WIDTH := 48
 const STARFALL_SEED := 20261012
 const STARFALL_ROAD := [[228.0, 122.0], [244.0, 116.0], [258.0, 106.0], [272.0, 100.0], [283.0, 94.0], [287.0, 92.0]]
 const STARFALL_LAKE := [276.0, 58.0]
@@ -104,15 +106,15 @@ func _make_ground(biome_tex: Texture2D, field_tex: Texture2D) -> void:
 	ground_material.set_shader_parameter("atlas_px", Vector2(atlas.get_width(), atlas.get_height()))
 	# plain fill tile (xy), first decorated tile x (z), decorated count (w)
 	ground_material.set_shader_parameter("ground_tiles", PackedVector4Array([
-		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4)]))
+		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4)]))
 	ground_material.set_shader_parameter("path_tiles", PackedVector4Array([
-		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0)]))
+		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0), Vector4(12, 8, 11, 0)]))
 	ground_material.set_shader_parameter("water_shallow", PackedColorArray([
-		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8")]))
+		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8"), Color("d99ccc")]))
 	ground_material.set_shader_parameter("water_deep", PackedColorArray([
-		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0")]))
+		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0"), Color("855aab")]))
 	ground_material.set_shader_parameter("biome_grade", PackedColorArray([
-		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42)]))
+		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42), Color(1.05, 0.84, 1.05, 0.34)]))
 	var mw: Array = data["landmarks"]["moonwell"]
 	ground_material.set_shader_parameter("moonwell_px", Vector2(mw[0], mw[1]))
 	ground.material = ground_material
@@ -322,10 +324,11 @@ func _expand_starfall() -> void:
 	for y in range(h):
 		var edge := biome_image.get_pixel(old_w - 1, y)
 		var b := int(round(edge.r * 255.0))
-		if b != BEACH:
-			b = STARFALL
 		for x in range(old_w, new_w):
-			grow.set_pixel(x, y, Color(b / 255.0, b / 255.0, b / 255.0))
+			var biome := b
+			if biome != BEACH:
+				biome = STARFALL if x < old_w + STARFALL_WIDTH else MOONPETAL
+			grow.set_pixel(x, y, Color(biome / 255.0, biome / 255.0, biome / 255.0))
 	biome_image = grow
 	# grow the field map east, continuing the southern sea
 	var fw_old := field_image.get_width()
@@ -343,6 +346,9 @@ func _expand_starfall() -> void:
 	for i in range(STARFALL_ROAD.size() - 1):
 		_star_stamp_road(STARFALL_ROAD[i], STARFALL_ROAD[i + 1])
 	_star_stamp_road_plaza(287.0, 92.0, 3.5)
+	var hollow_road := [[287.0, 92.0], [299.0, 91.0], [309.0, 88.0], [320.0, 86.0], [325.0, 78.0]]
+	for i in range(hollow_road.size() - 1):
+		_star_stamp_road(hollow_road[i], hollow_road[i + 1])
 	var branch := [[287.0, 92.0], [283.0, 80.0], [278.0, 70.0], [276.0, 64.0]]
 	for i in range(branch.size() - 1):
 		_star_stamp_road(branch[i], branch[i + 1])
@@ -350,14 +356,20 @@ func _expand_starfall() -> void:
 	_star_stamp_water(STARFALL_LAKE[0], STARFALL_LAKE[1], 8.0, 5.0, rng)
 	_star_clear_water(277.0, 56.0, 1.9, 1.3)
 	_star_stamp_water(STARFALL_POND[0], STARFALL_POND[1], 4.0, 3.0, rng)
+	_star_stamp_water(324.0, 61.0, 6.0, 4.0, rng)
+	_star_clear_water(324.0, 61.0, 1.5, 1.0)
+	_star_stamp_water(313.0, 130.0, 3.0, 2.2, rng)
 	# widen the world bookkeeping
 	tiles = Vector2i(new_w, tiles.y)
 	world_size = Vector2(tiles) * 16.0
 	data["tiles"] = [new_w, tiles.y]
 	if not (data["biome_names"] as Array).has("Starfall Rise"):
 		(data["biome_names"] as Array).append("Starfall Rise")
+	if not (data["biome_names"] as Array).has("Moonpetal Hollow"):
+		(data["biome_names"] as Array).append("Moonpetal Hollow")
 	data["landmarks"]["starfall_shrine"] = [287 * 16, 91 * 16]
 	data["landmarks"]["mirror_lake"] = [int(STARFALL_LAKE[0]) * 16, int(STARFALL_LAKE[1]) * 16]
+	data["landmarks"]["moonpetal_hollow"] = [322 * 16, 88 * 16]
 	_star_place_actors(rng)
 
 
@@ -528,6 +540,20 @@ func _star_place_actors(rng: RandomNumberGenerator) -> void:
 				var f := _star_field(float(tx) + 0.5, float(ty) + 0.5)
 				if f.g <= 0.4 and f.r <= 0.3:
 					data["decor"].append([decor_kinds[rng.randi() % decor_kinds.size()], round((float(tx) + 0.5) * 16.0), round((float(ty) + 0.5) * 16.0)])
+	# A moonlit grove with a safe road, flower-lit waystone and two small pools.
+	for i in range(7):
+		var ang := TAU * i / 7.0
+		_star_add_prop("pillar" if i % 2 == 0 else "stone_lantern", 322.0 + cos(ang) * 4.5, 88.0 + sin(ang) * 3.2, occupied, true, 0.65)
+	_star_add_prop("statue_eye", 322.0, 83.2, occupied, true, 0.7)
+	for l in [[307.0, 89.0], [316.0, 88.0], [326.0, 77.0]]:
+		_star_add_prop("stone_lantern", l[0], l[1], occupied, true, 0.6)
+	for s in [["spirit2", 311.0, 101.0], ["bluebat", 318.0, 106.0], ["spirit", 330.0, 96.0], ["eye", 329.0, 72.0], ["mushroom2", 309.0, 119.0], ["spirit2", 330.0, 120.0]]:
+		data["enemies"].append({"s": s[0], "x": round(s[1] * 16.0), "y": round(s[2] * 16.0)})
+	data["chests"].append({"id": "c_hollow_charm", "x": 311 * 16, "y": 80 * 16, "item": "hollowglow_charm"})
+	data["chests"].append({"id": "c_hollow_boots", "x": 329 * 16, "y": 109 * 16, "item": "starweft_boots"})
+	data["chests"].append({"id": "c_hollow_ring", "x": 325 * 16, "y": 57 * 16, "item": "moonpetal_ring", "big": true})
+	data["chests"].append({"id": "c_hollow_circlet", "x": 318 * 16, "y": 123 * 16, "item": "moonfall_circlet", "big": true})
+	data["shrines"].append({"id": "moonpetal", "name": "Moonpetal Waystone", "x": 322 * 16, "y": 88 * 16})
 	# fixed monster camps along the road and around the basin
 	for s in [["spirit", 270.0, 100.0], ["bluebat", 275.0, 105.0], ["eye", 282.0, 88.0], ["skull", 290.0, 97.0],
 			["slime3", 295.0, 120.0], ["slime3", 278.0, 132.0], ["spirit2", 268.0, 120.0], ["lizard", 260.0, 112.0],
@@ -586,6 +612,8 @@ func region_name(pos: Vector2) -> String:
 		return "The Moonwell"
 	if pos.distance_to(Vector2(lm["lake_lumen"][0], lm["lake_lumen"][1])) < 15.0 * 16.0:
 		return "Lake Lumen"
+	if pos.x >= 304.0 * 16.0:
+		return "Moonpetal Hollow"
 	var names: Array = data["biome_names"]
 	return names[clampi(biome_at(pos), 0, names.size() - 1)]
 
