@@ -1,5 +1,24 @@
 # Development Log
 
+## Known-gaps pass — 2026-10-13
+
+**Status:** Implemented on branch `gaps-pass` and verified with headless Godot 4.7.2: the editor import passes, and all ten smoke tests pass (the new `gaps_smoke` has 102 checks). A screenshot tour under xvfb was inspected for the vale, camp, map, telegraphs, cloak close-ups and rift chambers. **Not tested on a phone.**
+
+### What changed
+
+- **Region:** `world._expand_ember()` appends 40 columns (biome 7, seed 20261013) after Starfall. It grows the biome and field maps and the shader arrays (`ground.gdshader` arrays [7] to [8]), and stamps the Ember Road, plaza, north and south roads and Amber Pond. Starfall's east wall skips rows 93 to 101, and Starfall props left on the finished road are removed. `_ember_place_actors` adds the autumn wall, camp props, the hollow ring, the grove, scatter, decor, 16 monsters plus an elite cyclope, 3 chests, a waystone, Rowan and the Emberbark. New prop kinds (`rock_orange`, `leaf_orange`, `ember_ore`) come from Ninja Adventure `nature.png`; `ember_ore` is breakable and gives Ore, with a 35% chance of an Ember Core. Biome clamps in `main.gd` (region subtitle, music, ambience) and the map palette now cover biome 7. Map labels near the east edge flip left.
+- **Emberbark:** `DB.BOSSES["emberbark"]` uses `sheet` (reuses the giantbamboo frames), `swap` (palette swap via `boss.apply_palette`) and `side: true`. `main.is_side_boss` / `_side_boss_reward`: recorded in `defeated_bosses`, sets the flag `emberbark_felled`, pays 60 coins plus coin pickups and 2 Moon Shards, and is excluded from the Moonseed objective and reload Moonseed spawns. Journeys of type flag now complete immediately if the flag was earned before the journey began.
+- **Telegraphs:** `fx.Telegraph` gains lane, cone and spokes shapes and draws true circles (previously squashed to 0.62 height while the damage check used a circle). `boss.gd`: lane matches the charge distance and contact width, the volley gets a wind-up and cone with the first burst along the cone, the ring warning uses the same offset as the shots, a "!" label shows while winding up, and `attack_pattern()` adds `quake` (r 64, 1.0s, 4 damage) when enraged.
+- **Cloak:** `scripts/actors/cloak_layer.gd` is a child of the player, re-layered each frame with `_layer_behind_body`. Item `look` colour triples were added to every cloak, plus a new `emberleaf_mantle`. `visible_gear["cloak"]` is set while worn.
+- **Rifts:** `rifts.tiled()` / `decal()` / `tile_texture()` (single tiles cut from the CC0 sheets, cached, repeated with `TEXTURE_REPEAT_ENABLED`), replacing the flat floor and wall colours.
+- **Tests:** `tests/gaps_smoke.gd`. Updated counts in `adventure_slice_smoke` (5 bosses, 4 Moonseed keepers, 7 waystones) and `content_smoke` (344 x 176, 7 waystones). The screenshot tour gained `_gaps_shots()`.
+
+### Not done / limits
+
+- The Emberbark reuses the Briarback's animation sheet (recoloured); there is no new boss art.
+- The cape is a procedural pixel layer with one sway frame, not hand-animated frames. Charms, rings and relics are still not drawn.
+- The 8px reachability test approximates Mallow's collision; real walking in the vale was only spot-checked in screenshots.
+
 ## Open-world expansion — 2026-10-13
 
 **Status:** Implemented on branch `open-world-expansion` and verified with headless Godot 4.7.2: the editor import/parse and all nine smoke tests pass (run one after another). A screenshot tour under xvfb was inspected for font clipping, HUD overlap, interiors, rifts, character creation and the trade screens. **Not tested on a phone** (touch feel, safe areas, performance).

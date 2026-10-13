@@ -49,11 +49,11 @@ func _run_test() -> void:
 	check(game.game_started, "New Journey should start the game.")
 
 	# ---- Starfall Rise
-	check(game.world.tiles == Vector2i(304, 176), "The world should expand to 304 x 176 tiles (got %s)." % game.world.tiles)
+	check(game.world.tiles == Vector2i(344, 176), "The world should expand to 344 x 176 tiles (Starfall + Emberleaf) (got %s)." % game.world.tiles)
 	check(game.world.world_size.x > 4860.0, "The world width should grow past 4860px.")
 	check(game.world.biome_at(Vector2(4600, 1460)) == 6, "Starfall Rise should be biome 6 at the Watch.")
 	check(game.world.region_name(Vector2(4600, 1460)) == "Starfall Rise", "The eastern rise should be named Starfall Rise.")
-	check(game.waystones.size() == 6, "Six waystones expected (got %d)." % game.waystones.size())
+	check(game.waystones.size() == 7, "Seven waystones expected, including Cinderbrook (got %d)." % game.waystones.size())
 	var lumen_found := false
 	for n in game.npcs:
 		if n.npc_id == "lumen":

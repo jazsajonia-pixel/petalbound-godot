@@ -18,8 +18,11 @@ const ITEMS := {
 		"desc": "A nightsteel fan-blade. Swift cuts; the finisher bites deeper.", "damage": 3},
 	"ironroot_hammer": {"rarity": "rare", "name": "Ironroot Hammer", "type": "weapon", "icon": NA + "items/weapons/hammer.png", "hand": NA + "items/weapons/hammer_hand.png",
 		"desc": "Slow, crushing swings that send a shockwave through the ground.", "damage": 5},
-	"plum_cloak": {"rarity": "common", "name": "Plum Wayfarer Cloak", "type": "cloak", "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png",
+	"plum_cloak": {"look": ["9a6ac0", "6a4590", "2a1838"], "rarity": "common", "name": "Plum Wayfarer Cloak", "type": "cloak", "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png",
 		"desc": "Mallow's travelling cloak. +8% move speed.", "speed": 0.08},
+	"emberleaf_mantle": {"look": ["ffad66", "d0602e", "5a2210"], "rarity": "uncommon", "name": "Emberleaf Mantle", "type": "cloak",
+		"icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png", "tint": "ffb27a",
+		"desc": "Stitched from Emberleaf Vale's fallen leaves. +5% move speed and +1 defense.", "speed": 0.05, "defense": 1},
 	"moonheart_charm": {"rarity": "uncommon", "name": "Moonheart Charm", "type": "charm", "icon": NA + "ui/skill/amulet.png",
 		"desc": "A warm charm from Lake Lumen's island. +1 heart.", "hearts": 1},
 	"briar_mail": {"look": ["c9a07a", "8a5a3c", "523221"], "rarity": "common", "name": "Briar Mail", "type": "armor", "icon": NA + "ui/skill/armor.png",
@@ -76,9 +79,9 @@ const ITEMS := {
 		"desc": "Houses a hungry little soul. Relic: Soul Feast.", "relic": "soulfeast"},
 	"galestride_leggings": {"look": ["c8f8e0", "70c8a0", "3a7a5a"], "rarity": "uncommon", "name": "Galestride Leggings", "type": "legs", "classes": ["windrunner"], "icon": NA + "ui/skill/boot.png", "tint": "b0f0d0",
 		"desc": "Feather-light leggings. +6% speed, ranged hits +1.", "speed": 0.06, "ranged_bonus": 1},
-	"bloomthread_shawl": {"rarity": "rare", "name": "Bloomthread Shawl", "type": "cloak", "classes": ["petalweaver"], "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png", "tint": "ffd0e8",
+	"bloomthread_shawl": {"look": ["ffc4e0", "e07fb0", "6a2a4c"], "rarity": "rare", "name": "Bloomthread Shawl", "type": "cloak", "classes": ["petalweaver"], "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png", "tint": "ffd0e8",
 		"desc": "Woven from living petals. Healing +25%, +6 focus.", "heal_power": 0.25, "focus": 6},
-	"twilight_mantle": {"rarity": "epic", "name": "Twilight Reaper Mantle", "type": "cloak", "classes": ["nightbloom", "gravetender"], "requires_all": true, "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png", "tint": "9ad0b0",
+	"twilight_mantle": {"look": ["7ab894", "3f6e5c", "15302a"], "rarity": "epic", "name": "Twilight Reaper Mantle", "type": "cloak", "classes": ["nightbloom", "gravetender"], "requires_all": true, "icon": "res://assets/packs/rpg_inventory_icons/selected/plum_cloak.png", "tint": "9ad0b0",
 		"desc": "Hybrid: Nightbloom + Gravetender. +5% crit, +6% lifesteal, +4% speed.", "crit": 0.05, "lifesteal": 0.06, "speed": 0.04},
 	"spellblade_sash": {"rarity": "epic", "name": "Spellblade Sash", "type": "ring", "classes": ["nightbloom", "lumimancer"], "requires_all": true, "icon": NA + "ui/skill/ring.png", "tint": "c8b8ff",
 		"desc": "Hybrid: Nightbloom + Lumimancer. +10% elemental damage, +4% crit.", "elem": 0.10, "crit": 0.04},
@@ -188,6 +191,11 @@ const BOSSES := {
 	"giantfrog": {"hp": 150, "frame": 40, "anims": {"idle": 5, "jump": 6, "charge": 7, "attack": 3, "hit": 3}, "music": "boss", "radius": 16.0},
 	"demoncyclop": {"hp": 170, "frame": 50, "anims": {"idle": 5, "walk": 6, "hit": 3}, "music": "boss", "radius": 18.0},
 	"giantspirit": {"hp": 180, "frame": 50, "anims": {"idle": 5, "hit": 3}, "music": "boss", "radius": 18.0},
+	# Emberleaf Vale side guardian: the Briarback's sheet, scorched orange. Not a Moonseed keeper.
+	"emberbark": {"hp": 210, "frame": 62, "anims": {"idle": 6, "walk": 12, "attack": 5, "charge": 3, "hit": 4}, "music": "boss", "radius": 22.0,
+		"sheet": "giantbamboo", "side": true,
+		# palette swap: the Briarback's limes and mosses become ember oranges and bark
+		"swap": {"adbc3a": "ffb347", "74a334": "e8742c", "56864c": "a8442a", "5f7160": "7a4e3e"}},
 }
 
 const OUTFITS := {
@@ -197,7 +205,7 @@ const OUTFITS := {
 	"zephyr_boots": [["a8a129", "f6a6c1"], ["56864c", "5a7fb8"], ["345a52", "33466e"], ["d14b34", "ffd27a"]],
 }
 
-const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow"]
+const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow", "forest"]
 
 static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 	match id:
@@ -253,5 +261,13 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 					"Starfall petals drift from the sky here. Gather the moonpetals at night; they brew beautifully."]
 			return ["Welcome to Starfall Rise, wanderer. The petals here fall from the sky, not the trees.",
 				"The Mirror Basin shows the stars even at noon. Mind the wisps after dark.",
-				"Sit with the eye statue a while. It has seen more roads than any of us."]
+				"Sit with the eye statue a while. It has seen more roads than any of us.",
+				"The Ember Road runs east through a gap in the white grove, down into Emberleaf Vale."]
+		"rowan":
+			if flags.get("emberbark_felled", false):
+				return ["The hollow's quiet at last. The leaves still burn orange, but now it's only autumn.",
+					"If you're after ember cores, crack the glowing ore rocks with your weapon."]
+			return ["Cinderbrook Camp, wanderer. We hunt the vale and keep the waystone lit.",
+				"Ember spiders have been crawling right up to the stalls. Thin them out and I'll make it worth your while.",
+				"North of camp, the Emberbark sleeps in its hollow. Watch the ground: when it glows red, step out of it."]
 	return ["..."]

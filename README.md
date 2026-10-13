@@ -33,6 +33,19 @@ Open `project.godot` in Godot 4.3 or newer (validated on 4.7.2). The game uses t
 | Photo mode (drag to pan, zoom, capture) | F9 | – | Pause menu → PHOTO MODE |
 | Pause / settings / HUD editor | Esc / P | Start | ❚❚ |
 
+## Known-gaps pass (2026-10-13)
+
+- **Emberleaf Vale:** a new autumn region 40 tiles east of Starfall Rise (the world is now 344 x 176 tiles), reached by the Ember Road through a gate in Starfall's white grove. It has Cinderbrook Camp with a waystone and Rowan the Hunter, who gives three quests (Ember Patrol, Banked Embers, Fell the Emberbark). There are monster camps plus one elite, glowing ember ore to break for Ore and Ember Cores, Amber Pond, and a hidden grove chest with the Emberleaf Mantle.
+- **The Emberbark:** an optional side guardian in a hollow north of camp (the Briarback's sheet, recoloured by palette swap). It pays coins and Moon Shards once and never adds a fifth Moonseed.
+- **Boss telegraphs:** every guardian attack shows a ground warning that matches its real hit area. A charge shows a lane, a volley shows a cone after a new 0.55s wind-up, a ring shows one spoke per shot, and leaps and spikes show filling circles. Circles are now true circles, matching the hit checks. A red "!" floats over the boss while it winds up. In phase two (half health) a close-range quake joins the pattern, with an "enraged" banner.
+- **Visible cloak:** the equipped cloak is drawn as a pixel cape (`scripts/actors/cloak_layer.gd`): over the back when facing away, trailing behind in side views, peeking out when facing the camera. It uses each cloak's own colours and updates on equip and unequip.
+- **Rift tileset:** rift chambers now use Ninja Adventure floor, stone-block wall and pillar tiles recoloured violet, plus crystals, a statue, floor clutter and one soft light per room.
+
+| | |
+| --- | --- |
+| ![Cinderbrook Camp](docs/screenshots/gaps_cinderbrook.png) | ![Volley cone warning](docs/screenshots/gaps_boss_cone.png) |
+| ![Quake warning](docs/screenshots/gaps_boss_quake.png) | ![Textured rift chamber](docs/screenshots/gaps_rift_tiles.png) |
+
 ## Open-world expansion (2026-10-13)
 
 | | |
@@ -121,7 +134,8 @@ godot --headless --editor --path . --quit          # import + parse
 for t in tests/*.gd; do godot --headless --path . -s "$t"; done
 ```
 
-There are nine smoke tests:
+There are ten smoke tests:
+- `gaps_smoke` (102 checks): Emberleaf Vale size, biome, names and the Starfall gate; on-foot reachability (8px flood fill) from the start to the camp, hollow, pond, every vale chest, the waystone and Rowan; monsters on open ground; the Emberbark side guardian (no Moonseed, reward once, saved), Rowan's quest chain including a kill made before the quest; telegraph lane/cone/spokes matching the real attack; the "!" mark; quake only when enraged, safe outside the circle and damaging inside; cloak shown/hidden/recoloured and layered per facing; rift chambers built from repeating tiles and props.
 - `expansion_smoke` (112 checks): character creation, unarmed start, attack facing while steering, aim-assist cone, line-of-sight melee, held weapon / dual knives / armour region visuals, loot once per death, bag stacks and full bag, shop/sell/exchange failures that keep coins and items, crafting once, HUD layout without a dodge control, quest chains/markers/single rewards, knockback caps and walls, house interiors and inner rooms, rift spawn rules/enter/gates/boss/cache once/exit/save data/death, save/load of bag, weapons and appearance, and settings.
 - `combat_overhaul_smoke` (230 checks): every class/skill/item combination, auto-targeting and retargeting, the attack indicator, weapon shapes and passives, the four art slots with tap, aimed and cancelled touch casts, every art of every line, unlocks and upgrades, hybrid gear, all nine equipment slots and stat recalculation, dodge, flask, statuses and resistances, relics, fixed and floating joysticks, the HUD editor, settings persistence, save/load and loading a pre-overhaul save.
 - `adventure_slice_smoke`: world, movement, combat, loot, gear, dialogue, guardians, ending, save/load and respawn.

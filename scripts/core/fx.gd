@@ -149,6 +149,34 @@ func ring(pos: Vector2, radius: float, duration: float, color: Color, filled := 
 	return r
 
 
+## Charge path warning: a lane from pos along dir, as wide as the attacker's body.
+func lane(pos: Vector2, dir: Vector2, length: float, width: float, duration: float, color: Color) -> Node2D:
+	var r: Telegraph = ring(pos, width * 0.5, duration, color) as Telegraph
+	r.shape = "lane"
+	r.dir = dir.normalized() if dir.length() > 0.01 else Vector2.RIGHT
+	r.length = length
+	r.width = width
+	return r
+
+
+## Projectile spread warning: a wedge of half_angle either side of dir.
+func cone(pos: Vector2, dir: Vector2, half_angle: float, radius: float, duration: float, color: Color) -> Node2D:
+	var r: Telegraph = ring(pos, radius, duration, color) as Telegraph
+	r.shape = "cone"
+	r.dir = dir.normalized() if dir.length() > 0.01 else Vector2.RIGHT
+	r.half_angle = half_angle
+	return r
+
+
+## Radial burst warning: one line per projectile, matching the real firing angles.
+func spokes(pos: Vector2, count: int, offset: float, radius: float, duration: float, color: Color) -> Node2D:
+	var r: Telegraph = ring(pos, radius, duration, color) as Telegraph
+	r.shape = "spokes"
+	r.spokes = count
+	r.offset = offset
+	return r
+
+
 func shake(strength: float, duration := 0.18) -> void:
 	if shake_scale <= 0.01:
 		return
@@ -216,10 +244,20 @@ func bolt(from: Vector2, to: Vector2, color := Color(1.0, 0.95, 0.5)) -> void:
 
 class Telegraph:
 	extends Node2D
+	## Ground warning for an incoming attack. The drawn shape is the exact hit
+	## area (true circles, not squashed ellipses) and the inner fill grows until
+	## the attack lands, so players can read both where and when.
+	var shape := "circle"
 	var radius := 24.0
 	var duration := 0.8
 	var color := Color(1, 0.3, 0.3, 0.5)
 	var filled := true
+	var dir := Vector2.RIGHT
+	var length := 120.0
+	var width := 24.0
+	var half_angle := 0.4
+	var spokes := 12
+	var offset := 0.0
 	var t := 0.0
 
 	func _process(delta: float) -> void:
@@ -229,14 +267,50 @@ class Telegraph:
 			return
 		queue_redraw()
 
+	func progress() -> float:
+		return clampf(t / maxf(duration, 0.001), 0.0, 1.0)
+
 	func _draw() -> void:
-		var k := clampf(t / duration, 0.0, 1.0)
+		var k := progress()
 		var pulse := 0.6 + sin(t * 18.0) * 0.2
 		var c := Color(color.r, color.g, color.b, color.a * pulse)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.62))
-		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 40, c, 1.5)
-		if filled:
-			draw_circle(Vector2.ZERO, radius * k, Color(c.r, c.g, c.b, c.a * 0.45))
+		var fill := Color(c.r, c.g, c.b, c.a * 0.45)
+		match shape:
+			"lane":
+				draw_set_transform(Vector2.ZERO, dir.angle(), Vector2.ONE)
+				var outer := Rect2(0.0, -width * 0.5, length, width)
+				draw_rect(outer, Color(c.r, c.g, c.b, color.a * 0.28), true)
+				draw_rect(outer, c, false, 1.5)
+				if filled:
+					draw_rect(Rect2(0.0, -width * 0.5, length * k, width), fill, true)
+				for i in range(1, 4):
+					var x := length * (i / 4.0)
+					draw_polyline(PackedVector2Array([Vector2(x - 6, -5), Vector2(x, 0), Vector2(x - 6, 5)]), c, 1.5)
+			"cone":
+				var a0 := dir.angle() - half_angle
+				var a1 := dir.angle() + half_angle
+				draw_colored_polygon(_wedge(a0, a1, radius), Color(c.r, c.g, c.b, color.a * 0.28))
+				if filled:
+					draw_colored_polygon(_wedge(a0, a1, maxf(2.0, radius * k)), fill)
+				draw_arc(Vector2.ZERO, radius, a0, a1, 18, c, 1.5)
+				draw_line(Vector2.ZERO, Vector2.from_angle(a0) * radius, c, 1.5)
+				draw_line(Vector2.ZERO, Vector2.from_angle(a1) * radius, c, 1.5)
+			"spokes":
+				for i in range(spokes):
+					var d := Vector2.from_angle(offset + TAU * i / spokes)
+					draw_line(d * 10.0, d * radius, Color(c.r, c.g, c.b, c.a * 0.35), 3.0)
+					draw_line(d * 10.0, d * maxf(10.0, radius * k), c, 2.0)
+				draw_arc(Vector2.ZERO, 10.0 + (radius - 10.0) * k, 0.0, TAU, 40, Color(c.r, c.g, c.b, c.a * 0.5), 1.0)
+			_:
+				draw_arc(Vector2.ZERO, radius, 0.0, TAU, 40, c, 1.5)
+				if filled:
+					draw_circle(Vector2.ZERO, radius * k, fill)
+
+	func _wedge(a0: float, a1: float, r: float) -> PackedVector2Array:
+		var pts := PackedVector2Array([Vector2.ZERO])
+		for i in range(13):
+			pts.append(Vector2.from_angle(lerpf(a0, a1, i / 12.0)) * r)
+		return pts
 
 
 static var _glow_tex: Texture2D

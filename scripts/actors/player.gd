@@ -15,6 +15,7 @@ const ZoneScript := preload("res://scripts/combat/zone.gd")
 const ThrallScript := preload("res://scripts/combat/thrall.gd")
 const KB := preload("res://scripts/combat/knockback.gd")
 const HeroLook := preload("res://scripts/actors/hero_look.gd")
+const CloakLayer := preload("res://scripts/actors/cloak_layer.gd")
 const HERO_SHADER := preload("res://assets/shaders/hero_layers.gdshader")
 const SPRITE_SHADER := preload("res://assets/shaders/sprite_fx.gdshader")
 const HERO := "res://assets/packs/ninja_adventure/hero/"
@@ -163,6 +164,8 @@ var _attack_buffer := 0.0
 var _attack_dir_source := "facing"
 var move_intent_override := Vector2.INF   # tests can inject stick input
 var off_weapon_sprite: Sprite2D
+## Procedural cape for the equipped cloak (see cloak_layer.gd).
+var cloak_layer: Node2D
 var appearance: Dictionary = {}
 ## Stackable bag (materials, consumables, quest items): id -> count.
 var bag: Dictionary = {}
@@ -215,6 +218,11 @@ func _ready() -> void:
 	sprite.material = fx_material
 	sprite.animation_changed.connect(_on_sprite_anim_changed)
 	add_child(sprite)
+	cloak_layer = CloakLayer.new()
+	cloak_layer.name = "Cloak"
+	cloak_layer.visible = false
+	add_child(cloak_layer)
+	move_child(cloak_layer, sprite.get_index())
 	weapon_sprite = Sprite2D.new()
 	weapon_sprite.centered = false
 	weapon_sprite.visible = false
@@ -493,7 +501,9 @@ func apply_outfit() -> void:
 		return
 	appearance = HeroLook.sanitize(appearance)
 	var rc := HeroLook.apply(fx_material, appearance, equipped, DB.ITEMS)
-	visible_gear = rc["worn"]
+	visible_gear = (rc["worn"] as Dictionary).duplicate()
+	if cloak_layer != null and cloak_layer.set_item(String(equipped.get("cloak", "")), DB.ITEMS):
+		visible_gear["cloak"] = String(equipped["cloak"])
 	_on_sprite_anim_changed()
 	refresh_held_weapon()
 
@@ -547,7 +557,19 @@ func refresh_held_weapon() -> void:
 	_update_held_weapon()
 
 
+func _update_cloak() -> void:
+	if cloak_layer == null or not cloak_layer.is_worn():
+		return
+	var walking := String(sprite.animation).begins_with("walk")
+	cloak_layer.set_pose(dir_name, walking, sprite.frame)
+	cloak_layer.position = Vector2(0, sprite.position.y)
+	cloak_layer.modulate = sprite.modulate
+	cloak_layer.visible = sprite.visible and state != State.DEAD and not swimming
+	_layer_behind_body(cloak_layer, not cloak_layer.in_front())
+
+
 func _update_held_weapon() -> void:
+	_update_cloak()
 	if weapon_sprite == null or off_weapon_sprite == null:
 		return
 	var armed := not is_unarmed() and state != State.DEAD and not swimming and not fishing

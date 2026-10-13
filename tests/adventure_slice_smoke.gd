@@ -63,9 +63,11 @@ func _run_test() -> void:
 	# ---- world
 	check(game.world.prop_count > 1500, "World should place over 1500 props (got %d)." % game.world.prop_count)
 	check(game.enemies.size() > 60, "World should spawn dozens of monsters.")
-	check(game.bosses.size() == 4, "Four guardians expected.")
+	var seed_keepers: Array = game.bosses.filter(func(b): return not game.is_side_boss(b))
+	check(seed_keepers.size() == 4, "Four Moonseed guardians expected (got %d)." % seed_keepers.size())
+	check(game.bosses.size() == 5, "Four guardians plus the Emberbark expected.")
 	check(game.npcs.size() >= 8, "Hearthgrove and the roads should have villagers.")
-	check(game.waystones.size() == 6, "Six waystones expected.")
+	check(game.waystones.size() == 7, "Seven waystones expected (six plus Cinderbrook).")
 	var lumen_found := false
 	for n in game.npcs:
 		if n.npc_id == "lumen":

@@ -1,6 +1,8 @@
 extends CharacterBody2D
 ## Region guardian. Cycles through telegraphed attack patterns, enrages at half health
-## and drops a Moonseed when defeated.
+## and drops a Moonseed when defeated. Every attack shows a ground warning that
+## matches its real hit area, plus a "!" over the boss while it winds up. Once
+## enraged (half health) the pattern gains a close-range quake.
 
 const AnimLib := preload("res://scripts/core/anim_lib.gd")
 const DB := preload("res://scripts/data/db.gd")
@@ -11,10 +13,21 @@ const PATTERNS := {
 	"giantfrog": ["leap", "spread", "leap", "ring"],
 	"demoncyclop": ["spread", "charge", "ring", "spikes"],
 	"giantspirit": ["ring", "teleport", "spikes", "spread", "teleport"],
+	"emberbark": ["spikes", "charge", "spread", "spikes", "ring"],
 }
-const SHOTS := {"giantbamboo": "rock_ball", "giantfrog": "energy_ball", "demoncyclop": "fireball", "giantspirit": "ice_spike"}
+## Attack added to every pattern once the boss is enraged (phase two).
+const ENRAGED_EXTRA := "quake"
+const QUAKE_RADIUS := 64.0
+const QUAKE_WIND := 1.0
+const QUAKE_DAMAGE := 4
+const CHARGE_SPEED := 230.0
+const CHARGE_TIME := 0.75
+const SPREAD_STEP := 0.28
+const RING_REACH := 110.0
+const SHOTS := {"giantbamboo": "rock_ball", "giantfrog": "energy_ball", "demoncyclop": "fireball", "giantspirit": "ice_spike", "emberbark": "fireball"}
 const TITLES := {
 	"giantbamboo": "THE BRIARBACK", "giantfrog": "THE GLASSWATER TOAD", "demoncyclop": "THE EMBER CYCLOPS", "giantspirit": "THE QUIET WARDEN",
+	"emberbark": "THE EMBERBARK",
 }
 
 var game: Node
@@ -41,6 +54,9 @@ var title := ""
 var _shots_left := 0
 var _shot_t := 0.0
 var _spike_points: Array = []
+var _ring_off := 0.0
+var _volley_dir := Vector2.DOWN
+var warn: Label
 
 
 func setup(p_game: Node, id: String, p_species: String, pos: Vector2) -> void:
@@ -74,18 +90,59 @@ func _ready() -> void:
 	var frames := SpriteFrames.new()
 	frames.remove_animation("default")
 	var fw: int = cfg["frame"]
+	# variants (the Emberbark) reuse another guardian's sheet with their own tint
+	var sheet: String = String(cfg.get("sheet", species))
 	for a in cfg["anims"]:
-		AnimLib.add_strip(frames, a, AnimLib.tex("bosses/%s/%s.png" % [species, a]), fw, 9.0, a in ["idle", "walk", "charge"])
+		AnimLib.add_strip(frames, a, AnimLib.tex("bosses/%s/%s.png" % [sheet, a]), fw, 9.0, a in ["idle", "walk", "charge"])
 	sprite.sprite_frames = frames
-	var h: int = AnimLib.tex("bosses/%s/idle.png" % species).get_height()
+	var h: int = AnimLib.tex("bosses/%s/idle.png" % sheet).get_height()
 	sprite.offset = Vector2(0, -h / 2.0 + 3.0)
 	mat = ShaderMaterial.new()
 	mat.shader = SPRITE_SHADER
 	mat.set_shader_parameter("noise_tex", load("res://assets/data/noise.png"))
 	sprite.material = mat
+	if cfg.has("swap"):
+		apply_palette(cfg["swap"])
 	add_child(sprite)
 	sprite.play("idle")
 	sprite.animation_finished.connect(_on_anim_done)
+	# wind-up warning mark above the head
+	warn = Label.new()
+	warn.name = "Warn"
+	warn.text = "!"
+	warn.add_theme_font_override("font", preload("res://scripts/ui/fonts.gd").title())
+	warn.add_theme_font_size_override("font_size", 20)
+	warn.add_theme_color_override("font_color", Color(1.0, 0.32, 0.25))
+	warn.add_theme_color_override("font_outline_color", Color(0.12, 0.04, 0.06))
+	warn.add_theme_constant_override("outline_size", 6)
+	warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	warn.size = Vector2(24, 26)
+	warn.position = Vector2(-12, -h - 20.0)
+	warn.z_index = 30
+	warn.visible = false
+	add_child(warn)
+
+
+## Recolour a reused sheet through sprite_fx's palette swap (up to 8 colours).
+func apply_palette(swap: Dictionary) -> void:
+	var src: Array = []
+	var dst: Array = []
+	for k in swap:
+		if src.size() >= 8:
+			break
+		src.append(Color(String(k)))
+		dst.append(Color(String(swap[k])))
+	while src.size() < 8:
+		src.append(Color(0, 0, 0, 0))
+		dst.append(Color(0, 0, 0, 0))
+	mat.set_shader_parameter("swap_count", mini(swap.size(), 8))
+	mat.set_shader_parameter("src_colors", PackedColorArray(src))
+	mat.set_shader_parameter("dst_colors", PackedColorArray(dst))
+
+
+## True while the boss is winding up an attack (the "!" mark is shown).
+func is_winding() -> bool:
+	return state.ends_with("_wind")
 
 
 func _anim(a: String) -> void:
@@ -136,10 +193,10 @@ func _physics_process(delta: float) -> void:
 			if state_t <= 0.0:
 				_tint(Color.WHITE, 0.0)
 				state = "charging"
-				state_t = 0.75
+				state_t = CHARGE_TIME
 				game.audio.play("slash5", 0.05, -2.0)
 		"charging":
-			desired = charge_dir * 230.0
+			desired = charge_dir * CHARGE_SPEED
 			_anim("charge")
 			if get_slide_collision_count() > 0 or state_t <= 0.0:
 				if get_slide_collision_count() > 0:
@@ -170,6 +227,24 @@ func _physics_process(delta: float) -> void:
 				game.audio.play("impact3", 0.05, 0.0)
 				game.area_damage_player(global_position, 40.0, 4)
 				_rest(0.9)
+		"volley_wind":
+			_anim("idle")
+			_tint(Color(1, 0.75, 0.35), 0.3 + sin(state_t * 30.0) * 0.2)
+			if state_t <= 0.0:
+				_tint(Color.WHITE, 0.0)
+				state = "volley"
+				_shot_t = 0.0
+		"quake_wind":
+			_anim("charge")
+			_tint(Color(1, 0.3, 0.2), 0.35 + sin(state_t * 34.0) * 0.25)
+			if state_t <= 0.0:
+				_tint(Color.WHITE, 0.0)
+				game.fx.spawn("explosion", global_position, 0.0, 2.0, Color(1.0, 0.8, 0.6))
+				game.fx.burst("rock", global_position, 18, 150.0)
+				game.fx.shake(6.0, 0.35)
+				game.audio.play("impact3", 0.05, 0.0)
+				game.area_damage_player(global_position, QUAKE_RADIUS, QUAKE_DAMAGE)
+				_rest(1.0)
 		"volley":
 			_anim("attack" if sprite.sprite_frames.has_animation("attack") else "idle")
 			_shot_t -= delta
@@ -177,9 +252,10 @@ func _physics_process(delta: float) -> void:
 				_shots_left -= 1
 				_shot_t = 0.32 if not enraged else 0.22
 				var spread := 5 if enraged else 3
-				var base := to_p.angle()
+				# the first burst follows the telegraphed cone; later ones track again
+				var base := _volley_dir.angle() if _shots_left == (3 if enraged else 2) else to_p.angle()
 				for i in range(spread):
-					var a := base + (i - (spread - 1) / 2.0) * 0.28
+					var a := base + (i - (spread - 1) / 2.0) * SPREAD_STEP
 					_fire(Vector2.from_angle(a), 130.0)
 			if _shots_left <= 0:
 				_rest(0.9)
@@ -187,10 +263,9 @@ func _physics_process(delta: float) -> void:
 			_tint(Color(0.7, 0.85, 1.0), 0.3 + sin(state_t * 30.0) * 0.2)
 			if state_t <= 0.0:
 				_tint(Color.WHITE, 0.0)
-				var n := 16 if enraged else 12
-				var off := randf() * TAU
+				var n := ring_count()
 				for i in range(n):
-					_fire(Vector2.from_angle(off + TAU * i / n), 100.0)
+					_fire(Vector2.from_angle(_ring_off + TAU * i / n), 100.0)
 				game.fx.spawn("spark_circle", global_position + Vector2(0, -16), 0.0, 2.0, Color(1, 1, 1), null, true)
 				_rest(1.0)
 		"spikes_wind":
@@ -215,6 +290,10 @@ func _physics_process(delta: float) -> void:
 			if state_t <= 0.0:
 				state = "idle"
 				state_t = 0.9 if not enraged else 0.5
+	if warn != null:
+		warn.visible = is_winding()
+		if warn.visible:
+			warn.scale = Vector2.ONE * (1.0 + sin(Time.get_ticks_msec() * 0.02) * 0.12)
 	velocity = desired
 	if state != "leaping":
 		move_and_slide()
@@ -227,7 +306,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _next_attack() -> void:
-	var pat: Array = PATTERNS[species]
+	var pat: Array = attack_pattern()
 	var a: String = pat[pattern_i % pat.size()]
 	pattern_i += 1
 	var p: Node2D = game.player
@@ -236,6 +315,8 @@ func _next_attack() -> void:
 			state = "charge_wind"
 			state_t = 0.75 if not enraged else 0.5
 			charge_dir = (p.global_position - global_position).normalized()
+			if charge_dir == Vector2.ZERO:
+				charge_dir = Vector2.DOWN
 			_telegraph_line()
 		"leap":
 			state = "leap_wind"
@@ -243,12 +324,24 @@ func _next_attack() -> void:
 			leap_to = p.global_position
 			game.fx.ring(leap_to, 40.0, 0.55 + 0.7, Color(1, 0.35, 0.3, 0.6))
 		"spread":
-			state = "volley"
+			state = "volley_wind"
+			state_t = 0.55 if not enraged else 0.4
 			_shots_left = 4 if enraged else 3
-			_shot_t = 0.35
+			_volley_dir = (p.global_position - global_position).normalized()
+			if _volley_dir == Vector2.ZERO:
+				_volley_dir = Vector2.DOWN
+			var spread := 5 if enraged else 3
+			game.fx.cone(global_position + Vector2(0, -6), _volley_dir, SPREAD_STEP * (spread - 1) / 2.0 + 0.12, 150.0, state_t, Color(1, 0.6, 0.3, 0.6))
 		"ring":
 			state = "ring_wind"
 			state_t = 0.7
+			_ring_off = randf() * TAU
+			game.fx.spokes(global_position + Vector2(0, -6), ring_count(), _ring_off, RING_REACH, state_t, Color(0.6, 0.8, 1.0, 0.7))
+		"quake":
+			state = "quake_wind"
+			state_t = QUAKE_WIND
+			game.fx.ring(global_position, QUAKE_RADIUS, QUAKE_WIND, Color(1, 0.3, 0.2, 0.7))
+			game.audio.play("alert2", 0.05, -6.0)
 		"spikes":
 			state = "spikes_wind"
 			state_t = 0.9 if not enraged else 0.7
@@ -265,13 +358,33 @@ func _next_attack() -> void:
 			modulate.a = 0.25
 
 
+## The current attack cycle; phase two adds the quake.
+func attack_pattern() -> Array:
+	var pat: Array = (PATTERNS.get(species, PATTERNS["giantbamboo"]) as Array).duplicate()
+	if enraged:
+		pat.append(ENRAGED_EXTRA)
+	return pat
+
+
+func ring_count() -> int:
+	return 16 if enraged else 12
+
+
+## Charge lane: as long as the dash travels and as wide as its contact reach.
+func charge_lane_length() -> float:
+	return CHARGE_SPEED * CHARGE_TIME + float(cfg["radius"])
+
+
+func charge_lane_width() -> float:
+	return (float(cfg["radius"]) + 4.0) * 2.0
+
+
 func _telegraph_line() -> void:
-	for i in range(1, 6):
-		game.fx.ring(global_position + charge_dir * i * 26.0, 10.0, state_t, Color(1, 0.4, 0.3, 0.55))
+	game.fx.lane(global_position, charge_dir, charge_lane_length(), charge_lane_width(), state_t, Color(1, 0.4, 0.3, 0.6))
 
 
 func _fire(dir: Vector2, speed: float) -> void:
-	game.spawn_projectile({"kind": SHOTS[species], "pos": global_position + Vector2(0, -14), "dir": dir, "speed": speed, "damage": 3, "team": "enemy", "life": 3.0, "radius": 7.0})
+	game.spawn_projectile({"kind": SHOTS.get(species, "rock_ball"), "pos": global_position + Vector2(0, -14), "dir": dir, "speed": speed, "damage": 3, "team": "enemy", "life": 3.0, "radius": 7.0})
 
 
 func _rest(t: float) -> void:
@@ -301,6 +414,8 @@ func hurt(amount: int, _from: Vector2, _force: float, info: Dictionary = {}) -> 
 		game.fx.spawn("aura", global_position + Vector2(0, -14), 0.0, 2.6, Color(1, 0.4, 0.4), null, true)
 		game.audio.play("alert2", 0.0, -2.0)
 		game.fx.shake(3.0, 0.3)
+		if game.get("hud") != null and game.hud.has_method("show_message"):
+			game.hud.show_message("%s is enraged! Watch for the quake." % title.capitalize(), 2.6)
 	if hp <= 0:
 		_defeat()
 	return true
@@ -313,6 +428,8 @@ func _boom() -> void:
 
 func _defeat() -> void:
 	defeated = true
+	if warn != null:
+		warn.visible = false
 	collision_layer = 0
 	collision_mask = 0
 	_anim("hit")

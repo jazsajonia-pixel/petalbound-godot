@@ -1062,7 +1062,7 @@ func _content_tick(delta: float) -> void:
 func _update_region(force: bool) -> void:
 	if not current_interior.is_empty():
 		# inside a house or the crypt: show the room name, leave the music alone
-		current_biome = clampi(world.biome_at(player.global_position), 0, 6)
+		current_biome = clampi(world.biome_at(player.global_position), 0, DB.REGION_MUSIC.size() - 1)
 		if current_region != current_interior["name"] or force:
 			current_region = current_interior["name"]
 			hud.show_region(current_interior["name"], "inside")
@@ -1083,19 +1083,22 @@ func _update_region(force: bool) -> void:
 			sub = "heart of the valley"
 		"Lake Lumen":
 			sub = "where the moon used to bathe"
+		"Cinderbrook Camp":
+			sub = "hunters keep the waystone lit"
 		_:
-			sub = ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells", "where petals fall from the stars"][clampi(current_biome, 0, 6)]
+			var subs := ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells", "where petals fall from the stars", "the leaves burn but never fall"]
+			sub = subs[clampi(current_biome, 0, subs.size() - 1)]
 	hud.show_region(name, sub)
 	if name == "Starfall Rise":
 		unlock_achievement("star_walker")
 	if active_boss == null:
-		var track: String = DB.REGION_MUSIC[clampi(current_biome, 0, 6)]
+		var track: String = DB.REGION_MUSIC[clampi(current_biome, 0, DB.REGION_MUSIC.size() - 1)]
 		if name == "Hearthgrove":
 			track = "village"
 		elif name == "The Moonwell" or environment.is_night():
 			track = "night" if not victory else "ending"
 		audio.play_music(track)
-	audio.play_ambient(["bird", "wind", "wind", "wind", "rain", "water1", "wind"][clampi(current_biome, 0, 6)] if environment.quality_high else "")
+	audio.play_ambient(["bird", "wind", "wind", "wind", "rain", "water1", "wind", "bird"][clampi(current_biome, 0, 7)] if environment.quality_high else "")
 
 
 # ------------------------------------------------------------------ combat api
@@ -1206,10 +1209,12 @@ func _break_prop(b: Dictionary) -> void:
 		material = "herb"
 	elif kind in ["crate", "barrel", "stump", "log"]:
 		material = "wood"
-	elif kind in ["rock", "stone", "ore"]:
+	elif kind in ["rock", "stone", "ore", "ember_ore"]:
 		material = "ore"
 	if not material.is_empty():
 		gather_material(material, 1 + (1 if randf() < 0.25 else 0))
+	if kind == "ember_ore" and randf() < 0.35:
+		gather_material("ember_core", 1)
 	if kind.begins_with("bush"):
 		fx.burst("leaf", pos, 10, 70.0, Color(1, 1, 1), 120.0)
 		fx.burst("grass", pos, 6, 50.0, Color(1, 1, 1), 120.0)
@@ -1389,10 +1394,15 @@ func on_enemy_killed(e: Node) -> void:
 	hitstop(0.04)
 
 
+## Side guardians (the Emberbark) fight like region bosses but keep no Moonseed.
+func is_side_boss(b: Node) -> bool:
+	return b != null and b.get("cfg") != null and bool((b.cfg as Dictionary).get("side", false))
+
+
 func on_boss_awake(b: Node) -> void:
 	active_boss = b
 	hud.show_boss(b)
-	hud.show_region(b.title, "guardian of the Moonseed")
+	hud.show_region(b.title, "guardian of Emberleaf Vale" if is_side_boss(b) else "guardian of the Moonseed")
 	audio.play_music("boss", 0.8)
 	audio.play("alert2", 0.0, -2.0)
 	fx.shake(3.0, 0.4)
@@ -1434,6 +1444,9 @@ func on_boss_defeated(b: Node) -> void:
 		hitstop(0.25)
 		get_tree().create_timer(2.0, true, false, true).timeout.connect(b.queue_free)
 		return
+	if is_side_boss(b):
+		_side_boss_reward(b)
+		return
 	defeated_bosses.append(b.boss_id)
 	_quest_progress("boss")
 	audio.play("success3", 0.0, -1.0)
@@ -1443,6 +1456,28 @@ func on_boss_defeated(b: Node) -> void:
 		spawn_coin(b.global_position + Vector2(randf_range(-20, 20), randf_range(-10, 10)), 3)
 	current_region = ""
 	_update_region(true)
+
+
+## One-time payout for a side guardian: coins, a Moon Shard and a world flag.
+## defeated_bosses keeps it down after reloads, so this can never pay twice.
+func _side_boss_reward(b: Node) -> void:
+	if defeated_bosses.has(b.boss_id):
+		return
+	defeated_bosses.append(b.boss_id)
+	flags["%s_felled" % b.boss_id] = true
+	audio.play("success3", 0.0, -1.0)
+	hitstop(0.25)
+	player.add_petalcoins(60)
+	for i in range(6):
+		spawn_coin(b.global_position + Vector2(randf_range(-20, 20), randf_range(-10, 10)), 3)
+	if Inv.add(player, "moon_shard", 2) > 0:
+		hud.show_loot("moon_shard", 2)
+	hud.show_message("%s falls. The vale's fire cools." % b.title.capitalize(), 3.5)
+	_quest_progress("boss")
+	_quest_progress("flag", "%s_felled" % b.boss_id)
+	current_region = ""
+	_update_region(true)
+	save_game()
 
 
 # ------------------------------------------------------------------ pickups
@@ -1736,6 +1771,10 @@ func _quest_on_talk(npc_id: String) -> void:
 			e["s"] = QuestSys.STATE_ACTIVE
 			hud.show_message("Journey begun: %s" % q["name"], 3.0)
 			audio.play("menu2", 0.04, -6.0)
+			# a flag earned before the journey began still counts
+			if q["type"] == "flag" and flags.get(String(q.get("target", "")), false):
+				e["n"] = int(q["goal"])
+				QuestSys.mark_done(quests, q["id"])
 		elif e["s"] == QuestSys.STATE_DONE:
 			e["s"] = QuestSys.STATE_CLAIMED
 			_pay_quest_reward(q)
@@ -2035,7 +2074,7 @@ func quest_text() -> String:
 		return "Return the Moonseeds to the Moonwell (north)."
 	var remaining := PackedStringArray()
 	for b in bosses:
-		if not b.defeated:
+		if not b.defeated and not is_side_boss(b):
 			remaining.append(b.title.capitalize())
 	return "Moonseeds %d/4. Guardians: %s" % [moonseeds.size(), ", ".join(remaining)]
 
@@ -2209,7 +2248,7 @@ func load_game() -> bool:
 			b.defeated = true
 			b.visible = false
 			b.collision_layer = 0
-			if not moonseeds.has(b.boss_id):
+			if not moonseeds.has(b.boss_id) and not is_side_boss(b):
 				_spawn_moonseed(b.home, b.boss_id)
 	environment.blight = 0.0 if victory else 0.6 - moonseeds.size() * 0.12
 	world.ground_material.set_shader_parameter("moonwell_power", 1.0 if victory else 0.0)

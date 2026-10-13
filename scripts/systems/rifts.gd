@@ -51,6 +51,23 @@ const LAYOUTS := [
 	[Rect2(-90, -20, 14, 14), Rect2(76, -20, 14, 14), Rect2(-8, -64, 16, 12)],
 ]
 
+## Rift look: Ninja Adventure (CC0) tiles, recoloured violet. Regions are in px.
+const NA := "res://assets/packs/ninja_adventure/tilesets/"
+const TILE_FLOOR := ["floor", Rect2(192, 240, 16, 16)]
+const TILE_FLOOR_ALT := ["floor", Rect2(208, 240, 16, 16)]
+const TILE_WALL := ["house", Rect2(112, 336, 16, 32)]
+const TILE_BLOCK := ["house", Rect2(112, 336, 16, 16)]
+const PROP_PILLAR := ["house", Rect2(0, 310, 16, 42)]
+const PROP_CRYSTAL := ["nature", Rect2(32, 224, 16, 16)]
+const PROP_GEM := ["nature", Rect2(32, 240, 16, 16)]
+const PROP_STATUE := ["house", Rect2(49, 306, 30, 30)]
+const FLOOR_BITS := [["floor_detail", Rect2(208, 0, 16, 16)], ["floor_detail", Rect2(224, 0, 16, 16)],
+	["floor_detail", Rect2(0, 16, 16, 16)], ["floor_detail", Rect2(112, 0, 16, 16)], ["floor_detail", Rect2(64, 0, 16, 16)]]
+const TINT_FLOOR := Color(0.62, 0.52, 0.86)
+const TINT_WALL := Color(0.70, 0.60, 0.95)
+const TINT_BLOCK := Color(0.82, 0.70, 1.0)
+static var _tile_cache: Dictionary = {}
+
 var game: Node
 var valid_points: Array = []
 var entrance: Dictionary = {}     # point, uid, left, tier, node
@@ -342,9 +359,19 @@ func _build_dungeon() -> void:
 	body.collision_layer = 1
 	root.add_child(body)
 	_gates.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _run_uid * 7919 + 13
 	for i in range(3):
 		var c := room_center(i)
-		game._flat_sprite(root, Color(0.11, 0.08, 0.17), Rect2(c - ROOM / 2.0, ROOM), -9)
+		tiled(root, TILE_FLOOR, Rect2(c - ROOM / 2.0, ROOM), -9, TINT_FLOOR)
+		# a few worn flagstones and floor clutter for texture
+		for k in range(5):
+			var fp := c + Vector2(rng.randi_range(-6, 5) * 16.0, rng.randi_range(-4, 3) * 16.0)
+			tiled(root, TILE_FLOOR_ALT, Rect2(fp, Vector2(16, 16)), -9, TINT_FLOOR.darkened(0.08))
+		for k in range(7):
+			var bit: Array = FLOOR_BITS[rng.randi() % FLOOR_BITS.size()]
+			var bp := c + Vector2(rng.randf_range(-ROOM.x * 0.42, ROOM.x * 0.42), rng.randf_range(-ROOM.y * 0.4, ROOM.y * 0.4))
+			decal(root, bit, bp, -8, Color(0.8, 0.7, 1.0, 0.75))
 		# purple rune ring on the floor
 		var ring := RiftPortal.new()
 		ring.floor_only = true
@@ -369,18 +396,38 @@ func _build_dungeon() -> void:
 			# corridor to the next chamber
 			var cx := c.x + ROOM.x / 2.0 + t
 			var clen := ROOM_GAP - ROOM.x - 2.0 * t
-			game._flat_sprite(root, Color(0.09, 0.07, 0.14), Rect2(cx, c.y - gap / 2.0, clen, gap), -9)
+			tiled(root, TILE_FLOOR, Rect2(cx, c.y - gap / 2.0, clen, gap), -9, TINT_FLOOR.darkened(0.15))
 			walls.append(Rect2(cx, c.y - gap / 2.0 - t, clen, t))
 			walls.append(Rect2(cx, c.y + gap / 2.0, clen, t))
 			_gates.append(_make_gate(root, Rect2(c.x + ROOM.x / 2.0, c.y - gap / 2.0, t, gap)))
 		for wr in walls:
-			game._flat_sprite(root, Color(0.2, 0.13, 0.28), wr, -7)
-			_add_rect(body, wr)
+			var w: Rect2 = wr
+			# the north face rises above its collision so walls read as walls
+			var vis := Rect2(w.position - Vector2(0, 14), w.size + Vector2(0, 14)) if w.size.x > w.size.y else w
+			tiled(root, TILE_WALL, vis, -7, TINT_WALL)
+			game._flat_sprite(root, Color(0.05, 0.03, 0.09, 0.55), Rect2(vis.position.x, vis.end.y - 2, vis.size.x, 2), -7)
+			_add_rect(body, w)
 		for pr in _layouts[i]:
 			var r: Rect2 = pr
 			r.position += c
-			game._flat_sprite(root, Color(0.28, 0.18, 0.4), r, -6)
+			tiled(root, TILE_BLOCK, r, -6, TINT_BLOCK)
 			_add_rect(body, r)
+		# carved pillars on the north wall, crystals glowing in the corners
+		for sx in [-1.0, 1.0]:
+			decal(root, PROP_PILLAR, Vector2(c.x + sx * (ROOM.x / 2.0 - 14.0), c.y - ROOM.y / 2.0 + 2.0), -5, TINT_WALL, true)
+			decal(root, PROP_CRYSTAL, Vector2(c.x + sx * (ROOM.x / 2.0 - 12.0), c.y + ROOM.y / 2.0 - 8.0), -5, Color(1, 1, 1), true)
+		if i == 1:
+			decal(root, PROP_STATUE, Vector2(c.x, c.y - ROOM.y / 2.0 + 4.0), -5, TINT_WALL, true)
+		if i == 2:
+			decal(root, PROP_GEM, Vector2(c.x - 24, c.y - ROOM.y / 2.0 + 10.0), -5, Color(1, 1, 1), true)
+			decal(root, PROP_GEM, Vector2(c.x + 24, c.y - ROOM.y / 2.0 + 10.0), -5, Color(1, 1, 1), true)
+		var glow := PointLight2D.new()
+		glow.texture = FxScript.glow_texture()
+		glow.texture_scale = 7.0
+		glow.energy = 0.35
+		glow.color = Color(0.75, 0.55, 1.0)
+		glow.position = c
+		root.add_child(glow)
 	# retreat portal at the start
 	var back := RiftPortal.new()
 	back.color = Color(0.6, 0.85, 1.0)
@@ -394,6 +441,64 @@ func _build_dungeon() -> void:
 	light.color = Color(0.75, 0.6, 1.0)
 	light.position = room_center(1)
 	root.add_child(light)
+
+
+## A single tile cut out of a sheet, cached, so it can repeat across a rect.
+static func tile_texture(spec: Array) -> Texture2D:
+	var key := "%s:%s" % [spec[0], str(spec[1])]
+	if _tile_cache.has(key):
+		return _tile_cache[key]
+	var src: Texture2D = load(NA + String(spec[0]) + ".png")
+	var out: Texture2D = null
+	if src != null:
+		var img := src.get_image()
+		if img != null and not img.is_empty():
+			if img.is_compressed():
+				img.decompress()
+			var r: Rect2 = spec[1]
+			out = ImageTexture.create_from_image(img.get_region(Rect2i(r)))
+	_tile_cache[key] = out
+	return out
+
+
+## Repeat one tile over rect (rift floors, walls and blocks).
+func tiled(parent: Node, spec: Array, rect: Rect2, z: int, tint: Color) -> Sprite2D:
+	var tex := tile_texture(spec)
+	if tex == null:
+		game._flat_sprite(parent, tint.darkened(0.7), rect, z)
+		return null
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.centered = false
+	s.region_enabled = true
+	s.region_rect = Rect2(Vector2.ZERO, rect.size)
+	s.position = rect.position
+	s.modulate = tint
+	s.z_index = z
+	s.set_meta("rift_tile", String(spec[0]))
+	parent.add_child(s)
+	return s
+
+
+## One prop or floor decal from a sheet; bottom-anchored props when grounded.
+func decal(parent: Node, spec: Array, pos: Vector2, z: int, tint: Color, grounded := false) -> Sprite2D:
+	var s := Sprite2D.new()
+	s.texture = load(NA + String(spec[0]) + ".png")
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.region_enabled = true
+	var r: Rect2 = spec[1]
+	s.region_rect = r
+	s.centered = true
+	if grounded:
+		s.offset = Vector2(0, -r.size.y / 2.0)
+	s.position = pos.round()
+	s.modulate = tint
+	s.z_index = z
+	s.set_meta("rift_tile", String(spec[0]))
+	parent.add_child(s)
+	return s
 
 
 func _add_rect(body: StaticBody2D, r: Rect2) -> void:

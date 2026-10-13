@@ -1,6 +1,6 @@
 # Petalbound Asset Sources
 
-Official creator/listing pages and license evidence were checked on 2026-10-11. Source art is not overwritten; Mallow's rose/plum look and outfit variants are runtime palette swaps in `assets/shaders/sprite_fx.gdshader`. Code, shaders, world generation, and UI layout are project-authored. The hero region masks in `ninja_adventure/hero/masks/` are generated from the CC0 hero sheets by `tools/build_hero_masks.py` (derived data, same CC0 terms). New weapons, armour pieces and materials reuse existing Ninja Adventure icons and hand sprites (with runtime tints).
+Official creator/listing pages and license evidence were checked on 2026-10-11. Source art is not overwritten; Mallow's rose/plum look and outfit variants are runtime palette swaps in `assets/shaders/sprite_fx.gdshader`. Code, shaders, world generation, and UI layout are project-authored. The hero region masks in `ninja_adventure/hero/masks/` are generated from the CC0 hero sheets by `tools/build_hero_masks.py` (derived data, same CC0 terms). New weapons, armour pieces and materials reuse existing Ninja Adventure icons and hand sprites (with runtime tints). The Emberleaf Vale props (`rock_orange`, `leaf_orange`, `ember_ore`), the rift floor/wall/pillar/crystal/statue tiles and the Emberbark (the giantbamboo boss sheet with a runtime palette swap) all come from the same CC0 Ninja Adventure files already in the repo; the cloak cape is drawn procedurally. No new external assets were downloaded for the known-gaps pass.
 
 ## Used in the game
 

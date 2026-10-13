@@ -415,13 +415,13 @@ func build_minimap_texture(biome: Image, field: Image) -> void:
 	var w := biome.get_width()
 	var h := biome.get_height()
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4"), Color("cbb8f0")]
+	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4"), Color("cbb8f0"), Color("e8a868")]
 	var fw := field.get_width() / w
 	for y in range(h):
 		for x in range(w):
 			var b := int(round(biome.get_pixel(x, y).r * 255.0))
 			var f := field.get_pixel(x * fw, y * fw)
-			var c: Color = cols[clampi(b, 0, 6)]
+			var c: Color = cols[clampi(b, 0, cols.size() - 1)]
 			if f.g > 0.5:
 				c = Color("4fb6d8").lerp(Color("2b6aa8"), f.b)
 			elif f.r > 0.5:
@@ -1913,7 +1913,12 @@ class WorldMapView:
 			var mp: Vector2 = origin + m["pos"] / 16.0 * k
 			draw_rect(Rect2(mp - Vector2(2, 2), Vector2(4, 4)), m["color"])
 			if m.has("label"):
-				draw_string(f, mp + Vector2(5, 3), m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 0.96, 0.9))
+				# labels near the east edge flip left so they never run off the map
+				var lw := f.get_string_size(m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+				var lp := mp + Vector2(5, 3)
+				if lp.x + lw > origin.x + dsize.x - 2.0:
+					lp.x = mp.x - 5.0 - lw
+				draw_string(f, lp, m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 0.96, 0.9))
 		var pp: Vector2 = origin + g.map_position() / 16.0 * k
 		draw_circle(pp, 3.5, Color.WHITE)
 		draw_circle(pp, 2.4, Color(0.95, 0.4, 0.62))
