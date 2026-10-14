@@ -3,26 +3,36 @@ extends RefCounted
 
 const NA := "res://assets/packs/ninja_adventure/"
 const AW := "res://assets/art/weapons/"
-const GENERATED_EQUIPMENT := "res://assets/generated/petalbound/equipment/"
+const ITCH_ROOT := "res://assets/packs/itch_cc0/"
+const ITCH_RUNTIME := ITCH_ROOT + "runtime/"
+const ITCH_IDYLWILD := ITCH_ROOT + "idylwild/"
 
 const WEAPONS := ["thornblade", "bloomstaff", "gale_bow", "ironroot_hammer"]
-const GENERATED_WEAPONS := {
-	"thornblade": "katana", "thornblade_ii": "katana", "duskfan": "twin_katanas",
-	"moonwell_blade": "katana", "petalbreaker": "katana", "twin_moon_katanas": "twin_katanas",
-	"bloomstaff": "staff", "moonglass_staff": "staff", "oakwood_staff": "staff", "cloudstride_staff": "staff",
-	"bramble_spear": "spear", "ironroot_hammer": "hammer", "gale_bow": "bow", "cinder_axe": "axe",
-	"thornlash_whip": "whip", "ironbloom_gauntlet": "gauntlet", "starweave_gloves": "gauntlet",
-}
-const GENERATED_WEAPON_VARIANTS := [
+const WEAPON_VARIANTS := [
 	"briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword", "frostthorn_falchion",
 	"duskwing_daggers", "sunpetal_twinblades", "aurora_crystal_staff", "emberroot_staff", "windcarved_bow",
 	"moonfeather_bow", "ember_cleaver", "frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
 ]
-const GENERATED_GEAR_VARIANTS := [
+const GEAR_VARIANTS := [
 	"acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps", "mossrunner_trousers",
 	"cloudstep_leggings", "glasswing_boots", "emberwalker_boots", "aurora_petal_cape", "moonstone_charm",
 	"amberloop_ring", "duskglass_ring", "wispflame_relic", "emberheart_charm", "moonfall_diadem", "rootguard_mantle",
 ]
+const GEAR_ART := {
+	"moonpetal_ring": "silver_ring.png", "hollowglow_charm": "tile047.png", "starweft_boots": "studded_boots.png", "moonfall_circlet": "close_helmet.png",
+	"acornleaf_cap": "cloth_hood.png", "fernwarden_cuirass": "breastplate.png", "rosebriar_bracers": "leather_bracers.png", "starweave_wraps": "gauntlets.png",
+	"mossrunner_trousers": "cloth_pants.png", "cloudstep_leggings": "studded_pants.png", "glasswing_boots": "cloth_shoes.png", "emberwalker_boots": "leather_boots.png",
+	"aurora_petal_cape": "cloak.png", "moonstone_charm": "tile046.png", "amberloop_ring": "copper_ring.png", "duskglass_ring": "iron_ring.png",
+	"wispflame_relic": "tile048.png", "emberheart_charm": "tile049.png", "moonfall_diadem": "horned_helmet.png", "rootguard_mantle": "tattered_shirt.png",
+}
+const GEAR_SLOT_FALLBACK := {
+	"head": "cloth_hood.png", "armor": "breastplate.png", "arms": "leather_bracers.png", "legs": "cloth_pants.png",
+	"boots": "leather_boots.png", "cloak": "cloak.png", "charm": "tile046.png", "ring": "gold_ring.png", "relic": "tile047.png",
+}
+const ITEM_ART_OVERRIDES := {
+	"slime_gel": "gem_emerald.png", "venom_sac": "potion_green.png", "ember_core": "gem_ruby.png",
+	"spirit_dust": "gem_amethyst.png", "moon_shard": "gem_sapphire.png", "moontea_vial": "potion_blue.png", "moontea": "potion_blue.png",
+}
 
 const ITEMS := {
 	"thornblade": {"rarity": "common", "name": "Thornblade", "type": "weapon", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
@@ -146,13 +156,13 @@ const ITEMS := {
 		"desc": "Any class. Active: Swiftwind (+35% attack speed and +15% speed for 6s).", "value": 120},
 	"barkskin_charm": {"rarity": "uncommon", "name": "Barkskin Charm", "type": "relic", "icon": NA + "items/gemgreen.png", "tint": "b8e090", "relic": "barkskin",
 		"desc": "Any class. Active: Barkskin (+2 defense and regenerate a quarter-heart per second for 5s).", "value": 90},
-	"moonpetal_ring": {"rarity": "rare", "name": "Moonpetal Ring", "type": "ring", "classes": ["petalweaver"], "icon": "res://assets/generated/petalbound/icons/moonpetal_ring.png", "tint": "e8c9ff",
+	"moonpetal_ring": {"rarity": "rare", "name": "Moonpetal Ring", "type": "ring", "classes": ["petalweaver"], "icon": ITCH_IDYLWILD + "silver_ring.png", "tint": "e8c9ff",
 		"desc": "A ring woven from the hollow's night-blooming petals. +10% healing and +4 focus.", "heal_power": 0.10, "focus": 4, "value": 110},
-	"hollowglow_charm": {"rarity": "uncommon", "name": "Hollowglow Charm", "type": "charm", "icon": "res://assets/generated/petalbound/icons/hollowglow_charm.png", "tint": "d7efad",
+	"hollowglow_charm": {"rarity": "uncommon", "name": "Hollowglow Charm", "type": "charm", "icon": ITCH_IDYLWILD + "tile047.png", "tint": "d7efad",
 		"desc": "A lantern-seed that never goes dark. +1 defense and +4 focus.", "defense": 1, "focus": 4, "value": 75},
-	"starweft_boots": {"rarity": "rare", "name": "Starweft Boots", "type": "boots", "classes": ["windrunner"], "icon": "res://assets/generated/petalbound/icons/starweft_boots.png", "tint": "c7e8ff",
+	"starweft_boots": {"rarity": "rare", "name": "Starweft Boots", "type": "boots", "classes": ["windrunner"], "icon": ITCH_IDYLWILD + "studded_boots.png", "tint": "c7e8ff",
 		"desc": "Light as a falling petal. +6% move speed and +0.2 stamina recovery.", "speed": 0.06, "stamina_regen": 0.2, "value": 105},
-	"moonfall_circlet": {"rarity": "epic", "name": "Moonfall Circlet", "type": "head", "classes": ["lumimancer"], "icon": "res://assets/generated/petalbound/icons/moonfall_circlet.png", "tint": "fff0ae",
+	"moonfall_circlet": {"rarity": "epic", "name": "Moonfall Circlet", "type": "head", "classes": ["lumimancer"], "icon": ITCH_IDYLWILD + "close_helmet.png", "tint": "fff0ae",
 		"desc": "A circlet tempered beneath the basin's falling stars. +6 focus and +6% cooldown reduction.", "focus": 6, "cdr": 0.06, "value": 165},
 	# ---- named weapon variants: distinct art, damage profiles, rarity and price
 	"briarheart_sabre": {"rarity": "uncommon", "name": "Briarheart Sabre", "type": "weapon", "wclass": "Sword", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
@@ -366,27 +376,28 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 	return ["..."]
 
 
-## Resolve generated artwork for supported equipment while preserving legacy art elsewhere.
+## Resolve sourced itch.io art where mapped, preserving the original pack art elsewhere.
 static func icon_path(id: String) -> String:
 	var item: Dictionary = ITEMS.get(id, {})
 	if item.is_empty():
 		return NA + "ui/skill/scroll.png"
-	if GENERATED_WEAPON_VARIANTS.has(id):
-		return GENERATED_EQUIPMENT + "weapon_variants/" + id + ".png"
-	if GENERATED_GEAR_VARIANTS.has(id):
-		return GENERATED_EQUIPMENT + "gear_variants/" + id + ".png"
-	if GENERATED_WEAPONS.has(id):
-		return GENERATED_EQUIPMENT + "weapons/" + String(GENERATED_WEAPONS[id]) + ".png"
+	if WEAPON_VARIANTS.has(id):
+		return ITCH_RUNTIME + "weapons/" + id + ".png"
+	if GEAR_ART.has(id):
+		return ITCH_IDYLWILD + String(GEAR_ART[id])
+	if ITEM_ART_OVERRIDES.has(id):
+		return ITCH_RUNTIME + "items/" + String(ITEM_ART_OVERRIDES[id])
 	var item_type := String(item.get("type", ""))
-	if item_type in EQUIP_SLOTS:
-		return GENERATED_EQUIPMENT + "gear/" + item_type + ".png"
-	return String(item.get("icon", NA + "ui/skill/scroll.png"))
+	var original_icon := String(item.get("icon", ""))
+	if not original_icon.is_empty():
+		return original_icon
+	if GEAR_SLOT_FALLBACK.has(item_type):
+		return ITCH_IDYLWILD + String(GEAR_SLOT_FALLBACK[item_type])
+	return NA + "ui/skill/scroll.png"
 
 
-## Resolve a small player-held weapon texture, or the original texture when unmapped.
+## Resolve a player-held weapon texture, or the original texture when unmapped.
 static func hand_path(id: String) -> String:
-	if GENERATED_WEAPON_VARIANTS.has(id):
-		return GENERATED_EQUIPMENT + "weapon_hands_variants/" + id + ".png"
-	if GENERATED_WEAPONS.has(id):
-		return GENERATED_EQUIPMENT + "weapon_hands/" + String(GENERATED_WEAPONS[id]) + ".png"
+	if WEAPON_VARIANTS.has(id):
+		return ITCH_RUNTIME + "weapon_hands/" + id + "_hand.png"
 	return String(ITEMS.get(id, {}).get("hand", ""))

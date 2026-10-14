@@ -203,7 +203,7 @@ func _run_test() -> void:
 	await _test_petal_rush()
 	await _test_vine_hook()
 	await _test_save_and_migration()
-	_test_generated_equipment_art()
+	_test_itch_equipment_art()
 	await _test_satchel_categories_and_sort()
 
 	Save.erase()
@@ -259,16 +259,19 @@ func _test_data() -> void:
 	check(float(ClassBook.skill_of("vine_hook")["cd"]) <= 2.0 and int(ClassBook.skill_of("vine_hook")["cost"]) > 0, "Vine Hook should have a very short cooldown and a Focus cost.")
 
 
-func _test_generated_equipment_art() -> void:
+func _test_itch_equipment_art() -> void:
 	var seen_names: Dictionary = {}
-	for id in DB.GENERATED_WEAPON_VARIANTS:
+	var seen_weapon_icons: Dictionary = {}
+	for id in DB.WEAPON_VARIANTS:
 		var item: Dictionary = DB.ITEMS.get(id, {})
 		check(not item.is_empty() and item.get("type", "") == "weapon", "%s should be a registered weapon variant." % id)
 		check(not seen_names.has(item.get("name", "")), "%s should have a distinct display name." % id)
 		seen_names[item.get("name", "")] = true
 		check(String(item.get("rarity", "")) in DB.RARITIES and int(item.get("damage", 0)) > 0, "%s should have a rarity and damage value." % id)
-		check(CD.WEAPONS.has(id) and DB.icon_path(id) != DB.icon_path("thornblade"), "%s should have a unique icon and combat profile." % id)
-		check(ResourceLoader.exists(DB.icon_path(id)) and ResourceLoader.exists(DB.hand_path(id)), "%s variant icons and held art should load." % id)
+		var icon := DB.icon_path(id)
+		check(CD.WEAPONS.has(id) and not seen_weapon_icons.has(icon), "%s should have a unique icon and combat profile." % id)
+		seen_weapon_icons[icon] = true
+		check(icon.begins_with(DB.ITCH_RUNTIME + "weapons/") and ResourceLoader.exists(icon) and ResourceLoader.exists(DB.hand_path(id)), "%s sourced icon and held art should load." % id)
 		check(Eco.GEAR_POOL.has(id), "%s should be obtainable through the existing field equipment loot." % id)
 		if not player.weapons_owned.has(id):
 			player.give_item(id)
@@ -277,13 +280,16 @@ func _test_generated_equipment_art() -> void:
 		var bonuses := Build.item_stats(id)
 		for stat_key in bonuses:
 			check(player.stat(stat_key) >= float(bonuses[stat_key]), "%s should apply its active-weapon %s bonus." % [id, stat_key])
-	for id in DB.GENERATED_GEAR_VARIANTS:
+	var seen_gear_icons: Dictionary = {}
+	for id in DB.GEAR_VARIANTS:
 		var item: Dictionary = DB.ITEMS.get(id, {})
 		check(not item.is_empty() and String(item.get("type", "")) in DB.EQUIP_SLOTS, "%s should be a registered gear variant." % id)
 		check(not seen_names.has(item.get("name", "")), "%s should have a distinct display name." % id)
 		seen_names[item.get("name", "")] = true
 		check(String(item.get("rarity", "")) in DB.RARITIES and (not Build.item_stats(id).is_empty() or item.has("relic")), "%s should have a rarity and meaningful equipment effect." % id)
-		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to its own gear icon." % id)
+		var icon := DB.icon_path(id)
+		check(not seen_gear_icons.has(icon) and ResourceLoader.exists(icon), "%s should resolve to a distinct sourced gear icon." % id)
+		seen_gear_icons[icon] = true
 		check(Eco.GEAR_POOL.has(id), "%s should be obtainable through the existing field equipment loot." % id)
 		var slot := String(item["type"])
 		if not player.inventory.has(id):
@@ -293,22 +299,18 @@ func _test_generated_equipment_art() -> void:
 		check(player.equipped.get(slot, "") == id, "%s should occupy the %s slot." % [id, slot])
 		if item.has("look"):
 			check(String(player.visible_gear.get(slot, "")) == id, "%s should apply its unique palette to the live player." % id)
-	for id in DB.GENERATED_WEAPONS.keys():
-		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to its generated inventory icon." % id)
-		check(ResourceLoader.exists(DB.hand_path(id)), "%s should resolve to its generated held sprite." % id)
+	for id in DB.GEAR_ART.keys():
+		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to its sourced gear icon." % id)
+	for id in ["slime_gel", "venom_sac", "ember_core", "spirit_dust", "moon_shard", "moontea_vial", "moontea"]:
+		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to a sourced material/consumable icon." % id)
 	for id in DB.ITEMS.keys():
 		var item: Dictionary = DB.ITEMS[id]
 		if String(item.get("type", "")) in DB.EQUIP_SLOTS:
-			check(ResourceLoader.exists(DB.icon_path(id)), "%s equipment should resolve to a generated slot icon." % id)
-	for id in DB.GENERATED_WEAPONS.keys():
-		var item: Dictionary = DB.ITEMS[id]
-		if item.has("classes"):
-			continue # Class-locked weapons are covered by resource checks above.
-		if not player.weapons_owned.has(id):
-			player.give_item(id)
-		check(player.equip_weapon(id), "%s should equip through the live weapon system." % id)
-		check(player.weapon_sprite.texture != null and player.weapon_sprite.texture.resource_path == DB.hand_path(id), "%s should render its generated texture in Mallow's hand." % id)
-		check(player.weapon_sprite.visible, "%s should be visible on the live player." % id)
+			check(ResourceLoader.exists(DB.icon_path(id)), "%s equipment should resolve to an inventory icon." % id)
+		if String(item.get("type", "")) == "weapon" and item.has("hand"):
+			check(ResourceLoader.exists(DB.icon_path(id)) and ResourceLoader.exists(DB.hand_path(id)), "%s weapon icon and held art should load." % id)
+	for id in ClassBook.SKILLS.keys():
+		check(ResourceLoader.exists(String(ClassBook.SKILLS[id].get("icon", ""))), "%s skill icon should load." % id)
 	for id in ["mossleaf_cap", "briar_mail", "rootgrip_gloves", "trail_leggings", "slimeglass_boots"]:
 		var slot := String(DB.ITEMS[id]["type"])
 		if not player.inventory.has(id):
