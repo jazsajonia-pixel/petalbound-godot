@@ -227,21 +227,99 @@ static func _line_panel(hud: Control, p: Node, cid: String, list: Control, refre
 
 
 # ------------------------------------------------------------------ satchel
-const FILTERS := [["all", "ALL"], ["weapon", "WEAPONS"], ["armor", "ARMOR"], ["acc", "TRINKETS"], ["bag", "MATERIALS"]]
+const WEAPON_FAMILIES := [
+	["swords", "Swords"], ["daggers", "Daggers"], ["staves", "Staves"], ["bows", "Bows"],
+	["axes", "Axes"], ["hammers", "Hammers"], ["spears", "Spears"], ["other_weapons", "Other weapons"],
+]
+const SORT_OPTIONS := [["rarity", "Rarity ↓"], ["name", "Name A–Z"], ["category", "Category"], ["value", "Value ↓"]]
 
 
 static func _filter_of(id: String) -> String:
-	var t: String = DB.ITEMS.get(id, {}).get("type", "")
+	var item: Dictionary = DB.ITEMS.get(id, {})
+	var t := String(item.get("type", ""))
 	if t == "weapon":
-		return "weapon"
-	if t in ["head", "chest", "legs", "feet", "offhand"]:
+		var wclass := String(item.get("wclass", "")).to_lower()
+		var item_id := id.to_lower()
+		if wclass in ["sword", "sabre", "rapier", "greatsword", "falchion", "katana", "blade"] or item_id.contains("blade") or item_id.contains("sword") or item_id.contains("katana"):
+			return "swords"
+		if wclass in ["dagger", "daggers", "knives", "twinblade"] or item.get("dual", false):
+			return "daggers"
+		if wclass in ["staff", "staves"]:
+			return "staves"
+		if wclass == "bow":
+			return "bows"
+		if wclass == "axe":
+			return "axes"
+		if wclass in ["hammer", "maul"]:
+			return "hammers"
+		if wclass in ["spear", "lance"]:
+			return "spears"
+		return "other_weapons"
+	if t in ["head", "armor", "arms", "legs", "boots", "cloak"]:
 		return "armor"
-	if t in DB.EQUIP_SLOTS:
-		return "acc"
-	return "bag"
+	if t in ["charm", "ring", "relic"]:
+		return "accessories"
+	if t == "material":
+		return "materials"
+	if t in ["consumable", "flask_up", "tool"]:
+		return "consumables"
+	return "other"
 
 
-static func _filter_bar(hud: Control, grid: GridContainer) -> void:
+static func _matches_filter(id: String, filter_id: String) -> bool:
+	if filter_id in ["", "all"]:
+		return true
+	if filter_id in ["weapons", "weapon"]:
+		return String(DB.ITEMS.get(id, {}).get("type", "")) == "weapon"
+	if filter_id == "acc":
+		return _filter_of(id) == "accessories"
+	if filter_id == "bag":
+		return _filter_of(id) in ["materials", "consumables", "other"]
+	return _filter_of(id) == filter_id
+
+
+static func _category_label(filter_id: String) -> String:
+	var labels := {"all": "All items", "weapons": "Weapons", "armor": "Armor", "accessories": "Accessories",
+		"materials": "Materials", "consumables": "Consumables", "other": "Other"}
+	for family in WEAPON_FAMILIES:
+		labels[String(family[0])] = String(family[1])
+	return String(labels.get(filter_id, "Other"))
+
+
+static func _sort_rarity(id: String) -> int:
+	return DB.RARITIES.find(RUI.rarity_of(id))
+
+
+static func _name_less(a: String, b: String) -> bool:
+	return String(DB.ITEMS[a].get("name", a)).to_lower() < String(DB.ITEMS[b].get("name", b)).to_lower()
+
+
+static func _sort_inventory(ids: Array, sort_id: String) -> void:
+	match sort_id:
+		"name":
+			ids.sort_custom(func(a, b) -> bool: return _name_less(String(a), String(b)))
+		"category":
+			ids.sort_custom(func(a, b) -> bool:
+				var ca := _category_label(_filter_of(String(a)))
+				var cb := _category_label(_filter_of(String(b)))
+				if ca != cb:
+					return ca < cb
+				var ra := _sort_rarity(String(a))
+				var rb := _sort_rarity(String(b))
+				return _name_less(String(a), String(b)) if ra == rb else ra > rb)
+		"value":
+			ids.sort_custom(func(a, b) -> bool:
+				var va := int(DB.ITEMS[String(a)].get("value", 0))
+				var vb := int(DB.ITEMS[String(b)].get("value", 0))
+				return _name_less(String(a), String(b)) if va == vb else va > vb)
+		_:
+			ids.sort_custom(func(a, b) -> bool:
+				var ra := _sort_rarity(String(a))
+				var rb := _sort_rarity(String(b))
+				return _name_less(String(a), String(b)) if ra == rb else ra > rb)
+
+
+static func _filter_bar(hud: Control, grid: GridContainer, ids: Array) -> void:
 	var parent: Control = grid.get_parent()
 	var bar: HBoxContainer = parent.get_node_or_null("SatchelFilters")
 	if bar == null:
@@ -250,52 +328,105 @@ static func _filter_bar(hud: Control, grid: GridContainer) -> void:
 		bar.add_theme_constant_override("separation", 2)
 		parent.add_child(bar)
 		parent.move_child(bar, 0)
-	for c in bar.get_children():
-		c.queue_free()
-	var cur: String = hud.get_meta("satchel_filter", "all")
-	for f in FILTERS:
-		var fid: String = f[0]
-		var b: Button = _row_button(hud, f[1], bar, func() -> void:
-			hud.set_meta("satchel_filter", fid)
+	var category: OptionButton = bar.get_node_or_null("SatchelCategory") as OptionButton
+	if category == null:
+		category = OptionButton.new()
+		category.name = "SatchelCategory"
+		category.custom_minimum_size = Vector2(112, 16)
+		category.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		category.tooltip_text = "Show all items or narrow the satchel by equipment family and item type."
+		category.add_theme_font_size_override("font_size", 7)
+		bar.add_child(category)
+		category.item_selected.connect(func(index: int) -> void:
+			hud.set_meta("satchel_filter", String(category.get_item_metadata(index)))
 			refresh_inventory(hud))
-		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.add_theme_font_size_override("font_size", 7)
-		if fid == cur:
-			b.add_theme_stylebox_override("normal", hud._box(Color(0.42, 0.24, 0.40), hud.C_GOLD, 1, 2))
+	var counts: Dictionary = {}
+	var has_weapons := false
+	for id in ids:
+		var group := _filter_of(String(id))
+		counts[group] = int(counts.get(group, 0)) + 1
+		if String(DB.ITEMS[String(id)].get("type", "")) == "weapon":
+			has_weapons = true
+	category.clear()
+	var options: Array = [["all", "All items", ids.size()]]
+	if has_weapons:
+		var weapon_count := 0
+		for id in ids:
+			if String(DB.ITEMS[String(id)].get("type", "")) == "weapon":
+				weapon_count += 1
+		options.append(["weapons", "Weapons", weapon_count])
+		for family in WEAPON_FAMILIES:
+			var family_id := String(family[0])
+			if int(counts.get(family_id, 0)) > 0:
+				options.append([family_id, String(family[1]), int(counts[family_id])])
+	for group in [["armor", "Armor"], ["accessories", "Accessories"], ["materials", "Materials"], ["consumables", "Consumables"], ["other", "Other"]]:
+		if int(counts.get(group[0], 0)) > 0:
+			options.append([String(group[0]), String(group[1]), int(counts[group[0]])])
+	var cur := String(hud.get_meta("satchel_filter", "all"))
+	var selected_index := 0
+	for option in options:
+		var idx := category.item_count
+		category.add_item("%s (%d)" % [String(option[1]), int(option[2])])
+		category.set_item_metadata(idx, String(option[0]))
+		if String(option[0]) == cur:
+			selected_index = idx
+	category.select(selected_index)
+	hud.set_meta("satchel_filter", String(category.get_item_metadata(selected_index)))
+	var sorter: OptionButton = bar.get_node_or_null("SatchelSort") as OptionButton
+	if sorter == null:
+		sorter = OptionButton.new()
+		sorter.name = "SatchelSort"
+		sorter.custom_minimum_size = Vector2(88, 16)
+		sorter.tooltip_text = "Sort the current satchel view."
+		sorter.add_theme_font_size_override("font_size", 7)
+		for choice in SORT_OPTIONS:
+			var idx := sorter.item_count
+			sorter.add_item(String(choice[1]))
+			sorter.set_item_metadata(idx, String(choice[0]))
+		bar.add_child(sorter)
+		sorter.item_selected.connect(func(index: int) -> void:
+			hud.set_meta("satchel_sort", String(sorter.get_item_metadata(index)))
+			refresh_inventory(hud))
+	var selected_sort := String(hud.get_meta("satchel_sort", "rarity"))
+	for i in range(sorter.item_count):
+		if String(sorter.get_item_metadata(i)) == selected_sort:
+			sorter.select(i)
+			break
 
 
 static func refresh_inventory(hud: Control) -> void:
 	var grid: GridContainer = hud.inventory_grid
 	for c in grid.get_children():
+		grid.remove_child(c)
 		c.queue_free()
-	_filter_bar(hud, grid)
-	var cur: String = hud.get_meta("satchel_filter", "all")
 	var p: Node = hud.game.player
 	var ids: Array = []
 	var counts := {}
 	for w in p.weapons_owned:
-		if not DB.ITEMS.get(w, {}).get("unarmed", false):
+		if not DB.ITEMS.get(w, {}).get("unarmed", false) and not ids.has(w):
 			ids.append(w)
 	for i in p.inventory:
-		var t: String = DB.ITEMS.get(i, {}).get("type", "")
-		if t in DB.EQUIP_SLOTS:
+		if DB.ITEMS.has(i) and not ids.has(i):
 			ids.append(i)
-	for i in p.inventory:
-		if not ids.has(i) and DB.ITEMS.has(i):
-			ids.append(i)
-	for e in Inv.listing(p):
-		if not ids.has(e[0]):
-			ids.append(e[0])
-		counts[e[0]] = e[1]
+	for id in p.bag.keys():
+		if int(p.bag[id]) > 0 and DB.ITEMS.has(id):
+			if not ids.has(id):
+				ids.append(String(id))
+			counts[String(id)] = int(p.bag[id])
+	_filter_bar(hud, grid, ids)
+	var cur := String(hud.get_meta("satchel_filter", "all"))
 	var shown: Array = []
 	for id in ids:
-		if cur == "all" or _filter_of(id) == cur:
-			shown.append(id)
+		if _matches_filter(String(id), cur):
+			shown.append(String(id))
+	_sort_inventory(shown, String(hud.get_meta("satchel_sort", "rarity")))
 	if hud.satchel_selected == "" or not shown.has(hud.satchel_selected):
 		hud.satchel_selected = "" if shown.is_empty() else (p.get_weapon_id() if shown.has(p.get_weapon_id()) else shown[0])
 	for id in shown:
 		var item: Dictionary = DB.ITEMS[id]
 		var b := Button.new()
+		b.name = "SatchelItem_" + id
+		b.tooltip_text = "%s · %s · %s" % [String(item.get("name", id)), RUI.name_of(id), RUI.category_of(id)]
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(26, 26)
 		b.flat = true
@@ -317,14 +448,15 @@ static func refresh_inventory(hud: Control) -> void:
 			refresh_inventory(hud))
 		grid.add_child(b)
 	if shown.is_empty():
-		hud._label("-", 8, hud.C_DIM, grid)
+		hud._label("No items in this category.", 8, hud.C_DIM, grid)
 	var used: int = Inv.stacks_used(p)
 	var cap_l: Label = grid.get_parent().get_node_or_null("BagCap")
 	if cap_l == null:
 		cap_l = hud._label("", 7, hud.C_DIM, grid.get_parent())
 		cap_l.name = "BagCap"
 		grid.get_parent().move_child(cap_l, 2)
-	cap_l.text = "Bag %d/%d stacks%s" % [used, DB.BAG_SLOTS, "  (FULL: sell or craft to make room)" if used >= DB.BAG_SLOTS else ""]
+	cap_l.text = "Showing %d/%d items · %d/%d stacks%s" % [shown.size(), ids.size(), used, DB.BAG_SLOTS, " · bag full" if used >= DB.BAG_SLOTS else ""]
+	cap_l.tooltip_text = "Category-filtered inventory count and stack capacity."
 	cap_l.add_theme_color_override("font_color", C_BAD if used >= DB.BAG_SLOTS else hud.C_DIM)
 	_detail(hud, p, hud.satchel_selected)
 	_doll(hud, p)

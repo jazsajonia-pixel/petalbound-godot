@@ -16,6 +16,7 @@ const Build := preload("res://scripts/combat/build.gd")
 const ClassBook := preload("res://scripts/data/classdb.gd")
 const StatusFx := preload("res://scripts/combat/status.gd")
 const RUI := preload("res://scripts/ui/rarity_ui.gd")
+const UIScreens := preload("res://scripts/ui/build_screens.gd")
 
 const NEW_WEAPONS := ["oakwood_staff", "cloudstride_staff", "twin_moon_katanas", "ironbloom_gauntlet", "thornlash_whip", "starweave_gloves", "direwolf_claws"]
 
@@ -203,6 +204,7 @@ func _run_test() -> void:
 	await _test_vine_hook()
 	await _test_save_and_migration()
 	_test_generated_equipment_art()
+	await _test_satchel_categories_and_sort()
 
 	Save.erase()
 	Settings.erase()
@@ -315,6 +317,104 @@ func _test_generated_equipment_art() -> void:
 			check(player.equip(id), "%s should equip through the live gear system." % id)
 		check(player.equipped.get(slot, "") == id, "%s should occupy the %s slot." % [id, slot])
 		check(String(player.visible_gear.get(slot, "")) == id, "%s should apply its palette layer to the live player." % id)
+
+
+func _satchel_icon_ids() -> Array:
+	var ids: Array = []
+	for child in game.hud.inventory_grid.get_children():
+		if child.name.begins_with("SatchelItem_"):
+			ids.append(String(child.name).trim_prefix("SatchelItem_"))
+	return ids
+
+
+func _option_index(option: OptionButton, key: String) -> int:
+	for i in range(option.item_count):
+		if String(option.get_item_metadata(i)) == key:
+			return i
+	return -1
+
+
+func _test_satchel_categories_and_sort() -> void:
+	var hud: Control = game.hud
+	hud.set_meta("satchel_filter", "all")
+	hud.set_meta("satchel_sort", "rarity")
+	hud.satchel_selected = "moonshard_rapier"
+	hud.toggle_inventory()
+	await process_frame
+	await process_frame
+	var category := hud.inventory_panel.find_child("SatchelCategory", true, false) as OptionButton
+	var sorter := hud.inventory_panel.find_child("SatchelSort", true, false) as OptionButton
+	check(category != null and sorter != null, "The satchel should expose category and sort selectors.")
+	if category == null or sorter == null:
+		hud.toggle_inventory()
+		return
+	var swords_idx := _option_index(category, "swords")
+	var weapons_idx := _option_index(category, "weapons")
+	var accessories_idx := _option_index(category, "accessories")
+	check(swords_idx >= 0 and weapons_idx >= 0 and accessories_idx >= 0, "Dynamic filters should include owned swords, weapons and accessories.")
+	if swords_idx >= 0:
+		category.select(swords_idx)
+		category.item_selected.emit(swords_idx)
+		await process_frame
+		await process_frame
+		var sword_ids := _satchel_icon_ids()
+		check(sword_ids.size() >= 5, "The Swords category should surface the new named sword variants.")
+		var swords_only := true
+		var rarity_ordered := true
+		var previous_rank := 999
+		for id in sword_ids:
+			if UIScreens._filter_of(String(id)) != "swords":
+				swords_only = false
+			var rank: int = DB.RARITIES.find(RUI.rarity_of(String(id)))
+			if rank > previous_rank:
+				rarity_ordered = false
+			previous_rank = rank
+		check(swords_only, "The Swords category should contain only sword-family weapons.")
+		check(rarity_ordered, "Default rarity sorting should place higher rarities first.")
+		var name_idx := _option_index(sorter, "name")
+		check(name_idx >= 0, "The sort selector should offer A–Z name sorting.")
+		if name_idx >= 0:
+			sorter.select(name_idx)
+			sorter.item_selected.emit(name_idx)
+			await process_frame
+			await process_frame
+			var named_ids := _satchel_icon_ids()
+			var names_ordered := true
+			var prior_name := ""
+			for id in named_ids:
+				var current_name := String(DB.ITEMS[String(id)]["name"]).to_lower()
+				if prior_name != "" and current_name < prior_name:
+					names_ordered = false
+				prior_name = current_name
+			check(names_ordered, "Name sorting should be alphabetical within the selected category.")
+		var value_idx := _option_index(sorter, "value")
+		if value_idx >= 0:
+			sorter.select(value_idx)
+			sorter.item_selected.emit(value_idx)
+			await process_frame
+			await process_frame
+			var value_ids := _satchel_icon_ids()
+			var values_ordered := true
+			var prior_value := 2147483647
+			for id in value_ids:
+				var current_value := int(DB.ITEMS[String(id)].get("value", 0))
+				if current_value > prior_value:
+					values_ordered = false
+				prior_value = current_value
+			check(values_ordered, "Value sorting should list higher-value equipment first.")
+	if accessories_idx >= 0:
+		category.select(accessories_idx)
+		category.item_selected.emit(accessories_idx)
+		await process_frame
+		await process_frame
+		var accessory_only := true
+		for id in _satchel_icon_ids():
+			if not String(DB.ITEMS[String(id)].get("type", "")) in ["charm", "ring", "relic"]:
+				accessory_only = false
+		check(accessory_only, "The Accessories category should contain only charms, rings and relics.")
+	var count_label := hud.inventory_panel.find_child("BagCap", true, false) as Label
+	check(count_label != null and count_label.text.begins_with("Showing "), "The satchel should show live visible-item and stack counts.")
+	hud.toggle_inventory()
 
 
 # ---------------------------------------------------------------- bar
