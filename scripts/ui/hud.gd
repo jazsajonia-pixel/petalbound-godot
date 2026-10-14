@@ -1369,7 +1369,7 @@ func show_region(name: String, sub := "") -> void:
 
 func show_item_get(id: String) -> void:
 	var item: Dictionary = DB.ITEMS[id]
-	item_banner_icon.texture = AnimLib.tex(item["icon"])
+	item_banner_icon.texture = AnimLib.tex(DB.icon_path(id))
 	item_banner_icon.modulate = Color(String(item.get("tint", "ffffff")))
 	item_banner_title.text = String(item["name"]).to_upper()
 	var rc: Color = RUI.color(id) if DB.ITEMS.has(id) and item.has("rarity") else C_GOLD
@@ -1552,7 +1552,7 @@ func _process(delta: float) -> void:
 	# held charge so it can never fire late when the game resumes
 	if p.charge.active() and (any_menu_open() or get_tree().paused):
 		p.charge.cancel()
-	attack_button.icon = AnimLib.tex(DB.ITEMS[wid]["icon"])
+	attack_button.icon = AnimLib.tex(DB.icon_path(wid))
 	WeaponBar.update(self)
 	controls.update_buttons()
 	quest_label.text = game.quest_text()

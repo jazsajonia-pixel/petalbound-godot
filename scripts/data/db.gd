@@ -3,8 +3,16 @@ extends RefCounted
 
 const NA := "res://assets/packs/ninja_adventure/"
 const AW := "res://assets/art/weapons/"
+const GENERATED_EQUIPMENT := "res://assets/generated/petalbound/equipment/"
 
 const WEAPONS := ["thornblade", "bloomstaff", "gale_bow", "ironroot_hammer"]
+const GENERATED_WEAPONS := {
+	"thornblade": "katana", "thornblade_ii": "katana", "duskfan": "twin_katanas",
+	"moonwell_blade": "katana", "petalbreaker": "katana", "twin_moon_katanas": "twin_katanas",
+	"bloomstaff": "staff", "moonglass_staff": "staff", "oakwood_staff": "staff", "cloudstride_staff": "staff",
+	"bramble_spear": "spear", "ironroot_hammer": "hammer", "gale_bow": "bow", "cinder_axe": "axe",
+	"thornlash_whip": "whip", "ironbloom_gauntlet": "gauntlet", "starweave_gloves": "gauntlet",
+}
 
 const ITEMS := {
 	"thornblade": {"rarity": "common", "name": "Thornblade", "type": "weapon", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
@@ -296,3 +304,23 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 				"Ember spiders have been crawling right up to the stalls. Thin them out and I'll make it worth your while.",
 				"North of camp, the Emberbark sleeps in its hollow. Watch the ground: when it glows red, step out of it."]
 	return ["..."]
+
+
+## Resolve generated artwork for supported equipment while preserving legacy art elsewhere.
+static func icon_path(id: String) -> String:
+	var item: Dictionary = ITEMS.get(id, {})
+	if item.is_empty():
+		return NA + "ui/skill/scroll.png"
+	if GENERATED_WEAPONS.has(id):
+		return GENERATED_EQUIPMENT + "weapons/" + String(GENERATED_WEAPONS[id]) + ".png"
+	var item_type := String(item.get("type", ""))
+	if item_type in EQUIP_SLOTS:
+		return GENERATED_EQUIPMENT + "gear/" + item_type + ".png"
+	return String(item.get("icon", NA + "ui/skill/scroll.png"))
+
+
+## Resolve a small player-held weapon texture, or the original texture when unmapped.
+static func hand_path(id: String) -> String:
+	if GENERATED_WEAPONS.has(id):
+		return GENERATED_EQUIPMENT + "weapon_hands/" + String(GENERATED_WEAPONS[id]) + ".png"
+	return String(ITEMS.get(id, {}).get("hand", ""))

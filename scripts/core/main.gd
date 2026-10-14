@@ -1516,7 +1516,7 @@ func on_boss_defeated(b: Node) -> void:
 		for i in range(6):
 			spawn_coin(b.global_position + Vector2(randf_range(-20, 20), randf_range(-10, 10)), 4)
 		player.give_item("moonveil_ring")
-		player.pose_item(AnimLib.tex(DB.ITEMS["moonveil_ring"]["icon"]), 1.6)
+		player.pose_item(AnimLib.tex(DB.icon_path("moonveil_ring")), 1.6)
 		hud.show_item_get("moonveil_ring")
 		flags["crypt_cleared"] = true
 		crypt_cleared_once = true
@@ -1615,7 +1615,7 @@ func spawn_item(pos: Vector2, id: String, qty := 1) -> void:
 		return
 	var item: Dictionary = DB.ITEMS[id]
 	var s := Sprite2D.new()
-	s.texture = AnimLib.tex(item["icon"])
+	s.texture = AnimLib.tex(DB.icon_path(id))
 	var tw := float(s.texture.get_width())
 	s.scale = Vector2.ONE * clampf(12.0 / maxf(tw, 1.0), 0.4, 1.0)
 	s.modulate = Color(String(item.get("tint", "ffffff")))
@@ -2006,7 +2006,7 @@ func _open_chest(c: Dictionary) -> void:
 	fx.spawn("spark_circle", c["pos"] + Vector2(0, -10), 0.0, 1.2, Color(1, 0.92, 0.7), null, true)
 	fx.burst("spark", c["pos"] + Vector2(0, -10), 10, 60.0, Color(1, 0.9, 0.6), -20.0)
 	player.give_item(id)
-	player.pose_item(AnimLib.tex(DB.ITEMS[id]["icon"]), 1.3)
+	player.pose_item(AnimLib.tex(DB.icon_path(id)), 1.3)
 	hud.show_item_get(id)
 	save_game()
 

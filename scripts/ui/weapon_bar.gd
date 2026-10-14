@@ -33,7 +33,7 @@ static func update(hud: Control) -> void:
 		var id: String = p.weapon_bar[i] if i < p.weapon_bar.size() else ""
 		if b.weapon_id != id:
 			b.weapon_id = id
-			b.icon = AnimLib.tex(DB.ITEMS[id]["icon"]) if id != "" else null
+			b.icon = AnimLib.tex(DB.icon_path(id)) if id != "" else null
 			var rar := String(DB.ITEMS.get(id, {}).get("rarity", "common"))
 			b.frame_color = DB.RARITY_COLORS.get(rar, Color(0.85, 0.85, 0.85))
 			b.mythic = rar == "mythical"

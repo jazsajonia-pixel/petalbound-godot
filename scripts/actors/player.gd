@@ -571,11 +571,16 @@ func refresh_held_weapon() -> void:
 		off_weapon_sprite.visible = false
 		add_child(off_weapon_sprite)
 	var item: Dictionary = DB.ITEMS.get(get_weapon_id(), {})
-	if is_unarmed() or not item.has("hand"):
+	if is_unarmed():
 		weapon_sprite.visible = false
 		off_weapon_sprite.visible = false
 		return
-	var t: Texture2D = AnimLib.tex(item["hand"])
+	var held_path := DB.hand_path(get_weapon_id())
+	if held_path == "":
+		weapon_sprite.visible = false
+		off_weapon_sprite.visible = false
+		return
+	var t: Texture2D = AnimLib.tex(held_path)
 	for sp in [weapon_sprite, off_weapon_sprite]:
 		sp.texture = t
 		sp.offset = Vector2(-t.get_width() / 2.0, -t.get_height() + 2.0)
@@ -2319,10 +2324,11 @@ func _snap_to_target(reach: float) -> void:
 
 func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 	var item: Dictionary = DB.ITEMS[get_weapon_id()]
-	if is_unarmed() or not item.has("hand"):
+	var held_path := DB.hand_path(get_weapon_id())
+	if is_unarmed() or held_path == "":
 		_punch_fx(heavy)
 		return
-	var t: Texture2D = AnimLib.tex(item["hand"])
+	var t: Texture2D = AnimLib.tex(held_path)
 	weapon_sprite.texture = t
 	weapon_sprite.offset = Vector2(-t.get_width() / 2.0, -t.get_height())
 	weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))

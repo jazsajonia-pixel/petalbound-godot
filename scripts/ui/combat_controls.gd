@@ -221,7 +221,7 @@ func update_buttons() -> void:
 	else:
 		relic_button.dimmed = false
 		var item_id: String = p.equipped.get("relic", "")
-		relic_button.icon = AnimLib.tex(DB.ITEMS[item_id]["icon"])
+		relic_button.icon = AnimLib.tex(DB.icon_path(item_id))
 		relic_button.tint = Color(String(CD.RELICS[rid]["color"]))
 		var full_r := float(CD.RELICS[rid]["cd"])
 		relic_button.cooldown = clampf(p.relic_cd / full_r, 0.0, 1.0)

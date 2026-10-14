@@ -201,6 +201,7 @@ func _run_test() -> void:
 	await _test_petal_rush()
 	await _test_vine_hook()
 	await _test_save_and_migration()
+	_test_generated_equipment_art()
 
 	Save.erase()
 	Settings.erase()
@@ -232,7 +233,7 @@ func _test_data() -> void:
 	for id in NEW_WEAPONS:
 		var it: Dictionary = DB.ITEMS.get(id, {})
 		check(not it.is_empty() and it["type"] == "weapon", "%s should be a weapon item." % id)
-		check(ResourceLoader.exists(String(it.get("icon", ""))) and ResourceLoader.exists(String(it.get("hand", ""))), "%s should have an icon and a held sprite." % id)
+		check(ResourceLoader.exists(DB.icon_path(id)) and ResourceLoader.exists(DB.hand_path(id)), "%s should have an icon and a held sprite." % id)
 		check(CD.WEAPONS.has(id), "%s should have combat data." % id)
 		check(stocked.has(id), "%s should be obtainable (shop or recipe)." % id)
 	check(not CD.weapon("oakwood_staff").has("hold"), "The common Oakwood Staff must have no hold effect.")
@@ -253,6 +254,33 @@ func _test_data() -> void:
 		var d: Dictionary = ClassBook.skill_of(nid)
 		check(not d.is_empty() and d["class"] == "nightbloom" and ClassBook.class_of("nightbloom")["skills"].has(nid), "%s should be a Nightbloom art." % nid)
 	check(float(ClassBook.skill_of("vine_hook")["cd"]) <= 2.0 and int(ClassBook.skill_of("vine_hook")["cost"]) > 0, "Vine Hook should have a very short cooldown and a Focus cost.")
+
+
+func _test_generated_equipment_art() -> void:
+	for id in DB.GENERATED_WEAPONS.keys():
+		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to its generated inventory icon." % id)
+		check(ResourceLoader.exists(DB.hand_path(id)), "%s should resolve to its generated held sprite." % id)
+	for id in DB.ITEMS.keys():
+		var item: Dictionary = DB.ITEMS[id]
+		if String(item.get("type", "")) in DB.EQUIP_SLOTS:
+			check(ResourceLoader.exists(DB.icon_path(id)), "%s equipment should resolve to a generated slot icon." % id)
+	for id in DB.GENERATED_WEAPONS.keys():
+		var item: Dictionary = DB.ITEMS[id]
+		if item.has("classes"):
+			continue # Class-locked weapons are covered by resource checks above.
+		if not player.weapons_owned.has(id):
+			player.give_item(id)
+		check(player.equip_weapon(id), "%s should equip through the live weapon system." % id)
+		check(player.weapon_sprite.texture != null and player.weapon_sprite.texture.resource_path == DB.hand_path(id), "%s should render its generated texture in Mallow's hand." % id)
+		check(player.weapon_sprite.visible, "%s should be visible on the live player." % id)
+	for id in ["mossleaf_cap", "briar_mail", "rootgrip_gloves", "trail_leggings", "slimeglass_boots"]:
+		var slot := String(DB.ITEMS[id]["type"])
+		if not player.inventory.has(id):
+			player.give_item(id)
+		if player.equipped.get(slot, "") != id:
+			check(player.equip(id), "%s should equip through the live gear system." % id)
+		check(player.equipped.get(slot, "") == id, "%s should occupy the %s slot." % [id, slot])
+		check(String(player.visible_gear.get(slot, "")) == id, "%s should apply its palette layer to the live player." % id)
 
 
 # ---------------------------------------------------------------- bar

@@ -66,7 +66,7 @@ static func icon(id: String, size: float, parent: Control, selected := false, di
 	f.add_theme_stylebox_override("panel", box(id, selected, dim))
 	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var t := TextureRect.new()
-	t.texture = AnimLib.tex(String(it.get("icon", "ui/skill/scroll.png")))
+	t.texture = AnimLib.tex(DB.icon_path(id))
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

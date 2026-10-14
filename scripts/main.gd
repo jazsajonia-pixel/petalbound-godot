@@ -860,7 +860,7 @@ func _open_chest(c: Dictionary) -> void:
 	fx.spawn("spark_circle", c["pos"] + Vector2(0, -10), 0.0, 1.2, Color(1, 0.92, 0.7), null, true)
 	fx.burst("spark", c["pos"] + Vector2(0, -10), 10, 60.0, Color(1, 0.9, 0.6), -20.0)
 	player.give_item(id)
-	player.pose_item(AnimLib.tex(DB.ITEMS[id]["icon"]), 1.3)
+	player.pose_item(AnimLib.tex(DB.icon_path(id)), 1.3)
 	hud.show_item_get(id)
 	save_game()
 
