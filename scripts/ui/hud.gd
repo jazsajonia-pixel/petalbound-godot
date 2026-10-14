@@ -96,6 +96,8 @@ var title_subheading: Label
 var title_button: Button
 var continue_button: Button
 var test_profile_button: Button
+var test_profile_info: Label
+var title_controls_hint: Label
 var end_overlay: ColorRect
 var end_heading: Label
 var end_body: Label
@@ -1238,39 +1240,83 @@ func _capture_photo() -> void:
 
 # ------------------------------------------------------------------ title / end
 func _make_title_overlay() -> void:
-	title_overlay = _overlay(Color(0.06, 0.04, 0.10, 0.25))
+	title_overlay = _overlay(Color(0.04, 0.025, 0.08, 0.48))
 	var cc := CenterContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_overlay.add_child(cc)
+	var card := PanelContainer.new()
+	card.name = "TitleCard"
+	card.custom_minimum_size = Vector2(300, 0)
+	card.add_theme_stylebox_override("panel", _box(Color(0.09, 0.065, 0.14, 0.95), Color(0.94, 0.68, 0.82, 0.9), 1, 8))
+	cc.add_child(card)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	card.add_child(margin)
 	title_panel = VBoxContainer.new()
-	title_panel.add_theme_constant_override("separation", 6)
-	cc.add_child(title_panel)
+	title_panel.add_theme_constant_override("separation", 8)
+	margin.add_child(title_panel)
 	title_heading = _label("PETALBOUND", 32, Color(1.0, 0.86, 0.92), title_panel)
 	title_heading.add_theme_font_override("font", Fonts.title())
 	title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_heading.add_theme_color_override("font_shadow_color", Color(0.45, 0.16, 0.36))
 	title_heading.add_theme_constant_override("shadow_offset_x", 2)
 	title_heading.add_theme_constant_override("shadow_offset_y", 2)
-	title_subheading = _label("Return the four Moonseeds. Wake the Moonwell.", 8, C_TEXT, title_panel)
+	title_subheading = _label("A quiet world is waiting to bloom.", 10, C_TEXT, title_panel)
 	title_subheading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(1, 8)
-	title_panel.add_child(spacer)
-	continue_button = _button("CONTINUE JOURNEY", title_panel, func() -> void: start_requested.emit(false))
-	title_button = _button("NEW JOURNEY", title_panel, func() -> void: CharCreate.open(self))
-	test_profile_button = _button("TEST PROFILE · ALL UNLOCKED", title_panel, func() -> void: test_profile_requested.emit())
+	var section := _label("CHOOSE YOUR JOURNEY", 8, C_GOLD, title_panel)
+	section.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	section.add_theme_constant_override("margin_top", 4)
+	continue_button = _button("CONTINUE JOURNEY", title_panel, func() -> void: start_requested.emit(false), 10)
+	continue_button.name = "ContinueJourneyButton"
+	title_button = _button("NEW JOURNEY", title_panel, func() -> void: CharCreate.open(self), 10)
+	title_button.name = "NewJourneyButton"
+	test_profile_button = _button("OPEN TEST PROFILE", title_panel, func() -> void: test_profile_requested.emit(), 9)
+	test_profile_button.name = "TestProfileButton"
+	for b in [continue_button, title_button]:
+		b.custom_minimum_size = Vector2(244, 32)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	test_profile_button.custom_minimum_size = Vector2(244, 28)
+	test_profile_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	test_profile_info = _label("Level 20 · all gear & arts unlocked\nUses a separate save; your journey is kept safe.", 8, C_DIM, title_panel)
+	test_profile_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	test_profile_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var divider := HSeparator.new()
+	divider.add_theme_color_override("separator", Color(0.55, 0.42, 0.62, 0.7))
+	title_panel.add_child(divider)
+	title_controls_hint = _label("MOVE  WASD / ARROWS     ATTACK  J\nTALK  E     SATCHEL  I     MAP  M", 8, C_DIM, title_panel)
+	title_controls_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	for b in [continue_button, title_button, test_profile_button]:
-		b.custom_minimum_size = Vector2(150, 20)
-		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var keys := _label("WASD move  SHIFT sprint  C jump  J attack (hold)  1-4 arts\nV gear active  R potion  G guard  Q swap  E talk  T target\nI satchel  U craft  M map  K arts  H journeys  F9 photo", 8, C_DIM, title_panel)
-	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.focus_mode = Control.FOCUS_ALL
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _update_title_copy() -> void:
+	if title_controls_hint == null:
+		return
+	if DisplayServer.is_touchscreen_available() or OS.has_feature("mobile"):
+		title_controls_hint.text = "TOUCH CONTROLS APPEAR IN GAME\nOpen Settings from the pause menu to customize."
+	else:
+		title_controls_hint.text = "MOVE  WASD / ARROWS     ATTACK  J\nTALK  E     SATCHEL  I     MAP  M"
 
 
 func show_title_menu(has_save: bool) -> void:
 	title_overlay.visible = true
 	continue_button.visible = has_save
-	test_profile_button.tooltip_text = "Starts a separate test save. The normal journey save stays untouched."
+	continue_button.disabled = not has_save
+	continue_button.tooltip_text = "Resume your saved journey." if has_save else "No saved journey yet. Start a new journey instead."
+	title_subheading.text = "Return the four Moonseeds. Wake the Moonwell." if has_save else "A quiet world is waiting to bloom."
+	title_button.text = "NEW JOURNEY"
+	test_profile_button.tooltip_text = "Starts at level 20 with all gear and arts. Your normal save remains untouched."
+	_update_title_copy()
+	if has_save:
+		continue_button.grab_focus()
+	else:
+		title_button.grab_focus()
 	_clear_touch_inputs()
 
 
