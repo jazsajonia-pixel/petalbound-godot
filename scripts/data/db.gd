@@ -13,6 +13,16 @@ const GENERATED_WEAPONS := {
 	"bramble_spear": "spear", "ironroot_hammer": "hammer", "gale_bow": "bow", "cinder_axe": "axe",
 	"thornlash_whip": "whip", "ironbloom_gauntlet": "gauntlet", "starweave_gloves": "gauntlet",
 }
+const GENERATED_WEAPON_VARIANTS := [
+	"briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword", "frostthorn_falchion",
+	"duskwing_daggers", "sunpetal_twinblades", "aurora_crystal_staff", "emberroot_staff", "windcarved_bow",
+	"moonfeather_bow", "ember_cleaver", "frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
+]
+const GENERATED_GEAR_VARIANTS := [
+	"acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps", "mossrunner_trousers",
+	"cloudstep_leggings", "glasswing_boots", "emberwalker_boots", "aurora_petal_cape", "moonstone_charm",
+	"amberloop_ring", "duskglass_ring", "wispflame_relic", "emberheart_charm", "moonfall_diadem", "rootguard_mantle",
+]
 
 const ITEMS := {
 	"thornblade": {"rarity": "common", "name": "Thornblade", "type": "weapon", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
@@ -144,6 +154,56 @@ const ITEMS := {
 		"desc": "Light as a falling petal. +6% move speed and +0.2 stamina recovery.", "speed": 0.06, "stamina_regen": 0.2, "value": 105},
 	"moonfall_circlet": {"rarity": "epic", "name": "Moonfall Circlet", "type": "head", "classes": ["lumimancer"], "icon": "res://assets/generated/petalbound/icons/moonfall_circlet.png", "tint": "fff0ae",
 		"desc": "A circlet tempered beneath the basin's falling stars. +6 focus and +6% cooldown reduction.", "focus": 6, "cdr": 0.06, "value": 165},
+	# ---- named weapon variants: distinct art, damage profiles, rarity and price
+	"briarheart_sabre": {"rarity": "uncommon", "name": "Briarheart Sabre", "type": "weapon", "wclass": "Sword", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
+		"desc": "A quick sabre with a living briar guard. Three swift cuts; the finisher carries Briar Venom.", "damage": 3, "atk_speed": 0.04, "value": 85},
+	"moonshard_rapier": {"rarity": "rare", "name": "Moonshard Rapier", "type": "weapon", "wclass": "Rapier", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
+		"desc": "A narrow moon-silver point built for long, precise thrusts. +1 reach and an arcane ripple on the finisher.", "damage": 4, "crit": 0.07, "value": 145},
+	"sunforge_greatsword": {"rarity": "epic", "name": "Sunforge Greatsword", "type": "weapon", "wclass": "Greatsword", "icon": NA + "items/weapons/bigsword.png", "hand": NA + "items/weapons/bigsword_hand.png",
+		"desc": "A heavy gold-edged cleaver that leaves foes Exposed after its broad finishing strike.", "damage": 5, "atk": 1, "value": 230},
+	"crimsonfang_sword": {"rarity": "rare", "name": "Crimsonfang Sword", "type": "weapon", "wclass": "Sword", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
+		"desc": "A serrated red blade; its second cut kindles a short burn.", "damage": 4, "crit": 0.04, "value": 155},
+	"frostthorn_falchion": {"rarity": "rare", "name": "Frostthorn Falchion", "type": "weapon", "wclass": "Falchion", "icon": NA + "items/weapons/katana.png", "hand": NA + "items/weapons/katana_hand.png",
+		"desc": "A blue-white crescent blade whose hits chill enemies. Its wide arc trades speed for reach.", "damage": 4, "cdr": 0.04, "value": 160},
+	"duskwing_daggers": {"rarity": "rare", "name": "Duskwing Daggers", "type": "weapon", "wclass": "Daggers", "dual": true, "icon": NA + "items/weapons/sai.png", "hand": NA + "items/weapons/sai_hand.png",
+		"desc": "Paired violet blades reward consecutive hits on the same foe with rising critical chance.", "damage": 3, "atk_speed": 0.07, "value": 150},
+	"sunpetal_twinblades": {"rarity": "epic", "name": "Sunpetal Twinblades", "type": "weapon", "wclass": "Daggers", "dual": true, "icon": NA + "items/weapons/sai.png", "hand": NA + "items/weapons/sai_hand.png",
+		"desc": "Twin golden knives strike quickly and scorch foes with a brief sunfire burn.", "damage": 4, "atk_speed": 0.03, "crit": 0.05, "value": 225},
+	"aurora_crystal_staff": {"rarity": "rare", "name": "Aurora Crystal Staff", "type": "weapon", "wclass": "Staff", "icon": NA + "items/weapons/magicwand.png", "hand": NA + "items/weapons/magicwand_hand.png",
+		"desc": "A teal crystal focus launches quick, far-reaching arcane bolts. +8% elemental damage.", "damage": 4, "elem": 0.08, "value": 155},
+	"emberroot_staff": {"rarity": "rare", "name": "Emberroot Staff", "type": "weapon", "wclass": "Staff", "icon": NA + "items/weapons/magicwand.png", "hand": NA + "items/weapons/magicwand_hand.png",
+		"desc": "An amber seed burns at its crown; bolts cycle through fire, frost and storm. +10% elemental damage.", "damage": 4, "elem": 0.10, "value": 165},
+	"windcarved_bow": {"rarity": "rare", "name": "Windcarved Bow", "type": "weapon", "wclass": "Bow", "icon": NA + "items/weapons/bow.png", "hand": NA + "items/weapons/bow.png",
+		"desc": "A green recurved bow fires fast arrows; +1 ranged damage and fully charged shots pierce.", "damage": 4, "ranged_bonus": 1, "value": 150},
+	"moonfeather_bow": {"rarity": "epic", "name": "Moonfeather Bow", "type": "weapon", "wclass": "Bow", "icon": NA + "items/weapons/bow.png", "hand": NA + "items/weapons/bow.png",
+		"desc": "Silver feather-limbs guide arcane arrows farther; +1 ranged damage and +4% critical chance.", "damage": 5, "ranged_bonus": 1, "crit": 0.04, "value": 230},
+	"ember_cleaver": {"rarity": "uncommon", "name": "Ember Cleaver", "type": "weapon", "wclass": "Axe", "icon": NA + "items/weapons/axe.png", "hand": NA + "items/weapons/axe_hand.png",
+		"desc": "A notched orange axe; the second chop sets enemies burning. +1 attack.", "damage": 4, "atk": 1, "value": 100},
+	"frostcleaver_axe": {"rarity": "rare", "name": "Frostcleaver Axe", "type": "weapon", "wclass": "Axe", "icon": NA + "items/weapons/axe.png", "hand": NA + "items/weapons/axe_hand.png",
+		"desc": "A blue-white axe swings in a broad arc and chills targets. +3% attack speed.", "damage": 4, "atk_speed": 0.03, "value": 165},
+	"starfall_maul": {"rarity": "epic", "name": "Starfall Maul", "type": "weapon", "wclass": "Hammer", "icon": NA + "items/weapons/hammer.png", "hand": NA + "items/weapons/hammer_hand.png",
+		"desc": "A meteor-headed maul lands a crushing impact with a wide shockwave. +1 attack.", "damage": 6, "atk": 1, "value": 245},
+	"rootbreaker_maul": {"rarity": "uncommon", "name": "Rootbreaker Maul", "type": "weapon", "wclass": "Hammer", "icon": NA + "items/weapons/hammer.png", "hand": NA + "items/weapons/hammer_hand.png",
+		"desc": "A bark-heavy club; slow ground slams chill everything in the impact zone. +10% poise.", "damage": 4, "poise": 0.10, "value": 110},
+	"moonrise_lance": {"rarity": "rare", "name": "Moonrise Lance", "type": "weapon", "wclass": "Spear", "icon": NA + "items/weapons/lance.png", "hand": NA + "items/weapons/lance_hand.png",
+		"desc": "A crescent silver spear with exceptional reach and a narrow piercing arc. +4% critical chance.", "damage": 4, "crit": 0.04, "value": 160},
+	# ---- individually named gear variants across all nine equipment slots
+	"acornleaf_cap": {"rarity": "common", "name": "Acornleaf Cap", "type": "head", "look": ["c9e68a", "78aa4e", "3f6a32"], "desc": "A sturdy leaf cap. +6 focus.", "focus": 6, "value": 35},
+	"fernwarden_cuirass": {"rarity": "uncommon", "name": "Fernwarden Cuirass", "type": "armor", "look": ["a8d28c", "58865a", "31513c"], "desc": "Layered fern scales. +1 defense, +1 heart.", "defense": 1, "hearts": 1, "value": 90},
+	"rosebriar_bracers": {"rarity": "uncommon", "name": "Rosebriar Bracers", "type": "arms", "look": ["f2b0c8", "b86a88", "6a3854"], "desc": "Rose-gold bracers add +8% attack speed.", "atk_speed": 0.08, "value": 85},
+	"starweave_wraps": {"rarity": "rare", "name": "Starweave Arm Wraps", "type": "arms", "look": ["d8e8ff", "8498d0", "465280"], "desc": "Starlit wraps grant +1 attack and +3% cooldown reduction.", "atk": 1, "cdr": 0.03, "value": 135},
+	"mossrunner_trousers": {"rarity": "common", "name": "Mossrunner Trousers", "type": "legs", "look": ["a8c080", "688050", "3d5135"], "desc": "Light mosscloth trousers. +5% move speed.", "speed": 0.05, "stamina_regen": 0.2, "value": 40},
+	"cloudstep_leggings": {"rarity": "rare", "name": "Cloudstep Leggings", "type": "legs", "look": ["c8e8ff", "7aa4d0", "3f5e8a"], "desc": "Feathered blue leggings. +8% move speed and +0.3 stamina recovery.", "speed": 0.08, "stamina_regen": 0.3, "value": 130},
+	"glasswing_boots": {"rarity": "uncommon", "name": "Glasswing Boots", "type": "boots", "look": ["a8f0e0", "50b8a8", "28685d"], "desc": "Translucent teal boots. +7% move speed.", "speed": 0.07, "value": 80},
+	"emberwalker_boots": {"rarity": "rare", "name": "Emberwalker Boots", "type": "boots", "look": ["ffc080", "cf6838", "743622"], "desc": "Warm leather boots with plated toes. +1 defense and +4% speed.", "defense": 1, "speed": 0.04, "value": 125},
+	"aurora_petal_cape": {"rarity": "epic", "name": "Aurora Petal Cape", "type": "cloak", "look": ["8ee0d8", "bd83d8", "4a567e"], "desc": "A flowing aurora cape. +5% speed and +5% cooldown reduction.", "speed": 0.05, "cdr": 0.05, "value": 185},
+	"moonstone_charm": {"rarity": "rare", "name": "Moonstone Charm", "type": "charm", "desc": "A cool moonstone pendant. +1 heart and +6 focus.", "hearts": 1, "focus": 6, "value": 130},
+	"amberloop_ring": {"rarity": "uncommon", "name": "Amberloop Ring", "type": "ring", "desc": "A green gem set in amber. +5% critical chance.", "crit": 0.05, "value": 85},
+	"duskglass_ring": {"rarity": "rare", "name": "Duskglass Ring", "type": "ring", "desc": "A violet crescent improves spell timing. +8% cooldown reduction.", "cdr": 0.08, "value": 140},
+	"wispflame_relic": {"rarity": "rare", "name": "Wispflame Relic", "type": "relic", "relic": "swiftwind", "desc": "A mint flame held in crystal. Active: Swiftwind.", "value": 150},
+	"emberheart_charm": {"rarity": "epic", "name": "Emberheart Charm", "type": "charm", "desc": "A ruby heart in silver. +1 heart and +1 defense.", "hearts": 1, "defense": 1, "value": 190},
+	"moonfall_diadem": {"rarity": "epic", "name": "Moonfall Diadem", "type": "head", "look": ["d8e8ff", "89a8e0", "475b8c"], "desc": "A silver-blue diadem. +8 focus and +5% cooldown reduction.", "focus": 8, "cdr": 0.05, "value": 185},
+	"rootguard_mantle": {"rarity": "rare", "name": "Rootguard Mantle", "type": "cloak", "look": ["65b7a0", "3f7d68", "244b44"], "desc": "A dark leaf mantle. +1 defense and +10% poise.", "defense": 1, "poise": 0.10, "value": 145},
 	# ---- materials (stack in the bag, sell, exchange, craft)
 	"wood": {"rarity": "common", "name": "Oak Branch", "type": "material", "icon": NA + "items/branch.png", "value": 2, "desc": "Sturdy branches from Hollowroot trees."},
 	"ore": {"rarity": "common", "name": "Iron Ore", "type": "material", "icon": NA + "items/rock.png", "value": 3, "desc": "Rough ore knocked from boulders."},
@@ -311,6 +371,10 @@ static func icon_path(id: String) -> String:
 	var item: Dictionary = ITEMS.get(id, {})
 	if item.is_empty():
 		return NA + "ui/skill/scroll.png"
+	if GENERATED_WEAPON_VARIANTS.has(id):
+		return GENERATED_EQUIPMENT + "weapon_variants/" + id + ".png"
+	if GENERATED_GEAR_VARIANTS.has(id):
+		return GENERATED_EQUIPMENT + "gear_variants/" + id + ".png"
 	if GENERATED_WEAPONS.has(id):
 		return GENERATED_EQUIPMENT + "weapons/" + String(GENERATED_WEAPONS[id]) + ".png"
 	var item_type := String(item.get("type", ""))
@@ -321,6 +385,8 @@ static func icon_path(id: String) -> String:
 
 ## Resolve a small player-held weapon texture, or the original texture when unmapped.
 static func hand_path(id: String) -> String:
+	if GENERATED_WEAPON_VARIANTS.has(id):
+		return GENERATED_EQUIPMENT + "weapon_hands_variants/" + id + ".png"
 	if GENERATED_WEAPONS.has(id):
 		return GENERATED_EQUIPMENT + "weapon_hands/" + String(GENERATED_WEAPONS[id]) + ".png"
 	return String(ITEMS.get(id, {}).get("hand", ""))

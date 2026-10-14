@@ -12,6 +12,7 @@ const Settings := preload("res://scripts/systems/settings.gd")
 const DB := preload("res://scripts/data/db.gd")
 const CD := preload("res://scripts/data/combat_data.gd")
 const Eco := preload("res://scripts/data/economy.gd")
+const Build := preload("res://scripts/combat/build.gd")
 const ClassBook := preload("res://scripts/data/classdb.gd")
 const StatusFx := preload("res://scripts/combat/status.gd")
 const RUI := preload("res://scripts/ui/rarity_ui.gd")
@@ -257,6 +258,39 @@ func _test_data() -> void:
 
 
 func _test_generated_equipment_art() -> void:
+	var seen_names: Dictionary = {}
+	for id in DB.GENERATED_WEAPON_VARIANTS:
+		var item: Dictionary = DB.ITEMS.get(id, {})
+		check(not item.is_empty() and item.get("type", "") == "weapon", "%s should be a registered weapon variant." % id)
+		check(not seen_names.has(item.get("name", "")), "%s should have a distinct display name." % id)
+		seen_names[item.get("name", "")] = true
+		check(String(item.get("rarity", "")) in DB.RARITIES and int(item.get("damage", 0)) > 0, "%s should have a rarity and damage value." % id)
+		check(CD.WEAPONS.has(id) and DB.icon_path(id) != DB.icon_path("thornblade"), "%s should have a unique icon and combat profile." % id)
+		check(ResourceLoader.exists(DB.icon_path(id)) and ResourceLoader.exists(DB.hand_path(id)), "%s variant icons and held art should load." % id)
+		check(Eco.GEAR_POOL.has(id), "%s should be obtainable through the existing field equipment loot." % id)
+		if not player.weapons_owned.has(id):
+			player.give_item(id)
+		check(player.equip_weapon(id), "%s should equip through the live weapon system." % id)
+		check(player.get_weapon_id() == id and player.weapon_sprite.texture != null and player.weapon_sprite.texture.resource_path == DB.hand_path(id), "%s should render in Mallow's hand when equipped." % id)
+		var bonuses := Build.item_stats(id)
+		for stat_key in bonuses:
+			check(player.stat(stat_key) >= float(bonuses[stat_key]), "%s should apply its active-weapon %s bonus." % [id, stat_key])
+	for id in DB.GENERATED_GEAR_VARIANTS:
+		var item: Dictionary = DB.ITEMS.get(id, {})
+		check(not item.is_empty() and String(item.get("type", "")) in DB.EQUIP_SLOTS, "%s should be a registered gear variant." % id)
+		check(not seen_names.has(item.get("name", "")), "%s should have a distinct display name." % id)
+		seen_names[item.get("name", "")] = true
+		check(String(item.get("rarity", "")) in DB.RARITIES and (not Build.item_stats(id).is_empty() or item.has("relic")), "%s should have a rarity and meaningful equipment effect." % id)
+		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to its own gear icon." % id)
+		check(Eco.GEAR_POOL.has(id), "%s should be obtainable through the existing field equipment loot." % id)
+		var slot := String(item["type"])
+		if not player.inventory.has(id):
+			player.give_item(id)
+		if player.equipped.get(slot, "") != id:
+			check(player.equip(id), "%s should equip through the live gear system." % id)
+		check(player.equipped.get(slot, "") == id, "%s should occupy the %s slot." % [id, slot])
+		if item.has("look"):
+			check(String(player.visible_gear.get(slot, "")) == id, "%s should apply its unique palette to the live player." % id)
 	for id in DB.GENERATED_WEAPONS.keys():
 		check(ResourceLoader.exists(DB.icon_path(id)), "%s should resolve to its generated inventory icon." % id)
 		check(ResourceLoader.exists(DB.hand_path(id)), "%s should resolve to its generated held sprite." % id)

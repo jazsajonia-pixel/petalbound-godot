@@ -283,6 +283,11 @@ static func compute_stats(p: Object) -> Dictionary:
 		var st := item_stats(id)
 		for k in st:
 			s[k] = float(s.get(k, 0.0)) + float(st[k])
+	var weapon_id := String(p.get_weapon_id()) if p.has_method("get_weapon_id") else ""
+	if weapon_id != "" and can_equip(p, weapon_id):
+		var weapon_stats := item_stats(weapon_id)
+		for k in weapon_stats:
+			s[k] = float(s.get(k, 0.0)) + float(weapon_stats[k])
 	return s
 
 

@@ -34,7 +34,13 @@ const GEAR_PITY := 40           # kills without a gear drop -> next kill guarant
 const GEAR_RARITY_WEIGHTS := {"common": 60, "uncommon": 30, "rare": 9, "epic": 1}
 ## Items that can drop in the field (no legendaries, no hybrid/signature gear).
 const GEAR_POOL := ["slimeglass_boots", "mossleaf_cap", "rootgrip_gloves", "trail_leggings", "hidebound_vest",
-	"thornblade", "bloomstaff", "bramble_spear", "cinder_axe", "ember_ring", "moonheart_charm", "barkskin_charm", "gale_band"]
+	"thornblade", "bloomstaff", "bramble_spear", "cinder_axe", "ember_ring", "moonheart_charm", "barkskin_charm", "gale_band",
+	"briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword", "frostthorn_falchion", "duskwing_daggers",
+	"sunpetal_twinblades", "aurora_crystal_staff", "emberroot_staff", "windcarved_bow", "moonfeather_bow", "ember_cleaver",
+	"frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
+	"acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps", "mossrunner_trousers", "cloudstep_leggings",
+	"glasswing_boots", "emberwalker_boots", "aurora_petal_cape", "moonstone_charm", "amberloop_ring", "duskglass_ring",
+	"wispflame_relic", "emberheart_charm", "moonfall_diadem", "rootguard_mantle"]
 
 # ------------------------------------------------------------------ crafting
 ## needs: material -> qty. coins: optional fee. unlock: {"level": n} / {"flag": id} /
@@ -74,6 +80,14 @@ const SHOPS := {
 			{"id": "trail_leggings", "price": 45, "limit": 1},
 			{"id": "briar_mail", "price": 55, "limit": 1, "unlock": {"level": 2}},
 			{"id": "gale_bow", "price": 90, "limit": 1, "unlock": {"level": 4}},
+			{"id": "briarheart_sabre", "price": 85, "limit": 1, "unlock": {"level": 2}},
+			{"id": "ember_cleaver", "price": 100, "limit": 1, "unlock": {"level": 3}},
+			{"id": "aurora_crystal_staff", "price": 155, "limit": 1, "unlock": {"level": 4}},
+			{"id": "windcarved_bow", "price": 150, "limit": 1, "unlock": {"level": 4}},
+			{"id": "acornleaf_cap", "price": 35, "limit": 1},
+			{"id": "mossrunner_trousers", "price": 40, "limit": 1},
+			{"id": "glasswing_boots", "price": 80, "limit": 1, "unlock": {"level": 2}},
+			{"id": "rosebriar_bracers", "price": 85, "limit": 1, "unlock": {"level": 3}},
 			{"id": "heart_piece", "price": 150, "limit": 1},
 		],
 		"exchanges": [
@@ -85,6 +99,14 @@ const SHOPS := {
 			{"id": "ironroot_hammer", "price": 160, "limit": 1, "unlock": {"level": 4}},
 			{"id": "barkskin_charm", "price": 95, "limit": 1, "unlock": {"level": 3}},
 			{"id": "ironbloom_gauntlet", "price": 140, "limit": 1, "unlock": {"level": 3}},
+			{"id": "moonshard_rapier", "price": 145, "limit": 1, "unlock": {"level": 5}},
+			{"id": "frostthorn_falchion", "price": 160, "limit": 1, "unlock": {"level": 5}},
+			{"id": "moonrise_lance", "price": 160, "limit": 1, "unlock": {"level": 5}},
+			{"id": "rootbreaker_maul", "price": 110, "limit": 1, "unlock": {"level": 4}},
+			{"id": "fernwarden_cuirass", "price": 90, "limit": 1, "unlock": {"level": 3}},
+			{"id": "emberwalker_boots", "price": 125, "limit": 1, "unlock": {"level": 4}},
+			{"id": "moonstone_charm", "price": 130, "limit": 1, "unlock": {"level": 4}},
+			{"id": "amberloop_ring", "price": 85, "limit": 1, "unlock": {"level": 3}},
 		],
 		"exchanges": [
 			{"give": {"bone_shard": 6, "spirit_dust": 2}, "get": "recipe_crown", "qty": 1, "unlock": {"flag": "rift_cleared"}},
@@ -102,6 +124,22 @@ const SHOPS := {
 			{"id": "starweave_gloves", "price": 280, "limit": 1},
 			{"id": "twilight_mantle", "price": 380, "limit": 1},
 			{"id": "spellblade_sash", "price": 380, "limit": 1},
+			{"id": "moonfeather_bow", "price": 230, "limit": 1, "unlock": {"level": 7}},
+			{"id": "sunforge_greatsword", "price": 230, "limit": 1, "unlock": {"level": 8}},
+			{"id": "crimsonfang_sword", "price": 155, "limit": 1, "unlock": {"level": 5}},
+			{"id": "duskwing_daggers", "price": 150, "limit": 1, "unlock": {"level": 5}},
+			{"id": "sunpetal_twinblades", "price": 225, "limit": 1, "unlock": {"level": 7}},
+			{"id": "emberroot_staff", "price": 165, "limit": 1, "unlock": {"level": 6}},
+			{"id": "frostcleaver_axe", "price": 165, "limit": 1, "unlock": {"level": 5}},
+			{"id": "starfall_maul", "price": 245, "limit": 1, "unlock": {"level": 8}},
+			{"id": "starweave_wraps", "price": 135, "limit": 1, "unlock": {"level": 4}},
+			{"id": "cloudstep_leggings", "price": 130, "limit": 1, "unlock": {"level": 4}},
+			{"id": "aurora_petal_cape", "price": 185, "limit": 1, "unlock": {"level": 6}},
+			{"id": "duskglass_ring", "price": 140, "limit": 1, "unlock": {"level": 5}},
+			{"id": "wispflame_relic", "price": 150, "limit": 1, "unlock": {"level": 5}},
+			{"id": "emberheart_charm", "price": 190, "limit": 1, "unlock": {"level": 7}},
+			{"id": "moonfall_diadem", "price": 185, "limit": 1, "unlock": {"level": 7}},
+			{"id": "rootguard_mantle", "price": 145, "limit": 1, "unlock": {"level": 5}},
 		],
 		"exchanges": [{"give": {"ember_core": 4}, "get": "coins", "qty": 45}]},
 	"kaede": {"name": "Kaede's Armoury", "service": "Class weapons & armour", "sell": ["gear"],

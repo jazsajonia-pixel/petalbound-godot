@@ -17,6 +17,18 @@ GEAR = [
     "arms", "legs", "boots",
     "charm", "ring", "relic",
 ]
+WEAPON_VARIANTS = [
+    "briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword",
+    "frostthorn_falchion", "duskwing_daggers", "sunpetal_twinblades", "aurora_crystal_staff",
+    "emberroot_staff", "windcarved_bow", "moonfeather_bow", "ember_cleaver",
+    "frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
+]
+GEAR_VARIANTS = [
+    "acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps",
+    "mossrunner_trousers", "cloudstep_leggings", "glasswing_boots", "emberwalker_boots",
+    "aurora_petal_cape", "moonstone_charm", "amberloop_ring", "duskglass_ring",
+    "wispflame_relic", "emberheart_charm", "moonfall_diadem", "rootguard_mantle",
+]
 
 
 def slice_cells(sheet_name: str, names: list[str], grid: int, output_dir: Path, hand_sprites: bool = False) -> None:
@@ -47,4 +59,7 @@ def slice_cells(sheet_name: str, names: list[str], grid: int, output_dir: Path, 
 slice_cells("weapons_sheet.png", WEAPONS, 3, OUT / "weapons")
 slice_cells("weapons_sheet.png", WEAPONS, 3, OUT / "weapon_hands", hand_sprites=True)
 slice_cells("gear_sheet.png", GEAR, 3, OUT / "gear")
-print(f"Sliced 9 weapon icons, 9 hand sprites and 9 gear icons into {OUT}")
+slice_cells("weapon_variants_sheet.png", WEAPON_VARIANTS, 4, OUT / "weapon_variants")
+slice_cells("weapon_variants_sheet.png", WEAPON_VARIANTS, 4, OUT / "weapon_hands_variants", hand_sprites=True)
+slice_cells("gear_variants_sheet.png", GEAR_VARIANTS, 4, OUT / "gear_variants")
+print(f"Sliced 9 base weapons, {len(WEAPON_VARIANTS)} weapon variants and {len(GEAR_VARIANTS)} gear variants into {OUT}")

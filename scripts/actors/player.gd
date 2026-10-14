@@ -1437,9 +1437,8 @@ func _set_weapon_index(idx: int) -> void:
 	_attack_buffer = 0.0
 	if state == State.ATTACK:
 		state = State.MOVE
-	_refresh_attack_indicator()
+	recalc_stats()
 	refresh_held_weapon()
-	stats_changed.emit()
 
 
 func get_weapon_id() -> String:

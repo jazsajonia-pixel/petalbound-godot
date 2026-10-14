@@ -169,7 +169,7 @@ func _test_data() -> void:
 	var items_ok := true
 	for id in DB.ITEMS:
 		var it: Dictionary = DB.ITEMS[id]
-		if not ResourceLoader.exists(String(it["icon"])):
+		if not ResourceLoader.exists(DB.icon_path(id)):
 			items_ok = false
 			failures.append("Item %s icon missing." % id)
 		for c in it.get("classes", []):
