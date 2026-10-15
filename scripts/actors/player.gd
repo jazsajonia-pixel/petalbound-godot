@@ -548,13 +548,47 @@ func _on_sprite_anim_changed() -> void:
 
 # ------------------------------------------------------------------ held weapon visuals
 const HAND_REST := {
-	# main hand (right paw), off hand (left paw): position, rotation, behind body?
+	# Main/off-hand grip pivot: position, rotation, and behind-body ordering.
 	"down": [Vector2(6, -3), 0.35, false, Vector2(-4, -3), -0.2, false],
 	"up": [Vector2(-6, -4), -0.3, true, Vector2(6, -4), 0.3, true],
 	"left": [Vector2(-3, -3), -0.55, false, Vector2(3, -4), -0.25, true],
 	"right": [Vector2(3, -3), 0.55, false, Vector2(-3, -4), 0.25, true],
 }
+# Both held sprites use a top-left origin; source-specific offsets below keep
+# the grip on the hand for legacy cuts and the sourced CC0 variants.
+const VARIANT_HAND_SCALE := Vector2(0.8, 0.8)
+const VARIANT_GRIP_POINTS := {
+	# Weapon Sprite2D nodes use a top-left origin. Most cuts have the handle at
+	# lower-right; the greatsword has its hilt upper-left; bows are gripped center.
+	"sunforge_greatsword": Vector2(1, 1),
+	"windcarved_bow": Vector2(8, 8),
+	"moonfeather_bow": Vector2(8, 8),
+}
 var _swinging := false
+
+
+func _variant_hand_rotation(direction: String, offhand := false, weapon_id := "") -> float:
+	var aim_angle: float = {"down": PI * 0.5, "up": -PI * 0.5, "left": PI, "right": 0.0}.get(direction, PI * 0.5)
+	if weapon_id == "windcarved_bow" or weapon_id == "moonfeather_bow":
+		# The bow's limbs span across the aim axis, with its hand at center.
+		return aim_angle - PI * 0.75
+	# The greatsword has its blade pointing down-right from an upper-left grip;
+	# the other one-handed cuts point up-left from their lower-right grips.
+	var tip_angle := PI * 0.25 if weapon_id == "sunforge_greatsword" else -PI * 0.75
+	if offhand:
+		tip_angle = PI - tip_angle
+	return aim_angle - tip_angle
+
+
+func _held_weapon_offset(texture: Texture2D, weapon_id: String, variant: bool, offhand := false, swinging := false) -> Vector2:
+	if variant:
+		var grip: Vector2 = VARIANT_GRIP_POINTS.get(weapon_id, Vector2(14, 14))
+		if offhand:
+			grip.x = 15.0 - grip.x
+		# With centered=false, the texture starts at local (0,0); negate the
+		# grip pixel directly so the handle lands exactly on the hand node.
+		return -grip
+	return Vector2(-texture.get_width() / 2.0, -texture.get_height() + (0.0 if swinging else 2.0))
 
 
 func is_dual_wield() -> bool:
@@ -568,6 +602,7 @@ func refresh_held_weapon() -> void:
 	if off_weapon_sprite == null:
 		off_weapon_sprite = Sprite2D.new()
 		off_weapon_sprite.name = "OffHandWeapon"
+		off_weapon_sprite.centered = false
 		off_weapon_sprite.visible = false
 		add_child(off_weapon_sprite)
 	var item: Dictionary = DB.ITEMS.get(get_weapon_id(), {})
@@ -576,15 +611,23 @@ func refresh_held_weapon() -> void:
 		off_weapon_sprite.visible = false
 		return
 	var held_path := DB.hand_path(get_weapon_id())
-	if held_path == "":
+	if held_path.is_empty():
 		weapon_sprite.visible = false
 		off_weapon_sprite.visible = false
 		return
 	var t: Texture2D = AnimLib.tex(held_path)
-	for sp in [weapon_sprite, off_weapon_sprite]:
-		sp.texture = t
-		sp.offset = Vector2(-t.get_width() / 2.0, -t.get_height() + 2.0)
-		sp.modulate = Color(String(item.get("tint", "ffffff")))
+	var weapon_id := get_weapon_id()
+	var variant: bool = DB.WEAPON_VARIANTS.has(weapon_id)
+	weapon_sprite.texture = t
+	weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant)
+	weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
+	weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))
+	off_weapon_sprite.texture = t
+	# Match the main hand's origin; the pixel anchor is mirrored with the art.
+	off_weapon_sprite.centered = false
+	off_weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant, true)
+	off_weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
+	off_weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))
 	off_weapon_sprite.flip_h = true
 	_update_held_weapon()
 
@@ -611,13 +654,17 @@ func _update_held_weapon() -> void:
 		return
 	var rest: Array = HAND_REST.get(dir_name, HAND_REST["down"])
 	var bob := sprite.position.y + (-1.0 if String(sprite.animation).begins_with("walk") and sprite.frame % 2 == 1 else 0.0)
+	var weapon_id := get_weapon_id()
+	var variant: bool = DB.WEAPON_VARIANTS.has(weapon_id)
+	var variant_hands := {"down": [Vector2(7, -8), Vector2(-7, -8)], "up": [Vector2(-7, -8), Vector2(7, -8)],
+		"left": [Vector2(-7, -8), Vector2(7, -8)], "right": [Vector2(7, -8), Vector2(-7, -8)]}
 	weapon_sprite.visible = armed
-	weapon_sprite.position = rest[0] + Vector2(0, bob)
-	weapon_sprite.rotation = rest[1]
+	weapon_sprite.position = (variant_hands[dir_name][0] if variant else rest[0]) + Vector2(0, bob)
+	weapon_sprite.rotation = _variant_hand_rotation(dir_name, false, weapon_id) if variant else rest[1]
 	_layer_behind_body(weapon_sprite, rest[2])
 	off_weapon_sprite.visible = dual
-	off_weapon_sprite.position = rest[3] + Vector2(0, bob)
-	off_weapon_sprite.rotation = rest[4]
+	off_weapon_sprite.position = (variant_hands[dir_name][1] if variant else rest[3]) + Vector2(0, bob)
+	off_weapon_sprite.rotation = _variant_hand_rotation(dir_name, true, weapon_id) if variant else rest[4]
 	_layer_behind_body(off_weapon_sprite, rest[5])
 
 
@@ -2328,14 +2375,19 @@ func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 		_punch_fx(heavy)
 		return
 	var t: Texture2D = AnimLib.tex(held_path)
+	var weapon_id := get_weapon_id()
+	var variant: bool = DB.WEAPON_VARIANTS.has(weapon_id)
 	weapon_sprite.texture = t
-	weapon_sprite.offset = Vector2(-t.get_width() / 2.0, -t.get_height())
+	weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant, false, true)
+	weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
 	weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))
 	var hand := {"down": Vector2(3, -6), "up": Vector2(-3, -10), "left": Vector2(-4, -7), "right": Vector2(4, -7)}
-	weapon_sprite.position = hand[dir_name]
+	var variant_hands := {"down": [Vector2(7, -8), Vector2(-7, -8)], "up": [Vector2(-7, -8), Vector2(7, -8)],
+		"left": [Vector2(-7, -8), Vector2(7, -8)], "right": [Vector2(7, -8), Vector2(-7, -8)]}
+	weapon_sprite.position = variant_hands[dir_name][0] if variant else hand[dir_name]
 	_layer_behind_body(weapon_sprite, dir_name == "up")
 	weapon_sprite.visible = true
-	var base := facing.angle() + PI / 2.0
+	var base := _variant_hand_rotation(dir_name, false, weapon_id) if variant else facing.angle() + PI / 2.0
 	var tw := create_tween()
 	if point:
 		weapon_sprite.rotation = base - 0.4
@@ -2350,12 +2402,15 @@ func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 			# twin knives: the off-hand knife cuts back across on alternate strikes
 			var hand2 := {"down": Vector2(-3, -6), "up": Vector2(3, -10), "left": Vector2(2, -7), "right": Vector2(-2, -7)}
 			off_weapon_sprite.texture = t
-			off_weapon_sprite.position = hand2[dir_name]
+			off_weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant, true, true)
+			off_weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
+			off_weapon_sprite.position = variant_hands[dir_name][1] if variant else hand2[dir_name]
 			_layer_behind_body(off_weapon_sprite, dir_name != "down")
 			off_weapon_sprite.visible = true
-			off_weapon_sprite.rotation = base + arc * sgn
+			var off_base := _variant_hand_rotation(dir_name, true, weapon_id) if variant else facing.angle() + PI / 2.0
+			off_weapon_sprite.rotation = off_base + arc * sgn
 			var tw2 := create_tween()
-			tw2.tween_property(off_weapon_sprite, "rotation", base - arc * sgn, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			tw2.tween_property(off_weapon_sprite, "rotation", off_base - arc * sgn, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_swinging = true
 	tw.tween_callback(func() -> void:
 		_swinging = false

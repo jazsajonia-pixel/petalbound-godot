@@ -792,6 +792,8 @@ func _test_hud_controls() -> void:
 	for l in hud.inventory_detail.find_children("*", "Label", true, false):
 		txt += (l as Label).text + "\n"
 	check(txt.contains("Cannot equip") and txt.contains("Lumimancer"), "The satchel should explain why gear is unavailable.")
+	check(hud.inventory_detail.get_index() < hud.inventory_doll.get_index(), "The selected-item details and actions should appear before the equipment doll in the inspection pane.")
+	check(hud.inventory_detail.find_child("EquipButton", true, false) != null, "The selected-item equip action should be present directly in the item detail pane.")
 	hud.toggle_inventory()
 	clear_dummies()
 	await frames(2)

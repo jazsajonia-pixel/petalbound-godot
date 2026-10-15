@@ -464,6 +464,9 @@ static func refresh_inventory(hud: Control) -> void:
 
 static func _detail(hud: Control, p: Node, id: String) -> void:
 	var box: VBoxContainer = hud.inventory_detail
+	var details_scroll := box.get_parent().get_parent() as ScrollContainer
+	if details_scroll != null:
+		details_scroll.scroll_vertical = 0
 	for c in box.get_children():
 		c.queue_free()
 	if id == "" or not DB.ITEMS.has(id):
@@ -477,7 +480,6 @@ static func _detail(hud: Control, p: Node, id: String) -> void:
 	hud._label("%s · %s%s" % [RUI.category_of(id), RUI.name_of(id), ("" if Build.item_classes(id).is_empty() else " · " + Build.requirement_text(id))], 8, hud.C_DIM, hc)
 	if Inv.is_stackable(id):
 		hud._label("x%d in bag" % Inv.count(p, id), 8, hud.C_DIM, box)
-	_wrap(hud, String(item["desc"]), hud.C_TEXT, box, 200)
 	if t == "weapon":
 		var w: Dictionary = CD.weapon(id)
 		var shape := {"arc": "arc %d" % int(w["reach"]), "circle": "slam r%d" % int(w["reach"]), "line": "range %d" % int(w["reach"]),
@@ -544,7 +546,11 @@ static func _detail(hud: Control, p: Node, id: String) -> void:
 						hud.show_message(p.last_equip_error, 2.0)
 					refresh_inventory(hud))
 				ab.name = "BarAdd"
-			hud._label("BAR %d/%d" % [p.weapon_bar.size(), p.bar_max()], 8, hud.C_DIM if p.weapon_bar.size() < p.bar_max() else hud.C_GOLD, brow)
+				hud._label("BAR %d/%d" % [p.weapon_bar.size(), p.bar_max()], 8, hud.C_DIM if p.weapon_bar.size() < p.bar_max() else hud.C_GOLD, brow)
+	# Longer flavor copy is deliberately last. The selected item's attack,
+	# passive, comparison, and equip controls stay together at the top of the
+	# inspection pane rather than being displaced below prose.
+	_wrap(hud, String(item["desc"]), Color(0.76, 0.73, 0.8), box, 200)
 
 
 static func _row_button(hud: Control, text: String, parent: Control, cb: Callable) -> Button:

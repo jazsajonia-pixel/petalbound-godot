@@ -656,14 +656,16 @@ func _make_inventory_overlay() -> void:
 	inventory_grid.add_theme_constant_override("h_separation", 3)
 	inventory_grid.add_theme_constant_override("v_separation", 3)
 	left.add_child(inventory_grid)
-	inventory_detail = _vbox(left, 2)
-	inventory_desc = _label("", 8, C_TEXT, left)
 	var rscroll := ScrollContainer.new()
 	rscroll.custom_minimum_size = Vector2(230, 262)
 	rscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(rscroll)
-	inventory_doll = _vbox(rscroll, 2)
-	inventory_stats = _label("", 8, C_TEXT, left)
+	var right := _vbox(rscroll, 4)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_detail = _vbox(right, 2)
+	inventory_doll = _vbox(right, 2)
+	inventory_desc = null
+	inventory_stats = _label("", 8, C_TEXT, right)
 	inventory_stats.visible = false
 	inventory_text = inventory_stats
 
