@@ -59,6 +59,13 @@ const QUESTS := [
 		"type": "collect", "target": "ember_core", "goal": 3, "reward": {"coins": 70, "xp": 50, "item": "ore", "qty": 3}},
 	{"id": "q_emberbark", "giver": "rowan", "requires": "q_ember_patrol", "name": "Fell the Emberbark", "desc": "Defeat the Emberbark in its hollow north of camp.",
 		"type": "flag", "target": "emberbark_felled", "goal": 1, "reward": {"coins": 120, "xp": 90, "item": "moon_shard", "qty": 1}},
+	# ---- Saltbloom Shoals (Old Marlo in Brinewick)
+	{"id": "q_salt_lines", "giver": "marlo", "name": "Cut Lines", "desc": "Defeat 5 Coral Crawlers on the Saltbloom beaches.",
+		"type": "kill_kind", "target": "mollusc", "goal": 5, "reward": {"coins": 80, "xp": 60}},
+	{"id": "q_salt_pearls", "giver": "marlo", "name": "Pearls for the Nets", "desc": "Bring 3 Brine Pearls (Saltbloom's coast creatures carry them).",
+		"type": "collect", "target": "brine_pearl", "goal": 3, "reward": {"coins": 90, "xp": 60, "item": "moontea_vial", "qty": 2}},
+	{"id": "q_brinehorn", "giver": "marlo", "requires": "q_salt_lines", "name": "Still the Brinehorn", "desc": "Defeat the Brinehorn on the reef south of Brinewick.",
+		"type": "flag", "target": "brinehorn_felled", "goal": 1, "reward": {"coins": 150, "xp": 120, "item": "moon_shard", "qty": 2}},
 	{"id": "q_crypt", "giver": "sora", "name": "The Hollow Crypt", "desc": "Something stirs under the graveyard in the marsh. Clear the Hollow Crypt.",
 		"type": "flag", "target": "crypt_cleared", "goal": 1, "reward": {"coins": 80, "xp": 60, "item": "heart_piece"}},
 ]

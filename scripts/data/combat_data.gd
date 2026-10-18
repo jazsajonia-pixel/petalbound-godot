@@ -110,6 +110,8 @@ const WEAPONS := {
 		"lock": 0.55, "cooldown": 0.68, "combo": 1, "element": "arcane", "passive": "quake", "color": "d0a8ff"},
 	"rootbreaker_maul": {"pattern": "slam", "shape": "circle", "reach": 25.0, "offset": 18.0,
 		"lock": 0.48, "cooldown": 0.60, "combo": 1, "element": "ice", "passive": "quake", "color": "a8c878"},
+	"tidecaller_trident": {"pattern": "combo", "shape": "arc", "reach": 50.0, "finisher_reach": 58.0, "half_angle": 0.36,
+		"lock": 0.24, "cooldown": 0.28, "combo": 3, "element": "ice", "passive": "moon_wave", "color": "8ff0e0"},
 	"moonrise_lance": {"pattern": "combo", "shape": "arc", "reach": 48.0, "finisher_reach": 54.0, "half_angle": 0.30,
 		"lock": 0.23, "cooldown": 0.27, "combo": 2, "element": "arcane", "passive": "moon_wave", "color": "c8dcff"},
 }
@@ -163,6 +165,7 @@ const RESIST := {
 	"flam": {"fire": 0.0}, "spirit2": {"fire": 0.0}, "spiderred": {"fire": 0.5},
 	"slime3": {"ice": 0.0}, "mushroom2": {"ice": 0.5}, "spirit": {"ice": 0.5, "necrotic": 0.5},
 	"skull": {"poison": 0.0, "necrotic": 0.5}, "snake2": {"poison": 0.5},
+	"axolotblue": {"ice": 0.5}, "octopus": {"ice": 0.5}, "mollusc": {"poison": 0.5},
 }
 ## Bosses: half duration on everything, immune to freeze and stun, slow capped.
 const BOSS_RESIST := {"duration": 0.5, "slow_cap": 0.15, "immune": ["freeze", "stun"]}

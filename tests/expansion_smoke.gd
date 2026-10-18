@@ -562,6 +562,8 @@ func _test_save_load() -> void:
 	game._restore_world_camera()
 	player.global_position = arena
 	Inv.add(player, "ore", 4)
+	# earlier fights can randomly drop ore, so compare against the saved count
+	var ore_saved := Inv.count(player, "ore")
 	player.give_item("cinder_axe")
 	var look: Dictionary = player.appearance.duplicate()
 	check(game.save_game(), "Saving should work.")
@@ -570,7 +572,7 @@ func _test_save_load() -> void:
 	game.load_game()
 	await frames(2)
 	player = game.player
-	check(Inv.count(player, "ore") == 4, "Bag stacks should persist.")
+	check(ore_saved >= 4 and Inv.count(player, "ore") == ore_saved, "Bag stacks should persist (ore %d, saved %d)." % [Inv.count(player, "ore"), ore_saved])
 	check(player.weapons_owned.has("cinder_axe") and player.weapons_owned[0] == "fists", "Weapons (with fists first) should persist.")
 	check(player.appearance == look, "The chosen appearance should persist.")
 	# a save written inside a house reloads inside it

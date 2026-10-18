@@ -82,9 +82,10 @@ func _tile(tx: float, ty: float) -> Vector2:
 # ---------------------------------------------------------------- region
 func _test_region_layout() -> void:
 	var w: Node = game.world
-	check(w.tiles.x == 400, "The world should be 400 tiles wide with Moonpetal and Emberleaf Vale (got %d)." % w.tiles.x)
-	check(w.world_size.x == 400 * 16.0, "world_size should follow the new width.")
-	check(w.biome_image.get_width() == 400 and w.field_image.get_width() == 400 * w.field_res, "Biome and field maps should both grow.")
+	# Saltbloom Shoals (tests/saltbloom_smoke.gd) adds 56 more columns east of the vale
+	check(w.tiles.x == 456, "The world should be 456 tiles wide with Moonpetal, Emberleaf Vale and Saltbloom Shoals (got %d)." % w.tiles.x)
+	check(w.world_size.x == 456 * 16.0, "world_size should follow the new width.")
+	check(w.biome_image.get_width() == 456 and w.field_image.get_width() == 456 * w.field_res, "Biome and field maps should both grow.")
 	check((w.data["biome_names"] as Array).size() >= 9 and String(w.data["biome_names"][World.EMBER]) == "Emberleaf Vale", "Biome 8 should be named Emberleaf Vale.")
 	check(w.biome_at(_tile(390, 110)) == World.EMBER, "The vale interior should be biome 8 (got %d)." % w.biome_at(_tile(390, 110)))
 	check(w.biome_at(_tile(280, 92)) == World.STARFALL, "Starfall Rise should be untouched.")
@@ -112,13 +113,13 @@ func _test_region_layout() -> void:
 	check(npc_ok, "Rowan should live in Cinderbrook Camp.")
 	var ember_enemies := 0
 	for e in w.data["enemies"]:
-		if float(e["x"]) >= 336 * 16.0:
+		if float(e["x"]) >= 336 * 16.0 and float(e["x"]) < 400 * 16.0:
 			ember_enemies += 1
 			check(not w.is_water(Vector2(e["x"], e["y"])) and not w.is_solid(Vector2(e["x"], e["y"])), "Enemy %s at %s should be on open ground." % [e["s"], str(Vector2(e["x"], e["y"]))])
 	check(ember_enemies >= 12, "The vale should have monster camps (got %d)." % ember_enemies)
 	var props_in_vale := 0
 	for pr in w.data["props"]:
-		if float(pr["x"]) >= 336 * 16.0:
+		if float(pr["x"]) >= 336 * 16.0 and float(pr["x"]) < 400 * 16.0:
 			props_in_vale += 1
 	check(props_in_vale > 300 and props_in_vale < 2600, "The vale should be dressed but stay light for phones (%d props)." % props_in_vale)
 

@@ -1174,7 +1174,7 @@ func _update_region(force: bool) -> void:
 		"Cinderbrook Camp":
 			sub = "hunters keep the waystone lit"
 		_:
-			var subs := ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells", "where petals fall from the stars", "a quiet grove where moonflowers open at night", "the leaves burn but never fall"]
+			var subs := ["meadows of drifting petals", "the old grove remembers", "sun-scarred and silent", "frost on forgotten stone", "reeds and slow water", "salt wind and shells", "where petals fall from the stars", "a quiet grove where moonflowers open at night", "the leaves burn but never fall", "tide pools, nets and a red horn below the reef"]
 			sub = subs[clampi(current_biome, 0, subs.size() - 1)]
 	hud.show_region(name, sub)
 	if name == "Starfall Rise":
@@ -1490,7 +1490,7 @@ func is_side_boss(b: Node) -> bool:
 func on_boss_awake(b: Node) -> void:
 	active_boss = b
 	hud.show_boss(b)
-	hud.show_region(b.title, "guardian of Emberleaf Vale" if is_side_boss(b) else "guardian of the Moonseed")
+	hud.show_region(b.title, String((b.cfg as Dictionary).get("region_title", "guardian of Emberleaf Vale")) if is_side_boss(b) else "guardian of the Moonseed")
 	audio.play_music("boss", 0.8)
 	audio.play("alert2", 0.0, -2.0)
 	fx.shake(3.0, 0.4)
@@ -1560,7 +1560,7 @@ func _side_boss_reward(b: Node) -> void:
 		spawn_coin(b.global_position + Vector2(randf_range(-20, 20), randf_range(-10, 10)), 3)
 	if Inv.add(player, "moon_shard", 2) > 0:
 		hud.show_loot("moon_shard", 2)
-	hud.show_message("%s falls. The vale's fire cools." % b.title.capitalize(), 3.5)
+	hud.show_message(String((b.cfg as Dictionary).get("fall_msg", "%s falls. The vale's fire cools.")) % b.title.capitalize(), 3.5)
 	_quest_progress("boss")
 	_quest_progress("flag", "%s_felled" % b.boss_id)
 	current_region = ""

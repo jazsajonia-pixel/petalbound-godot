@@ -409,7 +409,7 @@ func build_minimap_texture(biome: Image, field: Image) -> void:
 	var w := biome.get_width()
 	var h := biome.get_height()
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4"), Color("cbb8f0"), Color("e8a868")]
+	var cols := [Color("7fc46e"), Color("3f8a5a"), Color("e3c27d"), Color("b9b2d6"), Color("6f9a6a"), Color("f0dfa4"), Color("cbb8f0"), Color("e8a868"), Color("d98a4a"), Color("f2e6c4")]
 	var fw := field.get_width() / w
 	for y in range(h):
 		for x in range(w):

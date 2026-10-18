@@ -14,6 +14,7 @@ const PATTERNS := {
 	"demoncyclop": ["spread", "charge", "ring", "spikes"],
 	"giantspirit": ["ring", "teleport", "spikes", "spread", "teleport"],
 	"emberbark": ["spikes", "charge", "spread", "spikes", "ring"],
+	"squidred": ["ring", "spread", "spikes", "ring", "charge"],
 }
 ## Attack added to every pattern once the boss is enraged (phase two).
 const ENRAGED_EXTRA := "quake"
@@ -24,10 +25,10 @@ const CHARGE_SPEED := 230.0
 const CHARGE_TIME := 0.75
 const SPREAD_STEP := 0.28
 const RING_REACH := 110.0
-const SHOTS := {"giantbamboo": "rock_ball", "giantfrog": "energy_ball", "demoncyclop": "fireball", "giantspirit": "ice_spike", "emberbark": "fireball"}
+const SHOTS := {"giantbamboo": "rock_ball", "giantfrog": "energy_ball", "demoncyclop": "fireball", "giantspirit": "ice_spike", "emberbark": "fireball", "squidred": "energy_ball"}
 const TITLES := {
 	"giantbamboo": "THE BRIARBACK", "giantfrog": "THE GLASSWATER TOAD", "demoncyclop": "THE EMBER CYCLOPS", "giantspirit": "THE QUIET WARDEN",
-	"emberbark": "THE EMBERBARK",
+	"emberbark": "THE EMBERBARK", "squidred": "THE BRINEHORN",
 }
 
 var game: Node

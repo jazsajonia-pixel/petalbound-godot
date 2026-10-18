@@ -50,7 +50,7 @@ func _run_test() -> void:
 	check(game.game_started, "New Journey should start the game.")
 
 	# ---- Starfall Rise
-	check(game.world.tiles == Vector2i(400, 176), "The world should expand to 400 x 176 tiles (Starfall + Moonpetal + Emberleaf) (got %s)." % game.world.tiles)
+	check(game.world.tiles == Vector2i(456, 176), "The world should expand to 456 x 176 tiles (Starfall + Moonpetal + Emberleaf + Saltbloom) (got %s)." % game.world.tiles)
 	check(game.world.world_size.x > 6300.0, "The world width should grow past 5900px.")
 	check(game.world.biome_at(Vector2(4600, 1460)) == 6, "Starfall Rise should be biome 6 at the Watch.")
 	check(game.world.region_name(Vector2(4600, 1460)) == "Starfall Rise", "The eastern rise should be named Starfall Rise.")

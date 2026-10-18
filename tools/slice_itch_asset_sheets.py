@@ -39,6 +39,7 @@ WEAPON_CUTS = {
     "rootbreaker_maul": ("mace", 14, "iron"),
     "moonrise_lance": ("spear", 18, "steel"),
     "grave_scythe": ("scythe", 27, "steel"),
+    "tidecaller_trident": ("trident", 7, "steel"),
 }
 
 # Admurin's free 32x32 sheet is permitted for use in a game project. Only two

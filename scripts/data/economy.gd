@@ -12,6 +12,7 @@ const LOOT_GROUP := {
 	"skull": "undead",
 	"spirit": "spirit", "eye": "spirit",
 	"flam": "fire", "spirit2": "fire", "cyclope": "fire",
+	"axolotblue": "tide", "mollusc": "tide", "kappagreen": "tide", "octopus": "tide",
 }
 ## Each entry: [item id, chance 0..1, min qty, max qty]. Rolled independently.
 ## Coins come from DB.ENEMIES[species].coins (dropped as physical coins).
@@ -23,6 +24,7 @@ const LOOT := {
 	"undead": [["bone_shard", 0.50, 1, 2], ["spirit_dust", 0.05, 1, 1]],
 	"spirit": [["spirit_dust", 0.20, 1, 1], ["bone_shard", 0.12, 1, 1]],
 	"fire": [["ember_core", 0.35, 1, 1], ["ore", 0.10, 1, 1]],
+	"tide": [["brine_pearl", 0.30, 1, 1], ["slime_gel", 0.20, 1, 1], ["beast_hide", 0.12, 1, 1]],
 }
 ## Extra rolls for elites (always at least one uncommon-or-better material).
 const ELITE_BONUS := [["moon_shard", 0.15, 1, 1], ["spirit_dust", 0.35, 1, 2]]
@@ -37,7 +39,7 @@ const GEAR_POOL := ["slimeglass_boots", "mossleaf_cap", "rootgrip_gloves", "trai
 	"thornblade", "bloomstaff", "bramble_spear", "cinder_axe", "ember_ring", "moonheart_charm", "barkskin_charm", "gale_band",
 	"briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword", "frostthorn_falchion", "duskwing_daggers",
 	"sunpetal_twinblades", "aurora_crystal_staff", "emberroot_staff", "windcarved_bow", "moonfeather_bow", "ember_cleaver",
-	"frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
+	"frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance", "tidecaller_trident",
 	"acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps", "mossrunner_trousers", "cloudstep_leggings",
 	"glasswing_boots", "emberwalker_boots", "aurora_petal_cape", "moonstone_charm", "amberloop_ring", "duskglass_ring",
 	"wispflame_relic", "emberheart_charm", "moonfall_diadem", "rootguard_mantle"]

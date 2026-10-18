@@ -65,9 +65,9 @@ func _run_test() -> void:
 	check(game.enemies.size() > 60, "World should spawn dozens of monsters.")
 	var seed_keepers: Array = game.bosses.filter(func(b): return not game.is_side_boss(b))
 	check(seed_keepers.size() == 4, "Four Moonseed guardians expected (got %d)." % seed_keepers.size())
-	check(game.bosses.size() == 5, "Four guardians plus the Emberbark expected.")
+	check(game.bosses.size() == 6, "Four guardians plus the Emberbark and the Brinehorn expected.")
 	check(game.npcs.size() >= 8, "Hearthgrove and the roads should have villagers.")
-	check(game.waystones.size() == 8, "Eight waystones expected (including Moonpetal, Starfall and Cinderbrook).")
+	check(game.waystones.size() == 9, "Nine waystones expected (including Moonpetal, Starfall, Cinderbrook and Brinewick).")
 	var lumen_found := false
 	for n in game.npcs:
 		if n.npc_id == "lumen":

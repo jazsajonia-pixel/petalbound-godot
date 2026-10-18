@@ -38,6 +38,21 @@ const EMBER_GROVE := [375.0, 138.0]
 ## Rows of Starfall's east wall left open for the Ember Road.
 const EMBER_GATE_ROWS := [93, 101]
 
+## Saltbloom Shoals: a sunlit coast appended east of Emberleaf Vale. The Tide Road
+## leaves Cinderbrook Camp through a gap in the vale's east grove wall and runs to
+## the fishing hamlet of Brinewick. North lies Saltbloom Lagoon (swim out to its
+## islet), south the Brinehorn Reef; the east edge is open sea.
+const SALT := 9
+const EXPAND_EAST3 := 56
+const SALT_SEED := 20261018
+const SALT_ROAD := [[362.0, 98.0], [372.0, 99.0], [382.0, 100.0], [392.0, 100.0], [402.0, 100.0], [412.0, 100.0], [420.0, 100.0]]
+const SALT_PLAZA := [420.0, 100.0]
+const SALT_LAGOON := [439.0, 74.0]
+const SALT_REEF := [435.0, 136.0]
+const SALT_GATE_ROWS := [95, 105]
+const SALT_SEA_COLS := 6
+const SALT_POOLS := [[408.0, 124.0, 2.6, 1.8], [414.0, 146.0, 3.0, 2.0], [446.0, 106.0, 2.4, 1.8], [408.0, 78.0, 2.8, 2.0], [417.0, 58.0, 3.2, 2.2]]
+
 const DECOR_CELLS := {
 	"fd_leaves": Vector2i(0, 0), "fd_pebbles": Vector2i(4, 0), "fd_sticks": Vector2i(5, 0), "fd_sand_rock": Vector2i(9, 0),
 	"fd_bone": Vector2i(14, 0), "fd_shell": Vector2i(15, 0), "fd_pebbles_gray": Vector2i(0, 1), "fd_flower_yellow": Vector2i(2, 0),
@@ -90,6 +105,7 @@ func build(entities_parent: Node2D) -> void:
 		field_image.decompress()
 	_expand_starfall()
 	_expand_ember()
+	_expand_saltbloom()
 	_clear_interiors()
 	biome_tex = ImageTexture.create_from_image(biome_image)
 	field_tex = ImageTexture.create_from_image(field_image)
@@ -120,15 +136,15 @@ func _make_ground(biome_tex: Texture2D, field_tex: Texture2D) -> void:
 	ground_material.set_shader_parameter("atlas_px", Vector2(atlas.get_width(), atlas.get_height()))
 	# plain fill tile (xy), first decorated tile x (z), decorated count (w)
 	ground_material.set_shader_parameter("ground_tiles", PackedVector4Array([
-		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 12, 1, 4)]))
+		Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 5, 1, 4), Vector4(0, 19, 1, 4), Vector4(11, 19, 12, 4), Vector4(1, 1, 0, 0), Vector4(0, 12, 1, 4), Vector4(11, 12, 12, 4), Vector4(0, 12, 1, 4), Vector4(1, 1, 0, 0)]))
 	ground_material.set_shader_parameter("path_tiles", PackedVector4Array([
-		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 8, 0, 0)]))
+		Vector4(1, 8, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 1, 0, 0), Vector4(1, 22, 0, 0), Vector4(12, 15, 11, 0), Vector4(0, 5, 1, 2), Vector4(1, 22, 0, 0), Vector4(12, 8, 11, 0), Vector4(1, 8, 0, 0), Vector4(0, 5, 1, 2)]))
 	ground_material.set_shader_parameter("water_shallow", PackedColorArray([
-		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8"), Color("d99ccc"), Color("7cc6d8")]))
+		Color("63d3e4"), Color("57c9c4"), Color("5cdbe0"), Color("7fa8ea"), Color("6cc7b0"), Color("62cbe6"), Color("8f86e8"), Color("d99ccc"), Color("7cc6d8"), Color("54e0d0")]))
 	ground_material.set_shader_parameter("water_deep", PackedColorArray([
-		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0"), Color("855aab"), Color("3a7f9a")]))
+		Color("3a95c8"), Color("2f8a97"), Color("2fa6c2"), Color("4a5cb8"), Color("3b8a7c"), Color("2c7cc0"), Color("4f46a0"), Color("855aab"), Color("3a7f9a"), Color("1f8fb4")]))
 	ground_material.set_shader_parameter("biome_grade", PackedColorArray([
-		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42), Color(1.05, 0.84, 1.05, 0.34), Color(1.06, 0.80, 0.56, 0.46)]))
+		Color(0.78, 0.98, 0.86, 0.42), Color(0.80, 0.98, 0.90, 0.25), Color(1.0, 0.93, 0.86, 0.10), Color(0.80, 0.80, 0.95, 0.45), Color(0.96, 0.98, 0.90, 0.15), Color(1, 1, 1, 0.0), Color(0.84, 0.80, 1.02, 0.42), Color(1.05, 0.84, 1.05, 0.34), Color(1.06, 0.80, 0.56, 0.46), Color(1.02, 1.03, 1.0, 0.12)]))
 	var mw: Array = data["landmarks"]["moonwell"]
 	ground_material.set_shader_parameter("moonwell_px", Vector2(mw[0], mw[1]))
 	ground.material = ground_material
@@ -698,6 +714,8 @@ func _ember_place_actors(rng: RandomNumberGenerator, old_w: int) -> void:
 	var occupied: Dictionary = {}
 	# autumn grove wall along the new east edge
 	for ty in range(4, h - 4):
+		if ty >= SALT_GATE_ROWS[0] and ty <= SALT_GATE_ROWS[1]:
+			continue  # the Tide Road east to Saltbloom Shoals
 		if ty % 2 == 0:
 			_ember_add_prop("big_orange" if ty % 6 != 0 else "tree_dead", float(new_w) - 2.5, float(ty) + 0.5, occupied, true, 0.9)
 		elif ty % 4 == 1:
@@ -761,6 +779,170 @@ func _ember_place_actors(rng: RandomNumberGenerator, old_w: int) -> void:
 	data["animals"].append({"sprite": "frog", "x": int(EMBER_POND[0] * 16.0) - 80, "y": int(EMBER_POND[1] * 16.0) - 40, "wander": 24})
 
 
+func _expand_saltbloom() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SALT_SEED
+	var old_w := biome_image.get_width()
+	var new_w := old_w + EXPAND_EAST3
+	var h := biome_image.get_height()
+	var grow := Image.create(new_w, h, false, biome_image.get_format())
+	grow.blit_rect(biome_image, Rect2i(0, 0, old_w, h), Vector2i.ZERO)
+	for y in range(h):
+		var b := int(round(biome_image.get_pixel(old_w - 1, y).r * 255.0))
+		if b != BEACH:
+			b = SALT
+		for x in range(old_w, new_w):
+			grow.set_pixel(x, y, Color(b / 255.0, b / 255.0, b / 255.0))
+	biome_image = grow
+	var fw_old := field_image.get_width()
+	var fh := field_image.get_height()
+	var fw_new := new_w * field_res
+	var fgrow := Image.create(fw_new, fh, false, field_image.get_format())
+	fgrow.blit_rect(field_image, Rect2i(0, 0, fw_old, fh), Vector2i.ZERO)
+	for fy in range(fh):
+		var fedge := field_image.get_pixel(fw_old - 1, fy)
+		if fedge.g > 0.5:
+			for fx in range(fw_old, fw_new):
+				fgrow.set_pixel(fx, fy, Color(0.0, fedge.g, fedge.b))
+	# open sea along the new east edge: shallow surf, then deep water
+	for fy in range(fh):
+		for fx in range((new_w - SALT_SEA_COLS) * field_res, fw_new):
+			var depth := 0.65 if fx < (new_w - SALT_SEA_COLS + 2) * field_res else 0.0
+			fgrow.set_pixel(fx, fy, Color(0.0, 1.0, depth))
+	field_image = fgrow
+	tiles = Vector2i(new_w, tiles.y)
+	world_size = Vector2(tiles) * 16.0
+	data["tiles"] = [new_w, tiles.y]
+	# the Tide Road from Cinderbrook Camp to Brinewick, north to the lagoon, south to the reef
+	for i in range(SALT_ROAD.size() - 1):
+		_star_stamp_road(SALT_ROAD[i], SALT_ROAD[i + 1])
+	_star_stamp_road_plaza(SALT_PLAZA[0], SALT_PLAZA[1], 4.0)
+	var north := [[420.0, 100.0], [423.0, 92.0], [426.0, 86.0]]
+	for i in range(north.size() - 1):
+		_star_stamp_road(north[i], north[i + 1])
+	var south := [[420.0, 100.0], [424.0, 112.0], [430.0, 124.0], [435.0, 130.0]]
+	for i in range(south.size() - 1):
+		_star_stamp_road(south[i], south[i + 1])
+	_star_stamp_road_plaza(SALT_REEF[0], SALT_REEF[1], 2.4)
+	# Saltbloom Lagoon with a small islet in the middle, plus rock pools along the shore
+	_star_stamp_water(SALT_LAGOON[0], SALT_LAGOON[1], 9.0, 12.0, rng)
+	_star_clear_water(SALT_LAGOON[0], SALT_LAGOON[1], 2.2, 1.8)
+	for pool in SALT_POOLS:
+		_star_stamp_water(pool[0], pool[1], pool[2], pool[3], rng)
+	# Emberleaf props that now sit on the Tide Road
+	var keep: Array = []
+	for pr in data["props"]:
+		var ptx := float(pr["x"]) / 16.0
+		var pty := float(pr["y"]) / 16.0
+		if ptx > 362.0 and ptx < float(old_w) + 1.0 and pty > 92.0 and pty < 108.0:
+			var on_road := false
+			for o in [Vector2(0, 0), Vector2(0, -0.8), Vector2(0, -1.6), Vector2(0.6, -0.5), Vector2(-0.6, -0.5), Vector2(0, 0.6)]:
+				if _star_field(ptx + o.x, pty + o.y).r > 0.25:
+					on_road = true
+			if on_road:
+				continue
+		keep.append(pr)
+	data["props"] = keep
+	if not (data["biome_names"] as Array).has("Saltbloom Shoals"):
+		while (data["biome_names"] as Array).size() < SALT:
+			(data["biome_names"] as Array).append("Emberleaf Vale")
+		(data["biome_names"] as Array).append("Saltbloom Shoals")
+	data["landmarks"]["brinewick"] = [int(SALT_PLAZA[0]) * 16, int(SALT_PLAZA[1]) * 16]
+	data["landmarks"]["saltbloom_lagoon"] = [int(SALT_LAGOON[0]) * 16, int(SALT_LAGOON[1]) * 16]
+	data["landmarks"]["brinehorn_reef"] = [int(SALT_REEF[0]) * 16, int(SALT_REEF[1]) * 16]
+	_salt_place_actors(rng, old_w)
+
+
+func _salt_collision(kind: String) -> Dictionary:
+	if kind in ["palm", "palm_grove", "tree_jungle"]:
+		return {"w": 10.0, "h": 7.0, "oy": -4.0}
+	if kind in ["hut_straw", "house_round"]:
+		return {"w": 28.0, "h": 14.0, "oy": -7.0}
+	if kind in ["boat"]:
+		return {"w": 64.0, "h": 14.0, "oy": -8.0}
+	if kind in ["boulder_teal", "rocks_gray", "tall_rock_gray"]:
+		return {"w": 12.0, "h": 8.0, "oy": -4.0}
+	if kind in ["fishnet", "fishnet_full"]:
+		return {"w": 26.0, "h": 10.0, "oy": -6.0}
+	if kind in ["stone_lantern", "sign", "barrel", "crate", "sail"]:
+		return {"w": 10.0, "h": 7.0, "oy": -4.0}
+	if kind in ["pebble_gray", "rock_gray_small", "bush_round", "pot_desert"]:
+		return {"w": 9.0, "h": 6.0, "oy": -3.0, "low": true}
+	return {}
+
+
+func _salt_add_prop(kind: String, tx: float, ty: float, occupied: Dictionary, force := false, rad := 0.8) -> bool:
+	if not prop_defs.is_empty() and not prop_defs.has(kind):
+		return false
+	if not _star_add_prop(kind, tx, ty, occupied, force, rad):
+		return false
+	var col := _salt_collision(kind)
+	if not col.is_empty():
+		(data["props"] as Array)[-1]["c"] = col
+	return true
+
+
+func _salt_place_actors(rng: RandomNumberGenerator, old_w: int) -> void:
+	var new_w := biome_image.get_width()
+	var h := tiles.y
+	var occupied: Dictionary = {}
+	var px: float = SALT_PLAZA[0]
+	var py: float = SALT_PLAZA[1]
+	# Brinewick: a fishing hamlet of straw huts, drying nets and a beached boat
+	_ember_reserve(occupied, px, py, 6.0)
+	for it in [["hut_straw", px - 5.5, py - 4.0], ["house_round", px + 5.5, py - 4.5], ["hut_straw", px + 6.5, py + 4.5],
+			["fishnet", px - 6.5, py + 3.0], ["fishnet_full", px - 3.5, py + 5.2], ["sail", px + 2.8, py - 5.6],
+			["barrel", px - 7.2, py - 1.2], ["crate", px - 7.4, py + 0.4], ["barrel", px + 7.6, py + 1.0],
+			["stone_lantern", px - 2.5, py - 4.5], ["stone_lantern", px + 2.5, py + 4.6], ["sign", 403.0, 98.6],
+			["stone_lantern", 400.5, 97.6], ["stone_lantern", 400.5, 103.4], ["boat", 429.5, 90.5]]:
+		_salt_add_prop(it[0], it[1], it[2], occupied, true, 0.6)
+	# the Brinehorn's reef: a ring of sea-worn rocks, open to the north road
+	var ax: float = SALT_REEF[0]
+	var ay: float = SALT_REEF[1]
+	_ember_reserve(occupied, ax, ay, 9.5)
+	for i in range(18):
+		var ang := TAU * i / 18.0
+		if absf(wrapf(ang + PI / 2.0, -PI, PI)) < 0.5:
+			continue
+		_salt_add_prop("boulder_teal" if i % 3 == 0 else ("rocks_gray" if i % 3 == 1 else "palm"),
+				ax + cos(ang) * 9.0, ay + sin(ang) * 7.0, occupied, true, 0.8)
+	# keep the islet and chest spots clear
+	_ember_reserve(occupied, SALT_LAGOON[0], SALT_LAGOON[1], 2.5)
+	for c in [[px - 1.5, py - 5.5], [SALT_POOLS[2][0] - 3.5, SALT_POOLS[2][1]]]:
+		_ember_reserve(occupied, c[0], c[1], 1.5)
+	# scatter: palms and sea-worn rock on pale sand, shells and pebbles underfoot
+	var scatter := [
+		["palm", 0.020, 1.0], ["palm_grove", 0.0015, 1.6], ["tree_jungle", 0.003, 1.0], ["boulder_teal", 0.004, 0.9],
+		["rocks_gray", 0.0012, 1.4], ["rock_gray_small", 0.004, 0.5], ["pebble_gray", 0.004, 0.5], ["shrub_dry", 0.008, 0.4],
+		["bush_round", 0.005, 0.5], ["pot_desert", 0.002, 0.5]]
+	var decor_kinds := ["fd_shell", "fd_shell", "fd_sand_rock", "fd_pebbles", "fd_pebbles_gray", "fd_tuft"]
+	for ty in range(h):
+		for tx in range(old_w, new_w - SALT_SEA_COLS):
+			for sc in scatter:
+				if rng.randf() < float(sc[1]):
+					_salt_add_prop(sc[0], float(tx) + 0.5, float(ty) + 0.5, occupied, false, float(sc[2]))
+			if rng.randf() < 0.11:
+				var f := _star_field(float(tx) + 0.5, float(ty) + 0.5)
+				if f.g <= 0.4 and f.r <= 0.3:
+					data["decor"].append([decor_kinds[rng.randi() % decor_kinds.size()], round((float(tx) + 0.5) * 16.0), round((float(ty) + 0.5) * 16.0)])
+	# coast monsters: tougher than the vale, plus one elite on the reef road
+	for e in [["axolotblue", 405.0, 112.0], ["axolotblue", 411.0, 88.0], ["axolotblue", 414.0, 132.0], ["axolotblue", 442.0, 100.0],
+			["mollusc", 409.0, 120.0], ["mollusc", 426.0, 118.0], ["mollusc", 444.0, 116.0], ["mollusc", 416.0, 142.0], ["mollusc", 406.0, 70.0],
+			["kappagreen", 428.0, 64.0], ["kappagreen", 446.0, 60.0], ["kappagreen", 412.0, 150.0], ["kappagreen", 444.0, 150.0],
+			["octopus", 426.0, 78.0], ["octopus", 444.0, 92.0], ["octopus", 420.0, 128.0], ["octopus", 408.0, 158.0]]:
+		data["enemies"].append({"s": e[0], "x": round(e[1] * 16.0), "y": round(e[2] * 16.0)})
+	data["enemies"].append({"s": "kappagreen", "x": 428 * 16, "y": 122 * 16, "elite": true})
+	# treasure: the trident waits on the lagoon islet (swim out), a heart piece in Brinewick
+	data["chests"].append({"id": "c_salt_trident", "x": int(SALT_LAGOON[0] * 16.0), "y": int(SALT_LAGOON[1] * 16.0), "item": "tidecaller_trident", "big": true})
+	data["chests"].append({"id": "c_salt_heart", "x": int((px - 1.5) * 16.0), "y": int((py - 5.5) * 16.0), "item": "heart_piece"})
+	data["chests"].append({"id": "c_salt_coins", "x": int((SALT_POOLS[2][0] - 3.5) * 16.0), "y": int(SALT_POOLS[2][1] * 16.0), "item": "coins_50"})
+	# waystone, Brinewick's netmender, and the Brinehorn
+	data["shrines"].append({"id": "brinewick", "name": "Brinewick Waystone", "x": int(px * 16.0), "y": int((py - 1.0) * 16.0)})
+	data["npcs"].append({"id": "marlo", "sprite": "oldman3", "name": "Old Marlo", "x": int((px + 2.0) * 16.0), "y": int((py + 2.0) * 16.0), "wander": 14})
+	data["bosses"].append({"id": "brinehorn", "kind": "squidred", "name": "The Brinehorn", "x": int(ax * 16.0), "y": int(ay * 16.0), "region": SALT})
+	data["animals"].append({"sprite": "cat", "x": int((px - 4.0) * 16.0), "y": int((py + 1.0) * 16.0), "wander": 30})
+
+
 # ------------------------------------------------------------------ queries
 func biome_at(pos: Vector2) -> int:
 	var x := clampi(int(pos.x / 16.0), 0, tiles.x - 1)
@@ -800,6 +982,12 @@ func region_name(pos: Vector2) -> String:
 		return "Lake Lumen"
 	if lm.has("cinderbrook") and pos.distance_to(Vector2(lm["cinderbrook"][0], lm["cinderbrook"][1])) < 9.0 * 16.0:
 		return "Cinderbrook Camp"
+	if lm.has("brinewick") and pos.distance_to(Vector2(lm["brinewick"][0], lm["brinewick"][1])) < 9.0 * 16.0:
+		return "Brinewick"
+	if lm.has("saltbloom_lagoon") and pos.distance_to(Vector2(lm["saltbloom_lagoon"][0], lm["saltbloom_lagoon"][1])) < 13.0 * 16.0:
+		return "Saltbloom Lagoon"
+	if lm.has("brinehorn_reef") and pos.distance_to(Vector2(lm["brinehorn_reef"][0], lm["brinehorn_reef"][1])) < 9.0 * 16.0:
+		return "Brinehorn Reef"
 	if pos.x >= 304.0 * 16.0 and pos.x < 336.0 * 16.0:
 		return "Moonpetal Hollow"
 	var names: Array = data["biome_names"]

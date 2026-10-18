@@ -12,7 +12,7 @@ const WEAPON_VARIANTS := [
 	"briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword", "frostthorn_falchion",
 	"duskwing_daggers", "sunpetal_twinblades", "aurora_crystal_staff", "emberroot_staff", "windcarved_bow",
 	"moonfeather_bow", "ember_cleaver", "frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
-	"grave_scythe",
+	"grave_scythe", "tidecaller_trident",
 ]
 const GEAR_VARIANTS := [
 	"acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps", "mossrunner_trousers",
@@ -198,6 +198,8 @@ const ITEMS := {
 		"desc": "A bark-heavy club; slow ground slams chill everything in the impact zone. +10% poise.", "damage": 4, "poise": 0.10, "value": 110},
 	"moonrise_lance": {"rarity": "rare", "name": "Moonrise Lance", "type": "weapon", "wclass": "Spear", "icon": NA + "items/weapons/lance.png", "hand": NA + "items/weapons/lance_hand.png",
 		"desc": "A crescent silver spear with exceptional reach and a narrow piercing arc. +4% critical chance.", "damage": 4, "crit": 0.04, "value": 160},
+	"tidecaller_trident": {"rarity": "epic", "name": "Tidecaller Trident", "type": "weapon", "wclass": "Spear", "icon": NA + "items/weapons/lance.png", "hand": NA + "items/weapons/lance_hand.png",
+		"desc": "A coral-steel trident pulled from the islet in Saltbloom Lagoon. Long three-point thrusts. +6% critical chance.", "damage": 5, "crit": 0.06, "value": 220},
 	# ---- individually named gear variants across all nine equipment slots
 	"acornleaf_cap": {"rarity": "common", "name": "Acornleaf Cap", "type": "head", "look": ["c9e68a", "78aa4e", "3f6a32"], "desc": "A sturdy leaf cap. +6 focus.", "focus": 6, "value": 35},
 	"fernwarden_cuirass": {"rarity": "uncommon", "name": "Fernwarden Cuirass", "type": "armor", "look": ["a8d28c", "58865a", "31513c"], "desc": "Layered fern scales. +1 defense, +1 heart.", "defense": 1, "hearts": 1, "value": 90},
@@ -226,6 +228,7 @@ const ITEMS := {
 	"bone_shard": {"rarity": "uncommon", "name": "Bone Shard", "type": "material", "icon": NA + "items/nut.png", "tint": "f0f0e0", "value": 6, "desc": "A splinter of old bone from the restless dead."},
 	"ember_core": {"rarity": "uncommon", "name": "Ember Core", "type": "material", "icon": NA + "items/gemred.png", "value": 8, "desc": "A warm core from fire creatures."},
 	"spirit_dust": {"rarity": "rare", "name": "Spirit Dust", "type": "material", "icon": NA + "items/gempurple.png", "tint": "d8c8ff", "value": 12, "desc": "Glittering dust from spirits and watchers."},
+	"brine_pearl": {"rarity": "rare", "name": "Brine Pearl", "type": "material", "icon": NA + "items/seedlargewhite.png", "tint": "bff3ee", "value": 14, "desc": "A sea-pale pearl carried by Saltbloom's coast creatures."},
 	"moon_shard": {"rarity": "epic", "name": "Moon Shard", "type": "material", "icon": NA + "items/seedlargewhite.png", "tint": "d8e8ff", "value": 40, "desc": "A rare sliver of moonlight. Found in rifts and on elites."},
 	# ---- consumables & quest items
 	"moontea_vial": {"rarity": "common", "name": "Moontea Vial", "type": "consumable", "icon": NA + "items/lifepot.png", "value": 12,
@@ -280,6 +283,11 @@ const ENEMIES := {
 	"flam": {"name": "Cinder Wisp", "hp": 7, "speed": 42.0, "ai": "flyer", "dmg": 3, "sight": 150.0, "coins": 4, "fps": 10.0},
 	"spirit": {"name": "Pale Spirit", "hp": 9, "speed": 34.0, "ai": "caster", "dmg": 3, "sight": 170.0, "coins": 4, "fps": 8.0, "shot": "ice_spike"},
 	"spirit2": {"name": "Ember Spirit", "hp": 9, "speed": 38.0, "ai": "flyer", "dmg": 3, "sight": 160.0, "coins": 4, "fps": 8.0},
+	# Saltbloom Shoals
+	"axolotblue": {"name": "Tide Axolotl", "hp": 10, "speed": 38.0, "ai": "hopper", "dmg": 3, "sight": 120.0, "coins": 4, "fps": 8.0},
+	"mollusc": {"name": "Coral Crawler", "hp": 13, "speed": 46.0, "ai": "charger", "dmg": 4, "sight": 130.0, "coins": 4, "fps": 8.0},
+	"kappagreen": {"name": "Reef Kappa", "hp": 14, "speed": 44.0, "ai": "chaser", "dmg": 4, "sight": 140.0, "coins": 5, "fps": 8.0},
+	"octopus": {"name": "Kelp Octopus", "hp": 12, "speed": 28.0, "ai": "caster", "dmg": 4, "sight": 175.0, "coins": 5, "fps": 6.0, "shot": "energy_ball"},
 	"bluebat": {"name": "Gloam Bat", "hp": 5, "speed": 56.0, "ai": "flyer", "dmg": 2, "sight": 160.0, "coins": 3, "fps": 12.0},
 }
 
@@ -288,6 +296,7 @@ const FISH := {
 	"redbreast": {"name": "Redbreast", "coins": 12, "weight": 28, "night": false, "biome": -1, "tint": "f0956b"},
 	"moonkoi": {"name": "Moonkoi", "coins": 25, "weight": 14, "night": true, "biome": -1, "tint": "cfc4ff"},
 	"starfin": {"name": "Starfin", "coins": 40, "weight": 8, "night": false, "biome": 6, "tint": "ffe9a8"},
+	"saltkoi": {"name": "Saltkoi", "coins": 34, "weight": 12, "night": false, "biome": 9, "tint": "8ff0e0"},
 }
 
 const BOSSES := {
@@ -300,6 +309,9 @@ const BOSSES := {
 		"sheet": "giantbamboo", "side": true,
 		# palette swap: the Briarback's limes and mosses become ember oranges and bark
 		"swap": {"adbc3a": "ffb347", "74a334": "e8742c", "56864c": "a8442a", "5f7160": "7a4e3e"}},
+	# Saltbloom Shoals side guardian: Ninja Adventure's red squid (76x79 frames).
+	"squidred": {"hp": 240, "frame": 76, "anims": {"idle": 4, "walk": 4, "attack": 6, "hit": 4}, "music": "boss", "radius": 24.0,
+		"side": true, "region_title": "guardian of Saltbloom Shoals", "fall_msg": "%s sinks beneath the reef. The tide runs clear."},
 }
 
 const OUTFITS := {
@@ -309,7 +321,7 @@ const OUTFITS := {
 	"zephyr_boots": [["a8a129", "f6a6c1"], ["56864c", "5a7fb8"], ["345a52", "33466e"], ["d14b34", "ffd27a"]],
 }
 
-const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow", "forest", "village"]
+const REGION_MUSIC := ["meadow", "forest", "desert", "snow", "forest", "meadow", "snow", "forest", "village", "coast"]
 
 static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 	match id:
@@ -374,6 +386,14 @@ static func dialogue(id: String, seeds: int, flags: Dictionary) -> Array:
 			return ["Cinderbrook Camp, wanderer. We hunt the vale and keep the waystone lit.",
 				"Ember spiders have been crawling right up to the stalls. Thin them out and I'll make it worth your while.",
 				"North of camp, the Emberbark sleeps in its hollow. Watch the ground: when it glows red, step out of it."]
+		"marlo":
+			if flags.get("brinehorn_felled", false):
+				return ["The reef's gone quiet. First calm tide in a month — the nets came up full of saltkoi this morning.",
+					"Keep that trident oiled, mind. Salt eats steel faster than any squid."]
+			return ["Brinewick, wanderer. Just nets, boats and an old man who mends both.",
+				"Coral crawlers keep cutting my lines on the south beach. Thin them out and I'll pay in coin.",
+				"South of the hamlet the Brinehorn has taken the reef. When the sand glows red, step out of it.",
+				"And they say something bright sits on the islet in the lagoon. You'd have to swim for it."]
 	return ["..."]
 
 

@@ -1,5 +1,27 @@
 # Development Log
 
+## Saltbloom Shoals and held-weapon fix — 2026-10-18
+
+**Status:** Implemented on `main` and verified with headless Godot 4.7.2: the editor import passes and all thirteen smoke tests pass (the new `saltbloom_smoke` has 88 checks). The weapon pose sheet and coast screenshots were rendered under xvfb and inspected. **Not tested on a phone.**
+
+### What changed
+
+- **Held weapons:** `player.hand_sprite_flipped(id)` sets `flip_v` on the main and off-hand weapon sprites for Ninja Adventure `items/weapons/*_hand.png` (drawn blade-down; the code anchors the bottom edge in the paw with the tip up). Variant weapons rest using `_variant_rest_rotation` (the same `HAND_REST` lean as legacy weapons, converted from the cut's tip angle `VARIANT_TIP_ANGLE` = -135°) at the legacy rest pivots. Removed the greatsword grip special case: every Shade cut is handle lower-right, tip upper-left.
+- **Shade sheet order:** `CATEGORIES` in `tools/slice_itch_asset_sheets.py` corrected from a visual check: top row rapier, sword, greatsword, katana, scimitar, spear, staff, trident; bottom row battle axe, mace, knife, butcher knife, scythe, sickle, nunchucks, battle hammer. All cuts rechosen so the art matches the name. `grave_scythe` is now in `DB.WEAPON_VARIANTS` (class-locked, so `arsenal_smoke` skips its field-loot and equip checks).
+- **Saltbloom Shoals (`world._expand_saltbloom`):** biome 9, 56 columns east of the vale (x 400-456). Tide Road from Cinderbrook Camp through `SALT_GATE_ROWS` (the vale's east wall skips those rows), Brinewick plaza (420,100), Saltbloom Lagoon (439,74) with a cleared islet, Brinehorn Reef arena (435,136), five rock pools, and a 6-column open sea on the east edge. The ground uses the beach tile with desert-sand roads. Props are copied from the existing pack plus the new boat, fishnets and sail, with collision from `_salt_collision`.
+- **Content:** enemies `axolotblue`, `mollusc`, `kappagreen`, `octopus` (`LOOT_GROUP` "tide" gives `brine_pearl`); boss `squidred` (76px frames, side guardian, `region_title` / `fall_msg` cfg keys now read by `main.gd`); NPC `marlo` (OldMan3) with three quests; `tidecaller_trident` (Spear, Shade trident cut, chest `c_salt_trident` on the islet, also in `GEAR_POOL`); fish `saltkoi`; `REGION_MUSIC[9]` = "coast"; region subtitle; environment and minimap entries for biomes 8-9.
+- **Shader:** `ground.gdshader` per-biome uniform arrays grew from 8 to 10. They were already given 9 values, so Emberleaf Vale's ground, water and grade were being dropped.
+- **Assets:** full Ninja Adventure pack downloaded again from itch.io (CC0). `tools/import_saltbloom_assets.py` copies 22 files additively and merges 4 props into `props.json`. Re-running `tools/import_ninja_adventure.py` is destructive (it wipes the folder and rewrites `props.json`), so it was not used.
+- **Tests:** new `tests/saltbloom_smoke.gd`; world width checks in `gaps_smoke` / `content_smoke`, boss and waystone counts in `adventure_slice_smoke`; `expansion_smoke` gained held-weapon orientation checks, and its bag-persistence check now compares against the saved ore count (random ore drops earlier in the test made it flaky).
+- **Tools:** `tools/weapon_pose_sheet.gd` (`POSE_WEAPONS=a,b` to limit) and `tools/saltbloom_shots.gd`.
+
+### Not done / limits
+
+- **Not tested on a phone.** The Brinehorn's balance (240 HP, ring/spread/spikes/charge) has only been checked by tests, not played.
+- The Brinehorn can be pulled out of its reef when the player is nearby; it does not leash to the arena.
+- Biome borders between Emberleaf Vale and the coast are a fairly straight line.
+- The trident uses the generic `combo` pattern; it has no special hold attack yet.
+
 ## Arsenal pass — 2026-10-13
 
 **Status:** Implemented on branch `arsenal` (built on `gaps-pass`) and verified with headless Godot 4.7.2: the editor import passes and all eleven smoke tests pass (the new `arsenal_smoke` has 176 checks). A screenshot tour under xvfb was inspected: weapon bar, every charge preview, clone, whip ring, vine, satchel detail, HUD editor, 960x432 and max HUD scale. **Not tested on a phone.**

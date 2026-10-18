@@ -10,11 +10,11 @@ uniform vec2 world_px = vec2(4096.0, 2816.0);
 uniform vec2 map_tiles = vec2(256.0, 176.0);
 uniform vec2 atlas_px = vec2(352.0, 417.0);
 // per biome: xy = plain fill tile, z = first decorated tile x, w = decorated count
-uniform vec4 ground_tiles[8];
-uniform vec4 path_tiles[8];
-uniform vec4 water_shallow[8];
-uniform vec4 water_deep[8];
-uniform vec4 biome_grade[8];
+uniform vec4 ground_tiles[10];
+uniform vec4 path_tiles[10];
+uniform vec4 water_shallow[10];
+uniform vec4 water_deep[10];
+uniform vec4 biome_grade[10];
 uniform vec4 foam_color = vec4(0.93, 1.0, 1.0, 1.0);
 uniform vec4 shore_line = vec4(0.16, 0.29, 0.34, 1.0);
 uniform vec2 moonwell_px = vec2(2048.0, 416.0);
