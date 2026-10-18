@@ -13,29 +13,32 @@ PACK = ROOT / "assets/packs/itch_cc0"
 OUT = PACK / "runtime"
 
 # Shade's sheet is 24x20 cells (16px each): 16 groups, 30 designs per group.
-# Category order follows the creator's published content list. Each category
-# occupies a 3x10 block; the 16 categories fill 8 blocks across and 2 down.
+# Each category occupies a 3x10 block; the 16 categories fill 8 blocks across
+# and 2 down. The order below was checked visually against the sheet itself
+# (2026-10-18); the creator's text list uses a different order, and following
+# it cut daggers as axes, staves as knives and lances as maces.
 CATEGORIES = [
-    "rapier", "katana", "sword", "greatsword", "scimitar", "knife", "butcher_knife", "battle_axe",
-    "battle_hammer", "spear", "staff", "trident", "mace", "scythe", "sickle", "nunchucks",
+    "rapier", "sword", "greatsword", "katana", "scimitar", "spear", "staff", "trident",
+    "battle_axe", "mace", "knife", "butcher_knife", "scythe", "sickle", "nunchucks", "battle_hammer",
 ]
 
 # item_id: (category, design index 0..29, material/color sheet)
 WEAPON_CUTS = {
     "briarheart_sabre": ("scimitar", 5, "iron"),
     "moonshard_rapier": ("rapier", 17, "steel"),
-    "sunforge_greatsword": ("greatsword", 3, "gold"),
+    "sunforge_greatsword": ("greatsword", 20, "gold"),
     "crimsonfang_sword": ("sword", 22, "steel"),
     "frostthorn_falchion": ("scimitar", 19, "steel"),
     "duskwing_daggers": ("knife", 11, "iron"),
-    "sunpetal_twinblades": ("katana", 26, "gold"),
-    "aurora_crystal_staff": ("staff", 8, "steel"),
-    "emberroot_staff": ("staff", 23, "gold"),
+    "sunpetal_twinblades": ("katana", 23, "gold"),
+    "aurora_crystal_staff": ("staff", 22, "steel"),
+    "emberroot_staff": ("staff", 14, "gold"),
     "ember_cleaver": ("battle_axe", 4, "bronze"),
     "frostcleaver_axe": ("battle_axe", 25, "steel"),
-    "starfall_maul": ("battle_hammer", 7, "gold"),
+    "starfall_maul": ("battle_hammer", 20, "gold"),
     "rootbreaker_maul": ("mace", 14, "iron"),
     "moonrise_lance": ("spear", 18, "steel"),
+    "grave_scythe": ("scythe", 27, "steel"),
 }
 
 # Admurin's free 32x32 sheet is permitted for use in a game project. Only two

@@ -558,12 +558,13 @@ const HAND_REST := {
 # the grip on the hand for legacy cuts and the sourced CC0 variants.
 const VARIANT_HAND_SCALE := Vector2(0.8, 0.8)
 const VARIANT_GRIP_POINTS := {
-	# Weapon Sprite2D nodes use a top-left origin. Most cuts have the handle at
-	# lower-right; the greatsword has its hilt upper-left; bows are gripped center.
-	"sunforge_greatsword": Vector2(1, 1),
+	# Weapon Sprite2D nodes use a top-left origin. Every Shade cut has its handle
+	# at lower-right and its tip at upper-left; bows are gripped at the center.
 	"windcarved_bow": Vector2(8, 8),
 	"moonfeather_bow": Vector2(8, 8),
 }
+# Shade cuts point their tip up-left (-135 deg) from the lower-right grip.
+const VARIANT_TIP_ANGLE := -PI * 0.75
 var _swinging := false
 
 
@@ -572,12 +573,33 @@ func _variant_hand_rotation(direction: String, offhand := false, weapon_id := ""
 	if weapon_id == "windcarved_bow" or weapon_id == "moonfeather_bow":
 		# The bow's limbs span across the aim axis, with its hand at center.
 		return aim_angle - PI * 0.75
-	# The greatsword has its blade pointing down-right from an upper-left grip;
-	# the other one-handed cuts point up-left from their lower-right grips.
-	var tip_angle := PI * 0.25 if weapon_id == "sunforge_greatsword" else -PI * 0.75
-	if offhand:
-		tip_angle = PI - tip_angle
-	return aim_angle - tip_angle
+	return aim_angle - _variant_tip_angle(offhand)
+
+
+## The off-hand copy is mirrored (flip_h), so its tip points up-right instead.
+func _variant_tip_angle(offhand: bool) -> float:
+	return PI - VARIANT_TIP_ANGLE if offhand else VARIANT_TIP_ANGLE
+
+
+## Resting pose for sourced variants: the same upright lean as the legacy
+## weapons (tip up, tilted by HAND_REST), so every blade is held the same way.
+func _variant_rest_rotation(direction: String, offhand := false, weapon_id := "") -> float:
+	if weapon_id == "windcarved_bow" or weapon_id == "moonfeather_bow":
+		return _variant_hand_rotation(direction, offhand, weapon_id)
+	var rest: Array = HAND_REST.get(direction, HAND_REST["down"])
+	var lean: float = rest[4] if offhand else rest[1]
+	return -PI * 0.5 + lean - _variant_tip_angle(offhand)
+
+
+## Ninja Adventure "_hand" sprites are drawn blade-down with the handle at the
+## top (for that pack's attack poses). Our held-weapon code anchors the sprite's
+## bottom edge in the paw with the tip up, so those sprites are flipped
+## vertically; otherwise Mallow holds them by the blade.
+static func hand_sprite_flipped(weapon_id: String) -> bool:
+	if DB.WEAPON_VARIANTS.has(weapon_id):
+		return false
+	var path := DB.hand_path(weapon_id)
+	return path.begins_with(DB.NA + "items/weapons/") and path.ends_with("_hand.png")
 
 
 func _held_weapon_offset(texture: Texture2D, weapon_id: String, variant: bool, offhand := false, swinging := false) -> Vector2:
@@ -622,6 +644,8 @@ func refresh_held_weapon() -> void:
 	weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant)
 	weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
 	weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))
+	weapon_sprite.flip_v = hand_sprite_flipped(weapon_id)
+	off_weapon_sprite.flip_v = weapon_sprite.flip_v
 	off_weapon_sprite.texture = t
 	# Match the main hand's origin; the pixel anchor is mirrored with the art.
 	off_weapon_sprite.centered = false
@@ -656,15 +680,14 @@ func _update_held_weapon() -> void:
 	var bob := sprite.position.y + (-1.0 if String(sprite.animation).begins_with("walk") and sprite.frame % 2 == 1 else 0.0)
 	var weapon_id := get_weapon_id()
 	var variant: bool = DB.WEAPON_VARIANTS.has(weapon_id)
-	var variant_hands := {"down": [Vector2(7, -8), Vector2(-7, -8)], "up": [Vector2(-7, -8), Vector2(7, -8)],
-		"left": [Vector2(-7, -8), Vector2(7, -8)], "right": [Vector2(7, -8), Vector2(-7, -8)]}
+	# variants rest in the same paw pivots as the legacy weapons (grip pixel on the paw)
 	weapon_sprite.visible = armed
-	weapon_sprite.position = (variant_hands[dir_name][0] if variant else rest[0]) + Vector2(0, bob)
-	weapon_sprite.rotation = _variant_hand_rotation(dir_name, false, weapon_id) if variant else rest[1]
+	weapon_sprite.position = rest[0] + Vector2(0, bob)
+	weapon_sprite.rotation = _variant_rest_rotation(dir_name, false, weapon_id) if variant else rest[1]
 	_layer_behind_body(weapon_sprite, rest[2])
 	off_weapon_sprite.visible = dual
-	off_weapon_sprite.position = (variant_hands[dir_name][1] if variant else rest[3]) + Vector2(0, bob)
-	off_weapon_sprite.rotation = _variant_hand_rotation(dir_name, true, weapon_id) if variant else rest[4]
+	off_weapon_sprite.position = rest[3] + Vector2(0, bob)
+	off_weapon_sprite.rotation = _variant_rest_rotation(dir_name, true, weapon_id) if variant else rest[4]
 	_layer_behind_body(off_weapon_sprite, rest[5])
 
 
@@ -2381,6 +2404,7 @@ func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 	weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant, false, true)
 	weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
 	weapon_sprite.modulate = Color(String(item.get("tint", "ffffff")))
+	weapon_sprite.flip_v = hand_sprite_flipped(weapon_id)
 	var hand := {"down": Vector2(3, -6), "up": Vector2(-3, -10), "left": Vector2(-4, -7), "right": Vector2(4, -7)}
 	var variant_hands := {"down": [Vector2(7, -8), Vector2(-7, -8)], "up": [Vector2(-7, -8), Vector2(7, -8)],
 		"left": [Vector2(-7, -8), Vector2(7, -8)], "right": [Vector2(7, -8), Vector2(-7, -8)]}
@@ -2402,6 +2426,7 @@ func _swing_weapon(duration: float, heavy: bool, point := false) -> void:
 			# twin knives: the off-hand knife cuts back across on alternate strikes
 			var hand2 := {"down": Vector2(-3, -6), "up": Vector2(3, -10), "left": Vector2(2, -7), "right": Vector2(-2, -7)}
 			off_weapon_sprite.texture = t
+			off_weapon_sprite.flip_v = weapon_sprite.flip_v
 			off_weapon_sprite.offset = _held_weapon_offset(t, weapon_id, variant, true, true)
 			off_weapon_sprite.scale = VARIANT_HAND_SCALE if variant else Vector2.ONE
 			off_weapon_sprite.position = variant_hands[dir_name][1] if variant else hand2[dir_name]

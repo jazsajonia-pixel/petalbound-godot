@@ -12,6 +12,7 @@ const WEAPON_VARIANTS := [
 	"briarheart_sabre", "moonshard_rapier", "sunforge_greatsword", "crimsonfang_sword", "frostthorn_falchion",
 	"duskwing_daggers", "sunpetal_twinblades", "aurora_crystal_staff", "emberroot_staff", "windcarved_bow",
 	"moonfeather_bow", "ember_cleaver", "frostcleaver_axe", "starfall_maul", "rootbreaker_maul", "moonrise_lance",
+	"grave_scythe",
 ]
 const GEAR_VARIANTS := [
 	"acornleaf_cap", "fernwarden_cuirass", "rosebriar_bracers", "starweave_wraps", "mossrunner_trousers",
@@ -74,7 +75,7 @@ const ITEMS := {
 		"desc": "Twin nightsteel sai. Lightning-quick two-cut combos with a high critical rate.", "damage": 2},
 	"moonglass_staff": {"rarity": "rare", "name": "Moonglass Staff", "type": "weapon", "classes": ["lumimancer"], "icon": NA + "items/weapons/magicwand.png", "hand": NA + "items/weapons/magicwand_hand.png", "tint": "a8d8ff",
 		"desc": "A prism-staff whose bolts cycle fire, frost and storm.", "damage": 3},
-	"grave_scythe": {"rarity": "rare", "name": "Grave Scythe", "type": "weapon", "classes": ["gravetender"], "icon": NA + "items/weapons/axe.png", "hand": NA + "items/weapons/axe_hand.png", "tint": "b8ffd0",
+	"grave_scythe": {"rarity": "rare", "name": "Grave Scythe", "type": "weapon", "classes": ["gravetender"], "icon": NA + "items/weapons/axe.png", "hand": NA + "items/weapons/axe_hand.png",
 		"desc": "A wide, reaping sweep that curses what it touches.", "damage": 3},
 	"mossleaf_cap": {"look": ["b8e08a", "6aa04a", "3a6430"], "rarity": "common", "name": "Mossleaf Cap", "type": "head", "icon": NA + "ui/skill/helmet.png", "tint": "b8f0a0",
 		"desc": "A soft cap of woven moss. +4 focus.", "focus": 4},

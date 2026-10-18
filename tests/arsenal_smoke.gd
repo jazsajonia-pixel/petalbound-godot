@@ -272,6 +272,10 @@ func _test_itch_equipment_art() -> void:
 		check(CD.WEAPONS.has(id) and not seen_weapon_icons.has(icon), "%s should have a unique icon and combat profile." % id)
 		seen_weapon_icons[icon] = true
 		check(icon.begins_with(DB.ITCH_RUNTIME + "weapons/") and ResourceLoader.exists(icon) and ResourceLoader.exists(DB.hand_path(id)), "%s sourced icon and held art should load." % id)
+		if item.has("classes"):
+			# class-locked weapons (the Gravetender's scythe) use sourced art but are
+			# granted by their class, not field loot, and need that class to equip
+			continue
 		check(Eco.GEAR_POOL.has(id), "%s should be obtainable through the existing field equipment loot." % id)
 		if not player.weapons_owned.has(id):
 			player.give_item(id)
