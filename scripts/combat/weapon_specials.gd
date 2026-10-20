@@ -5,6 +5,7 @@ extends RefCounted
 const DB := preload("res://scripts/data/db.gd")
 const CD := preload("res://scripts/data/combat_data.gd")
 const CloneScript := preload("res://scripts/combat/clone.gd")
+const SlashFX := preload("res://scripts/combat/slash_fx.gd")
 
 
 static func release(p: Node, hold: Dictionary, dir: Vector2) -> void:
@@ -156,6 +157,7 @@ static func moonrend(p: Node, hold: Dictionary, dir: Vector2) -> void:
 	p.state = p.State.MOVE
 	p._start_dash(dir, float(hold.get("dist", 104.0)) / speed, speed)
 	p.game.fx.spawn("slash_double", p.global_position + Vector2(0, -6) + dir * 14.0, dir.angle(), 1.2, Color(0.85, 0.82, 1.0), null, true)
+	SlashFX.spawn(p.game, p.global_position + Vector2(0, -6) + dir * 14.0, dir, Color(0.85, 0.82, 1.0), "cross", 1.25)
 	p.game.audio.play("slash3", 0.04, -2.0)
 
 
@@ -223,6 +225,7 @@ static func _claw_strike(p: Node, hold: Dictionary, dir: Vector2, i: int) -> voi
 	var side := -1.0 if i % 2 == 0 else 1.0
 	var at := origin + dir * (reach * 0.55) + dir.orthogonal() * side * 6.0
 	p.game.fx.spawn("claw", at, dir.angle() + side * 0.3, 0.85, Color(0.95, 0.85, 1.0), null, true)
+	SlashFX.spawn(p.game, at, dir.rotated(side * 0.12), Color(0.95, 0.85, 1.0), "claw", 0.9)
 	p.game.audio.play("slash" if i % 2 == 0 else "slash2", 0.12, -6.0)
 	p._swing_weapon(0.07, false)
 

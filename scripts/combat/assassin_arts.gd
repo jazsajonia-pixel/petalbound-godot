@@ -5,6 +5,7 @@ extends RefCounted
 
 const Build := preload("res://scripts/combat/build.gd")
 const ClassBook := preload("res://scripts/data/classdb.gd")
+const SlashFX := preload("res://scripts/combat/slash_fx.gd")
 
 
 # ------------------------------------------------------------------ Petal Rush
@@ -33,6 +34,7 @@ static func rush_cast(p: Node, id: String, def: Dictionary, aim: Vector2, dmg: i
 	p.invulnerable_left = maxf(p.invulnerable_left, 0.12)
 	if p.game:
 		p.game.fx.spawn("slash", p.global_position + Vector2(0, -6) + dir * 12.0, dir.angle(), 0.9, Color(String(def.get("tint", "f0b8ff"))), null, true)
+		SlashFX.spawn(p.game, p.global_position + Vector2(0, -6) + dir * 12.0, dir, Color(String(def.get("tint", "f0b8ff"))), "dash", 0.95)
 		p.game.audio.play("slash5", 0.1, -4.0)
 
 
@@ -173,6 +175,7 @@ static func tornado(p: Node, dmg: int, def: Dictionary, info: Dictionary) -> voi
 	p.last_hook["tornado_hits"] = n
 	p.game.fx.spawn("slash_circular", c, 0.0, 1.5, Color(String(def.get("tint", "9cf08a"))), null, true)
 	p.game.fx.spawn("slash_circular", c, PI, 1.1, Color(1, 1, 1, 0.7), null, true)
+	SlashFX.spawn(p.game, c, p.facing, Color(String(def.get("tint", "9cf08a"))), "tornado", 1.2)
 	p.game.audio.play("slash3", 0.05, -2.0)
 	p.game.hitstop(0.05)
 

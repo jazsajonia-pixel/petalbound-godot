@@ -69,6 +69,12 @@ Open `project.godot` in Godot 4.3 or newer (validated on 4.7.2). The game uses t
 | ![Brinewick](docs/screenshots/saltbloom_brinewick.png) | ![Saltbloom Lagoon](docs/screenshots/saltbloom_lagoon.png) |
 | ![The Brinehorn on its reef](docs/screenshots/saltbloom_reef.png) | ![Held weapons in every facing](docs/screenshots/weapon_poses.png) |
 
+## Combat VFX polish (2026-10-20)
+
+- Added short, direction-aware slash trails for Petal Rush, a rotating accent for Tornado Slash, a layered cross-cut for Moonrend Dash, and three claw streaks for Direwolf Claw Barrage.
+- Effects are drawn in GDScript, fade and self-remove after 0.22 seconds, and add no image assets or runtime dependencies. Combat rules and damage values are unchanged.
+- Online CC0 sprite packs were researched for a future art pass, but no downloaded third-party sprites are bundled in this change. See [combat VFX notes](docs/COMBAT_VFX.md).
+
 ## Known-gaps pass (2026-10-13)
 
 - **Emberleaf Vale:** a new autumn region 40 tiles east of Starfall Rise (the world is now 344 x 176 tiles), reached by the Ember Road through a gate in Starfall's white grove. It has Cinderbrook Camp with a waystone and Rowan the Hunter, who gives three quests (Ember Patrol, Banked Embers, Fell the Emberbark). There are monster camps plus one elite, glowing ember ore to break for Ore and Ember Cores, Amber Pond, and a hidden grove chest with the Emberleaf Mantle.

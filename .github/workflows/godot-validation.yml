@@ -1,0 +1,59 @@
+name: Godot 4.7.2 validation
+
+on:
+  push:
+    branches:
+      - main
+      - feat/combat-slash-vfx
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  godot-validation:
+    name: Editor import and headless smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify Godot version
+        run: |
+          godot --version
+          godot --version | grep -F "4.7.2"
+
+      - name: Import project resources
+        run: godot --headless --path . --editor --quit
+
+      - name: Run all existing headless smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          for test_script in tests/*_smoke.gd; do
+            if [[ ! -f "$test_script" ]]; then
+              echo "No smoke-test scripts found" >&2
+              exit 1
+            fi
+            echo "::group::${test_script}"
+            godot --headless --path . --script "$test_script"
+            echo "::endgroup::"
+            count=$((count + 1))
+          done
+          echo "Completed $count smoke-test scripts."
+          test "$count" -gt 0
