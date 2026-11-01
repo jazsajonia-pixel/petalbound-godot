@@ -1,6 +1,6 @@
 # Petalbound
 
-An offline, landscape **open-world pixel-art action adventure** for Godot 4 (Android first, keyboard and gamepad supported). Mallow, a rose-haired wanderer in a plum cloak, sets out from the lantern village of Hearthgrove across a 4,864 × 2,816 px valley of seven biomes. The goal is to win back four Moonseeds from the region guardians, wake the dimming Moonwell — and then, if you dare, climb down into the Blighted Depths.
+An offline, landscape **open-world pixel-art action adventure** for Godot 4 (Android first, keyboard and gamepad supported). Mallow, a rose-haired wanderer in a plum cloak, sets out from the lantern village of Hearthgrove across a 7,296 × 2,816 px world spanning nine biomes. The goal is to win back four Moonseeds from the region guardians, wake the dimming Moonwell — and then, if you dare, climb down into the Blighted Depths.
 
 ![Meadow with touch controls](docs/screenshots/meadow_touch.png)
 
@@ -126,49 +126,11 @@ Pause → settings (saved to `user://petalbound_settings.cfg`, separate from the
 
 ## What's in the world
 
-- **Open world.** A seeded generator (`tools/generate_world.py`) builds six biomes: Petal Meadow, Hollowroot Grove, Sunscar Dunes, Moonstone Ruins, Glasswater Marsh and the southern coast — and at runtime the world grows a scripted seventh biome, **Starfall Rise**, east of the dunes: 48 extra tiles of white groves, the Mirror Basin lake with its island, the Starfall Watch pillar ring, its own waystone, a stargazing monk, new monster camps and three treasure chests. The world has roads, rivers, lakes, about 2,080 collidable props, about 9,700 decor sprites, 187 monsters in packs, 17 villagers and animals, 16 chests, 6 waystones and 4 boss arenas. Mallow can swim in deep water.
+- **Open world.** A seeded generator (`tools/generate_world.py`) builds the original regions, and runtime expansions add **Starfall Rise**, **Emberleaf Vale** and **Saltbloom Shoals**. The current world spans 456 × 176 tiles (7,296 × 2,816 px) across nine biomes, with roads, rivers, lakes, villages, dungeons, side guardians and four Moonseed guardians. Mallow can swim in deep water; the Tidecaller Trident is on an islet that can only be reached by swimming.
 - **Mallow's movement kit.** Mallow can walk, sprint with stamina, and jump over low props with a landing plunge. Mallow also swims, pushes against obstacles, and plays item-get poses. Dust, ripple and footstep effects follow each move.
-- **Combat.**
-  - Four weapons:
-    - Thornblade: 3-hit combo.
-    - Bloomstaff: homing bolt.
-    - Gale Bow: charge shot.
-    - Ironroot Hammer: shockwave.
-    - Duskfan: a nightsteel fan-blade sold by Kaede; swift cuts with a biting finisher.
-  - **Target snap:** melee swings turn toward the closest enemy in reach, and a faint pulsing ring shows basic-attack range whenever a target is near.
-  - Three skills: Mothlight burst, Petalguard shield, and Moontea heal.
-  - **Perfect parry:** if an attack lands during the first half of a dodge-roll, Mallow parries it — a burst of petals, refunded stamina, a shockwave that staggers everything nearby, and no damage taken (2 s cooldown).
-  - Hits have hit-stop, soft knockback, damage numbers, critical hits, screen shake and dissolve deaths.
-  - 19 monster types use five AI styles (hopper, chaser, flyer, caster, charger), each with wind-up tells.
-- **Petal Arts — classes, skills and trees.** Defeating anything earns XP; levels grant points and focus (mana). Press K to open the Arts page and bind one of seven class lines: **Warden** (warrior), **Pugilist** (fighter), **Nightbloom** (assassin), **Lumimancer** (mage), **Gravetender** (necromancer), **Windrunner** (ranger) and **Petalweaver** (cleric). Each line carries two active arts (cast with keys 1-4) and a four-node destiny-style tree of hearts, attack, defense, crit, speed, focus and cooldown upgrades. At level 5+ you may **combine a second line** (max two), Albion-style, for a dual-line synergy bonus.
-- **Journeys (quests).** Six light quests with givers, objectives and rewards: kill counts for Alder, Mira's night garden, Kit's silver locket (ask Hana), Kaede's watch report, Lumen's Starfall sight, and Sora's request to clear the Hollow Crypt. Press H for the quest log; the HUD tracks the active journey.
-- **Houses and the Hollow Crypt.** Four village homes — Mira's Cottage, Tallow's Home, Kit's House and the Elder's Hall — can be entered through their doors: furnished rooms, interior villagers (Rosa, Jun, Old Fen) and a tea chest. In the marsh graveyard, the Hollow Crypt dungeon holds six graves-keepers and **the Hollow Revenant**, a boss that bars the door until defeated and drops the Moonveil Ring.
-- **Fishing.** Pip in Hearthgrove sells the Willow Fishing Rod (60 Petalcoins). Face any water and press E to cast, then ATTACK when the bobber jolts. Four species: Dewfin, Redbreast, the night-only Moonkoi, and the Starfin that only bites in Starfall Rise. Every catch converts instantly to Petalcoins and is logged in the satchel.
-- **Nightlife.** When the sun sets, moonpetals open along the water — gather them to refill Moontea and earn coins. Night wisps rise at fixed spots and fade at dawn, and Hearthgrove's villagers drift to their own night anchors.
-- **Guardians.** There are four bosses: the Briarback, the Glasswater Toad, the Ember Cyclops and the Quiet Warden. Each mixes charge, leap, spread, ring, spike and teleport patterns, and each enrages at half health. Fights show a boss bar and ground telegraphs.
-- **The Blighted Depths.** After the ending, interact with the Moonwell twice to descend into a wave arena: endless monster waves under the well, and every fourth wave a boosted guardian echo (with new rewards at depth 5 and 10). Waves pay Petalcoins; your best depth is tracked per save.
-- **The moth companion.** At your first Moonseed a little moth joins you. It glows at night and, when you stand still, drifts toward the nearest unopened chest.
-- **Feats.** 18 achievements (first kill, full arsenal, all chests and waystones, every fish, five moonpetals, ten parries, Depths milestones, reaching Starfall Rise, and more) pop as HUD toasts and are listed in the satchel's FEATS page.
-- **Photo mode.** Press F9 (or the pause menu's PHOTO MODE) to freeze the world, hide the HUD, drag-pan the camera, zoom, and save a screenshot to `user://photos/`.
-- **Gear and economy.**
-  - Gear: Plum Wayfarer Cloak, Moonheart Charm, Briar Mail, Zephyr Boots and Ember Ring, plus the **Duskfan** weapon, **Sunplate Vest** (+2 defense), **Moonveil Ring** (+crit) and **Star Locket** (+1 heart, +10 focus). Defense reduces incoming damage; gear and tree nodes feed critical chance.
-  - **Fieldcraft tiers:** break bushes for herbs, crates/logs for wood, and rocks for ore. Press **U** to craft the next available Tier II upgrade: 3 wood + 3 ore tempers the Thornblade; 3 ore + 2 herbs reinforce Briar Mail. Materials and crafted gear persist in the save.
-  - Heart Blooms raise maximum health. Petalcoins drop from enemies and breakable pots and grass.
-  - Pip in Hearthgrove, a desert nomad and **Kaede of the Watch** run shops.
-- **World systems.**
-  - An 8-minute day/night cycle includes lit lanterns, statues, waystones and Mallow's own lantern at night.
-  - Each region has its own tint, fog, light rays and weather (petals, leaves, sand, snow, rain, fireflies).
-  - The blight desaturates the world, and colour returns as Moonseeds come home.
-  - Each region has its own music, plus ambient loops and a pooled SFX player.
-  - Autosave every 45 s, plus saving at waystones.
-- **Rendering.** Custom shaders handle the ground blend (biome palette blending, animated water with shoreline foam), foliage wind sway, sprite hit-flash and dissolve, atmosphere (fog, god-rays, vignette) and a post-process pass (soft bloom, colour grade, saturation). A low-FX quality toggle is in Settings.
-- **Interface.** The HUD uses the Kenney Mini pixel font and shows:
-  - Hearts, stamina, coins and tea, and the current quest.
-  - A minimap, a full world map, the day clock and region banners.
-  - Typewriter dialogue, the shop, the satchel, the FEATS page, the pause/settings menu, and photo mode.
-  - Settings cover joystick dead zone and sensitivity, music and SFX volume, FX quality and touch-control visibility.
-  - Multi-touch buttons work while the joystick is held.
-
+- **Combat and progression.** The game includes multiple weapon types and signature attacks, seven class lines with upgradeable Petal Arts, equipment and crafting, quests, side guardians, and the four Moonseed guardian encounters. See the dated feature notes above for the latest additions and the smoke-test list below for covered behavior.
+- **World systems.** Regional music, weather and colour treatments, day/night, fishing, gathering, rift dungeons, the Blighted Depths, feats, a moth companion and photo mode complement the main exploration and combat loop.
+- **Rendering and interface.** Custom shaders handle blended biome ground, animated water, foliage sway and combat/atmosphere effects. Settings include touch controls, HUD layout, sound, visual effects and accessibility-oriented display options.
 ## Headless checks
 
 ```sh
